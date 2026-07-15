@@ -28,9 +28,7 @@ gen: gen-go gen-web
 
 gen-go:
 	go tool oapi-codegen -config api/oapi-codegen.yaml api/openapi.yaml
-	protoc --go_out=. --go_opt=module=github.com/sag-solutions/otelfleet \
-		--go-grpc_out=. --go-grpc_opt=module=github.com/sag-solutions/otelfleet \
-		proto/authservice.proto
+	cd proto && go tool buf generate
 
 gen-web:
 	cd web && pnpm gen

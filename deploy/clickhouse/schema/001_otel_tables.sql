@@ -27,6 +27,9 @@ CREATE TABLE IF NOT EXISTS otel.otel_logs
     ScopeVersion       LowCardinality(String) CODEC (ZSTD(1)),
     ScopeAttributes    Map(LowCardinality(String), String) CODEC (ZSTD(1)),
     LogAttributes      Map(LowCardinality(String), String) CODEC (ZSTD(1)),
+    -- The clickhouseexporter (>= v0.156.0) detects this column via DESCRIBE
+    -- and includes it in inserts when present.
+    EventName          String CODEC (ZSTD(1)),
 
     TenantId           LowCardinality(String) MATERIALIZED ResourceAttributes['tenant.id'],
 

@@ -24,7 +24,6 @@ services:
     environment:
       CLICKHOUSE_USER: otelfleet
       CLICKHOUSE_PASSWORD: otelfleet
-      CLICKHOUSE_SKIP_USER_SETUP: "1"
     ports:
       - "8123:8123" # HTTP
       - "9000:9000" # native

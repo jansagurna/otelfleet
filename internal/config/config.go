@@ -1,0 +1,126 @@
+// Package config loads the otelfleet control-plane configuration from
+// environment variables. All variables use the OTELFLEET_ prefix.
+package config
+
+import (
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+)
+
+// OIDCProvider describes one configured OIDC login provider. Phase 1 supports
+// a single generic provider; later phases turn this into a registry.
+type OIDCProvider struct {
+	// Name is the URL-safe provider identifier (used in /auth/{name}/start).
+	Name string
+	// DisplayName is shown on the login page.
+	DisplayName  string
+	Issuer       string
+	ClientID     string
+	ClientSecret string
+}
+
+// Config is the full runtime configuration of the control plane.
+type Config struct {
+	DatabaseURL string
+
+	ClickHouseAddr     string
+	ClickHouseDatabase string
+	ClickHouseUser     string
+	ClickHousePassword string
+
+	VictoriaMetricsURL string
+
+	HTTPAddr string
+	GRPCAddr string
+	OpsAddr  string
+
+	BaseURL string
+	WebDir  string
+
+	DevLogin      bool
+	AdminEmails   []string
+	SessionSecure bool
+
+	// OIDCProviders holds every configured OIDC provider. In Phase 1 at most
+	// one (the generic OTELFLEET_OIDC_* provider) is present.
+	OIDCProviders []OIDCProvider
+}
+
+// Load reads the configuration from the process environment.
+func Load() (*Config, error) {
+	cfg := &Config{
+		DatabaseURL:        env("DATABASE_URL", "postgres://otelfleet:otelfleet@localhost:5432/otelfleet"),
+		ClickHouseAddr:     env("CLICKHOUSE_ADDR", "localhost:9000"),
+		ClickHouseDatabase: env("CLICKHOUSE_DATABASE", "otel"),
+		ClickHouseUser:     env("CLICKHOUSE_USER", "otelfleet"),
+		ClickHousePassword: env("CLICKHOUSE_PASSWORD", "otelfleet"),
+		VictoriaMetricsURL: env("VICTORIAMETRICS_URL", "http://localhost:8428"),
+		HTTPAddr:           env("HTTP_ADDR", ":8080"),
+		GRPCAddr:           env("GRPC_ADDR", ":9443"),
+		OpsAddr:            env("OPS_ADDR", ":9090"),
+		BaseURL:            strings.TrimSuffix(env("BASE_URL", "http://localhost:8080"), "/"),
+		WebDir:             env("WEB_DIR", ""),
+	}
+
+	var err error
+	if cfg.DevLogin, err = envBool("DEV_LOGIN", false); err != nil {
+		return nil, err
+	}
+	if cfg.SessionSecure, err = envBool("SESSION_SECURE", false); err != nil {
+		return nil, err
+	}
+
+	for _, e := range strings.Split(env("ADMIN_EMAILS", ""), ",") {
+		if e = strings.ToLower(strings.TrimSpace(e)); e != "" {
+			cfg.AdminEmails = append(cfg.AdminEmails, e)
+		}
+	}
+
+	if issuer := env("OIDC_ISSUER", ""); issuer != "" {
+		p := OIDCProvider{
+			Name:         "oidc",
+			DisplayName:  env("OIDC_NAME", "SSO"),
+			Issuer:       issuer,
+			ClientID:     env("OIDC_CLIENT_ID", ""),
+			ClientSecret: env("OIDC_CLIENT_SECRET", ""),
+		}
+		if p.ClientID == "" {
+			return nil, fmt.Errorf("OTELFLEET_OIDC_ISSUER is set but OTELFLEET_OIDC_CLIENT_ID is empty")
+		}
+		cfg.OIDCProviders = append(cfg.OIDCProviders, p)
+	}
+
+	return cfg, nil
+}
+
+// IsAdminEmail reports whether email is listed in OTELFLEET_ADMIN_EMAILS.
+func (c *Config) IsAdminEmail(email string) bool {
+	email = strings.ToLower(strings.TrimSpace(email))
+	for _, a := range c.AdminEmails {
+		if a == email {
+			return true
+		}
+	}
+	return false
+}
+
+func env(key, def string) string {
+	if v, ok := os.LookupEnv("OTELFLEET_" + key); ok {
+		return v
+	}
+	return def
+}
+
+func envBool(key string, def bool) (bool, error) {
+	v, ok := os.LookupEnv("OTELFLEET_" + key)
+	if !ok || v == "" {
+		return def, nil
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return false, fmt.Errorf("OTELFLEET_%s: invalid boolean %q", key, v)
+	}
+	return b, nil
+}

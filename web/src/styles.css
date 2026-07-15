@@ -1,0 +1,89 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * otelfleet design tokens — "terminal-grade control room, cleaned up".
+ * Surfaces follow the validated dataviz chrome (warm graphite / warm paper)
+ * so app chrome and charts read as one system. The single accent is
+ * signal-amber, a nod to OpenTelemetry's orange; it is spent on brand,
+ * active nav, and primary actions only.
+ */
+:root {
+  --bg: #f9f9f7; /* page plane */
+  --surface: #fcfcfb; /* cards, chart surface */
+  --surface-2: #f0efec; /* hover washes, code blocks */
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --ink-3: #898781;
+  --line: rgba(11, 11, 11, 0.1); /* hairline borders */
+  --grid: #e1e0d9; /* chart gridlines */
+  --accent: #9a6700; /* signal-amber, stepped for light surfaces */
+  --accent-contrast: #ffffff;
+  --ok: #067306;
+  --warn: #8a6400;
+  --danger: #c22f2f;
+}
+
+.dark {
+  --bg: #0d0d0d;
+  --surface: #1a1a19;
+  --surface-2: #232322;
+  --ink: #ffffff;
+  --ink-2: #c3c2b7;
+  --ink-3: #898781;
+  --line: rgba(255, 255, 255, 0.1);
+  --grid: #2c2c2a;
+  --accent: #f5a800;
+  --accent-contrast: #16130b;
+  --ok: #0ca30c;
+  --warn: #fab219;
+  --danger: #e66767;
+}
+
+@theme inline {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-grid: var(--grid);
+  --color-accent: var(--accent);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-bg font-sans text-[13px] leading-normal text-ink antialiased;
+  color-scheme: light;
+}
+
+.dark body {
+  color-scheme: dark;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--accent) 30%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

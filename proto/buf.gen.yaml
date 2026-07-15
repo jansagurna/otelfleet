@@ -1,0 +1,11 @@
+# Generates Go protobuf + gRPC stubs into internal/ingestauth/authv1
+# (per the go_package option). Run via `make gen-go`; plugins are executed
+# through `go tool`, so no preinstalled binaries are required beyond Go.
+version: v2
+plugins:
+  - local: ["go", "tool", "protoc-gen-go"]
+    out: ..
+    opt: module=github.com/sag-solutions/otelfleet
+  - local: ["go", "tool", "protoc-gen-go-grpc"]
+    out: ..
+    opt: module=github.com/sag-solutions/otelfleet

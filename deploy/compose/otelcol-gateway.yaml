@@ -1,0 +1,107 @@
+# otelfleet gateway (ingest-tier) collector configuration.
+# Runs the custom distribution built from collector/builder-config.yaml
+# (see Dockerfile.collector). Every OTLP request must present a valid ingest
+# API key; the tenantauth extension resolves it to a tenant identity which
+# tenantstamp writes onto every resource before export.
+
+extensions:
+  tenantauth:
+    endpoint: ${env:OTELFLEET_AUTH_ENDPOINT}
+    insecure: true # dev: control-plane gRPC is plaintext
+    cache:
+      ttl: 30s
+      negative_ttl: 5s
+      max_entries: 50000
+      stale_if_error: 15m
+  file_storage:
+    directory: /var/lib/otelcol
+    create_directory: true
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+        auth:
+          authenticator: tenantauth
+        include_metadata: true
+      http:
+        endpoint: 0.0.0.0:4318
+        auth:
+          authenticator: tenantauth
+        include_metadata: true
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 20
+  # tenantstamp must run before batch: batch drops the per-request context
+  # that carries the authenticated tenant identity.
+  tenantstamp: {}
+  batch:
+    send_batch_size: 8192
+    timeout: 5s
+
+connectors:
+  # Ground-truth ingest counters per tenant (tenant.id is a resource attribute
+  # by the time data reaches the exporters; resource_to_telemetry_conversion
+  # turns it into a label in VictoriaMetrics).
+  count:
+    logs:
+      otelfleet.ingest.log_records:
+        description: Log records accepted by the otelfleet gateway.
+    spans:
+      otelfleet.ingest.spans:
+        description: Spans accepted by the otelfleet gateway.
+    datapoints:
+      otelfleet.ingest.metric_points:
+        description: Metric data points accepted by the otelfleet gateway.
+
+exporters:
+  clickhouse:
+    endpoint: ${env:CLICKHOUSE_ENDPOINT}
+    create_schema: false # DDL is owned by deploy/clickhouse/schema/
+    timeout: 10s
+    retry_on_failure:
+      enabled: true
+      max_elapsed_time: 300s
+    sending_queue:
+      enabled: true
+      storage: file_storage
+  prometheusremotewrite:
+    endpoint: http://victoriametrics:8428/api/v1/write
+    resource_to_telemetry_conversion:
+      enabled: true # tenant.id resource attribute becomes a metric label
+
+service:
+  extensions: [tenantauth, file_storage, health_check]
+  pipelines:
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, tenantstamp, batch]
+      exporters: [count, clickhouse]
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, tenantstamp, batch]
+      exporters: [count, clickhouse]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, tenantstamp, batch]
+      exporters: [count, clickhouse]
+    metrics/internal:
+      receivers: [count]
+      processors: [batch]
+      exporters: [prometheusremotewrite]
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888

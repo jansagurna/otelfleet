@@ -1,0 +1,22 @@
+
+# Generates this module's own Go stubs for proto/authservice.proto.
+# The go_package in the proto points at the root module; managed mode
+# overrides it so this module never imports the root module.
+#
+# Regenerate with (from this directory):
+#   PATH=<dir with protoc-gen-go + protoc-gen-go-grpc>:$PATH \
+#   go run github.com/bufbuild/buf/cmd/buf@v1.57.2 generate ../../../proto --template buf.gen.yaml
+# or use `make proto` in collector/Makefile.
+version: v2
+managed:
+  enabled: true
+  override:
+    - file_option: go_package
+      value: github.com/sag-solutions/otelfleet/collector/extension/tenantauth/internal/authv1
+plugins:
+  - local: protoc-gen-go
+    out: internal/authv1
+    opt: paths=source_relative
+  - local: protoc-gen-go-grpc
+    out: internal/authv1
+    opt: paths=source_relative

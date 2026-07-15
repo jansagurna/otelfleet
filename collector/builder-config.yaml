@@ -1,0 +1,42 @@
+# OpenTelemetry Collector Builder (OCB) manifest for the otelfleet gateway
+# collector distribution.
+#
+# Build (from collector/):
+#   go run go.opentelemetry.io/collector/cmd/builder@v0.156.0 --config builder-config.yaml
+# or: make -C collector build
+#
+# Pinned release train: collector core v1.62.0/v0.156.0, contrib v0.156.0.
+
+dist:
+  module: github.com/sag-solutions/otelfleet/collector/otelfleet-collector
+  name: otelfleet-collector
+  description: otelfleet gateway OpenTelemetry Collector distribution
+  version: 0.1.0
+  output_path: ./dist
+
+receivers:
+  - gomod: go.opentelemetry.io/collector/receiver/otlpreceiver v0.156.0
+
+processors:
+  - gomod: go.opentelemetry.io/collector/processor/memorylimiterprocessor v0.156.0
+  - gomod: go.opentelemetry.io/collector/processor/batchprocessor v0.156.0
+  - gomod: github.com/sag-solutions/otelfleet/collector/processor/tenantstamp v0.0.0
+
+exporters:
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/clickhouseexporter v0.156.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusremotewriteexporter v0.156.0
+  - gomod: go.opentelemetry.io/collector/exporter/debugexporter v0.156.0
+
+connectors:
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/connector/countconnector v0.156.0
+
+extensions:
+  - gomod: github.com/sag-solutions/otelfleet/collector/extension/tenantauth v0.0.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/storage/filestorage v0.156.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/healthcheckextension v0.156.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/pprofextension v0.156.0
+
+# Paths are relative to the generated module in dist/.
+replaces:
+  - github.com/sag-solutions/otelfleet/collector/extension/tenantauth => ../extension/tenantauth
+  - github.com/sag-solutions/otelfleet/collector/processor/tenantstamp => ../processor/tenantstamp
