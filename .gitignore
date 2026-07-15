@@ -1,0 +1,23 @@
+# Go
+/bin/
+*.test
+coverage.out
+
+# Node / web
+node_modules/
+web/dist/
+*.tsbuildinfo
+
+# Local state
+.env
+.env.local
+*.local.yaml
+/deploy/compose/data/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Generated collector distro output
+/collector/dist/

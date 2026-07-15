@@ -1,0 +1,12 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: otelcol-gateway
+    static_configs:
+      - targets: ["gateway:8888"]
+        labels:
+          collector_class: gateway
+  - job_name: otelfleet-control-plane
+    static_configs:
+      - targets: ["host.docker.internal:9090"]

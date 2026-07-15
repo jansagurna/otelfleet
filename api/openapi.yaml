@@ -1,0 +1,437 @@
+openapi: 3.0.3
+info:
+  title: otelfleet API
+  description: >
+    Control-plane REST API for the otelfleet platform. Browser sessions are
+    cookie-based (`__Host-otelfleet_session`, HttpOnly). Mutating requests must
+    send the `X-CSRF-Token` header obtained from `GET /api/v1/me`.
+    OIDC browser flows live outside this spec at `/auth/{provider}/start` and
+    `/auth/{provider}/callback`.
+  version: 0.1.0
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+
+servers:
+  - url: /
+
+tags:
+  - name: auth
+  - name: customers
+  - name: api-keys
+  - name: stats
+
+paths:
+  /api/v1/me:
+    get:
+      tags: [auth]
+      operationId: getMe
+      summary: Current session user, role and CSRF token
+      responses:
+        "200":
+          description: Authenticated user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/auth/providers:
+    get:
+      tags: [auth]
+      operationId: listAuthProviders
+      summary: Configured SSO providers for the login page (public)
+      responses:
+        "200":
+          description: Available login providers
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [providers, devLoginEnabled]
+                properties:
+                  providers:
+                    type: array
+                    items: { $ref: "#/components/schemas/AuthProvider" }
+                  devLoginEnabled:
+                    type: boolean
+                    description: True only when OTELFLEET_DEV_LOGIN=true (local development).
+
+  /api/v1/auth/dev-login:
+    post:
+      tags: [auth]
+      operationId: devLogin
+      summary: Password-less local development login (disabled in production)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        "204": { description: Session cookie set }
+        "403": { description: Dev login disabled, $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: Destroy the current session
+      responses:
+        "204": { description: Session destroyed }
+
+  /api/v1/customers:
+    get:
+      tags: [customers]
+      operationId: listCustomers
+      summary: List customers
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [active, suspended] } }
+      responses:
+        "200":
+          description: Customers
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [customers]
+                properties:
+                  customers:
+                    type: array
+                    items: { $ref: "#/components/schemas/Customer" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [customers]
+      operationId: createCustomer
+      summary: Create a customer (generates client ID and an initial API key)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CustomerCreate" }
+      responses:
+        "201":
+          description: >
+            Customer created. `initialApiKey.secret` is returned exactly once
+            and never retrievable again.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [customer, initialApiKey]
+                properties:
+                  customer: { $ref: "#/components/schemas/Customer" }
+                  initialApiKey: { $ref: "#/components/schemas/ApiKeyCreated" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { description: Slug already exists, $ref: "#/components/responses/Conflict" }
+
+  /api/v1/customers/{customerId}:
+    parameters:
+      - { name: customerId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [customers]
+      operationId: getCustomer
+      summary: Get a customer
+      responses:
+        "200":
+          description: Customer
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Customer" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [customers]
+      operationId: updateCustomer
+      summary: Update name or status
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, minLength: 1, maxLength: 200 }
+                status: { type: string, enum: [active, suspended] }
+      responses:
+        "200":
+          description: Updated customer
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Customer" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [customers]
+      operationId: deleteCustomer
+      summary: Soft-delete a customer (revokes all API keys)
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/customers/{customerId}/api-keys:
+    parameters:
+      - { name: customerId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [api-keys]
+      operationId: listApiKeys
+      summary: List API keys of a customer (never includes secrets)
+      responses:
+        "200":
+          description: API keys
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [apiKeys]
+                properties:
+                  apiKeys:
+                    type: array
+                    items: { $ref: "#/components/schemas/ApiKey" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [api-keys]
+      operationId: createApiKey
+      summary: Create an API key (secret returned exactly once)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 200 }
+                expiresAt: { type: string, format: date-time, nullable: true }
+      responses:
+        "201":
+          description: Created key including the one-time secret
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiKeyCreated" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/customers/{customerId}/api-keys/{keyId}:
+    parameters:
+      - { name: customerId, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: keyId, in: path, required: true, schema: { type: string, format: uuid } }
+    delete:
+      tags: [api-keys]
+      operationId: revokeApiKey
+      summary: Revoke an API key (takes effect at the gateway within ~60s)
+      responses:
+        "204": { description: Revoked }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/stats/overview:
+    get:
+      tags: [stats]
+      operationId: getStatsOverview
+      summary: Fleet-wide totals for the dashboard
+      parameters:
+        - { name: from, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: Overview stats
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StatsOverview" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/customers/{customerId}/stats/throughput:
+    get:
+      tags: [stats]
+      operationId: getCustomerThroughput
+      summary: Per-signal ingest time series for one customer
+      parameters:
+        - { name: customerId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: signal, in: query, schema: { $ref: "#/components/schemas/Signal" }, description: Omit for all three signals }
+        - { name: from, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: step, in: query, schema: { type: string, default: 60s, description: "Resolution, e.g. 60s, 5m" } }
+      responses:
+        "200":
+          description: Time series per signal
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ThroughputResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+components:
+  responses:
+    Unauthorized:
+      description: Not authenticated
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: Insufficient role
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    BadRequest:
+      description: Validation error
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string, example: not_found }
+        message: { type: string }
+
+    Role:
+      type: string
+      enum: [admin, operator, viewer]
+
+    Signal:
+      type: string
+      enum: [logs, traces, metrics]
+
+    Me:
+      type: object
+      required: [id, email, role, csrfToken]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        displayName: { type: string, nullable: true }
+        role: { $ref: "#/components/schemas/Role" }
+        csrfToken:
+          type: string
+          description: Send as X-CSRF-Token header on all mutating requests.
+
+    AuthProvider:
+      type: object
+      required: [name, displayName, loginUrl]
+      properties:
+        name: { type: string, example: google }
+        displayName: { type: string, example: Google }
+        loginUrl: { type: string, example: /auth/google/start }
+
+    Customer:
+      type: object
+      required: [id, slug, name, clientId, status, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        slug: { type: string, example: acme }
+        name: { type: string, example: ACME Corp }
+        clientId:
+          type: string
+          example: cust_7f3a9b2c
+          description: Stamped as resource attribute `tenant.id` on all ingested data.
+        status: { type: string, enum: [active, suspended, deleted] }
+        createdAt: { type: string, format: date-time }
+
+    CustomerCreate:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        slug:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$"
+          description: URL-safe identifier; derived from name when omitted.
+
+    ApiKey:
+      type: object
+      required: [id, customerId, name, keyPrefix, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        customerId: { type: string, format: uuid }
+        name: { type: string }
+        keyPrefix:
+          type: string
+          example: otm_ab12cd34
+          description: Non-secret display prefix identifying the key.
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time, nullable: true }
+        revokedAt: { type: string, format: date-time, nullable: true }
+        lastUsedAt: { type: string, format: date-time, nullable: true }
+
+    ApiKeyCreated:
+      allOf:
+        - $ref: "#/components/schemas/ApiKey"
+        - type: object
+          required: [secret]
+          properties:
+            secret:
+              type: string
+              description: Full API key. Shown exactly once; only a hash is stored.
+
+    StatsOverview:
+      type: object
+      required: [activeCustomers, totals, topCustomers]
+      properties:
+        activeCustomers: { type: integer }
+        totals:
+          type: object
+          required: [logs, traces, metrics]
+          description: Ingested item counts in the requested range.
+          properties:
+            logs: { type: integer, format: int64 }
+            traces: { type: integer, format: int64 }
+            metrics: { type: integer, format: int64 }
+        refusedRequests:
+          type: integer
+          format: int64
+          description: Auth-refused ingest requests in the range (all tenants).
+        topCustomers:
+          type: array
+          items:
+            type: object
+            required: [customerId, name, items]
+            properties:
+              customerId: { type: string, format: uuid }
+              name: { type: string }
+              items: { type: integer, format: int64, description: Total items across signals }
+
+    ThroughputPoint:
+      type: object
+      required: [ts, value]
+      properties:
+        ts: { type: string, format: date-time }
+        value: { type: number, description: Items per second averaged over the step }
+
+    ThroughputSeries:
+      type: object
+      required: [signal, points]
+      properties:
+        signal: { $ref: "#/components/schemas/Signal" }
+        points:
+          type: array
+          items: { $ref: "#/components/schemas/ThroughputPoint" }
+
+    ThroughputResponse:
+      type: object
+      required: [series]
+      properties:
+        series:
+          type: array
+          items: { $ref: "#/components/schemas/ThroughputSeries" }
