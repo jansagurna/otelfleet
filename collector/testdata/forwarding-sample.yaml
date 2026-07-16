@@ -1,0 +1,104 @@
+# Representative forwarding-tier collector configuration.
+#
+# This file is the living contract test between the otelfleet distro and the
+# control plane's config renderer: it mirrors the shape of what the control
+# plane serves at /internal/v1/collector-config/forwarding, and
+# `make -C collector validate` checks the built binary can run it. If the
+# renderer's output shape changes, change this file in the same PR.
+#
+# Renderer notes (routingconnector v0.156.0):
+#   - Table entries use `condition:` with a context-qualified OTTL path
+#     (`resource.attributes["tenant.id"] == "<tenant>"`); the resource context
+#     is inferred from the path prefix — no `context:` field needed.
+#   - One connector instance is required PER SIGNAL (routing/tenants_logs,
+#     routing/tenants_traces, ...). A shared instance does NOT work at
+#     v0.156.0: every per-signal instance builds consumers for every table
+#     entry, so a table that references a pipeline of another signal fails at
+#     startup with `pipeline not found: missing consumer` — regardless of
+#     whether the entry mixes signals or duplicates the condition per signal
+#     (duplicate conditions are also dropped with a warning within one
+#     instance).
+#   - `default_pipelines: []` (or omitted) drops data for tenants without
+#     configured pipelines.
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 20
+  batch:
+    send_batch_size: 8192
+    timeout: 5s
+  # Per-customer processors are namespaced with the tenant id.
+  batch/cust_sample:
+    send_batch_size: 4096
+    timeout: 2s
+
+connectors:
+  # One routing connector instance per signal (see renderer notes above).
+  # No default pipelines: tenants without rendered pipelines are dropped.
+  routing/tenants_logs:
+    default_pipelines: []
+    error_mode: ignore
+    table:
+      - condition: resource.attributes["tenant.id"] == "cust_sample"
+        pipelines: [logs/cust_sample]
+  routing/tenants_traces:
+    default_pipelines: []
+    error_mode: ignore
+    table:
+      - condition: resource.attributes["tenant.id"] == "cust_sample"
+        pipelines: [traces/cust_sample]
+
+exporters:
+  # Per-customer exporters are namespaced with the tenant id.
+  otlp/cust_sample:
+    endpoint: acme-backend:4317
+    tls:
+      insecure: true
+  debug/cust_sample:
+    verbosity: detailed
+
+service:
+  extensions: [health_check]
+  pipelines:
+    # Entry pipelines: everything fans out through the routing connectors.
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [routing/tenants_logs]
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [routing/tenants_traces]
+    # Per-customer pipelines.
+    logs/cust_sample:
+      receivers: [routing/tenants_logs]
+      processors: [batch/cust_sample]
+      exporters: [otlp/cust_sample, debug/cust_sample]
+    traces/cust_sample:
+      receivers: [routing/tenants_traces]
+      processors: [batch/cust_sample]
+      exporters: [otlp/cust_sample, debug/cust_sample]
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888

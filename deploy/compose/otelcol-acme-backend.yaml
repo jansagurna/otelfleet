@@ -1,0 +1,38 @@
+# Demo "customer backend" collector — the target of the P2 forwarding e2e.
+# The forwarding tier's per-customer otlp exporter points at this service;
+# the debug exporter prints whatever arrives so the e2e can assert on it.
+# Not part of the product: stands in for a customer's own OTLP endpoint.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+exporters:
+  debug:
+    verbosity: detailed
+
+service:
+  pipelines:
+    logs:
+      receivers: [otlp]
+      exporters: [debug]
+    traces:
+      receivers: [otlp]
+      exporters: [debug]
+    metrics:
+      receivers: [otlp]
+      exporters: [debug]
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888

@@ -17,6 +17,24 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for CatalogComponentKind.
+const (
+	Exporter  CatalogComponentKind = "exporter"
+	Processor CatalogComponentKind = "processor"
+)
+
+// Valid indicates whether the value is a known member of the CatalogComponentKind enum.
+func (e CatalogComponentKind) Valid() bool {
+	switch e {
+	case Exporter:
+		return true
+	case Processor:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CustomerStatus.
 const (
 	CustomerStatusActive    CustomerStatus = "active"
@@ -38,6 +56,72 @@ func (e CustomerStatus) Valid() bool {
 	}
 }
 
+// Defines values for PipelineTargetClass.
+const (
+	PipelineTargetClassForwarding PipelineTargetClass = "forwarding"
+)
+
+// Valid indicates whether the value is a known member of the PipelineTargetClass enum.
+func (e PipelineTargetClass) Valid() bool {
+	switch e {
+	case PipelineTargetClassForwarding:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PipelineDetailTargetClass.
+const (
+	PipelineDetailTargetClassForwarding PipelineDetailTargetClass = "forwarding"
+)
+
+// Valid indicates whether the value is a known member of the PipelineDetailTargetClass enum.
+func (e PipelineDetailTargetClass) Valid() bool {
+	switch e {
+	case PipelineDetailTargetClassForwarding:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PipelineVersionValidationStatus.
+const (
+	PipelineVersionValidationStatusInvalid PipelineVersionValidationStatus = "invalid"
+	PipelineVersionValidationStatusValid   PipelineVersionValidationStatus = "valid"
+)
+
+// Valid indicates whether the value is a known member of the PipelineVersionValidationStatus enum.
+func (e PipelineVersionValidationStatus) Valid() bool {
+	switch e {
+	case PipelineVersionValidationStatusInvalid:
+		return true
+	case PipelineVersionValidationStatusValid:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PipelineVersionSummaryValidationStatus.
+const (
+	PipelineVersionSummaryValidationStatusInvalid PipelineVersionSummaryValidationStatus = "invalid"
+	PipelineVersionSummaryValidationStatusValid   PipelineVersionSummaryValidationStatus = "valid"
+)
+
+// Valid indicates whether the value is a known member of the PipelineVersionSummaryValidationStatus enum.
+func (e PipelineVersionSummaryValidationStatus) Valid() bool {
+	switch e {
+	case PipelineVersionSummaryValidationStatusInvalid:
+		return true
+	case PipelineVersionSummaryValidationStatusValid:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Role.
 const (
 	Admin    Role = "admin"
@@ -53,6 +137,24 @@ func (e Role) Valid() bool {
 	case Operator:
 		return true
 	case Viewer:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RolloutStatusState.
+const (
+	Applied        RolloutStatusState = "applied"
+	PendingRestart RolloutStatusState = "pending_restart"
+)
+
+// Valid indicates whether the value is a known member of the RolloutStatusState enum.
+func (e RolloutStatusState) Valid() bool {
+	switch e {
+	case Applied:
+		return true
+	case PendingRestart:
 		return true
 	default:
 		return false
@@ -154,6 +256,25 @@ type AuthProvider struct {
 	Name        string `json:"name"`
 }
 
+// CatalogComponent defines model for CatalogComponent.
+type CatalogComponent struct {
+	// Defaults Sensible default config used when the component is added.
+	Defaults    *map[string]interface{} `json:"defaults,omitempty"`
+	Description string                  `json:"description"`
+	DisplayName string                  `json:"displayName"`
+	DocsUrl     *string                 `json:"docsUrl,omitempty"`
+	Kind        CatalogComponentKind    `json:"kind"`
+
+	// Schema JSON Schema (draft 2020-12) for the component's config; drives the builder form.
+	Schema map[string]interface{} `json:"schema"`
+
+	// Type Collector component type id
+	Type string `json:"type"`
+}
+
+// CatalogComponentKind defines model for CatalogComponent.Kind.
+type CatalogComponentKind string
+
 // Customer defines model for Customer.
 type Customer struct {
 	// ClientId Stamped as resource attribute `tenant.id` on all ingested data.
@@ -182,6 +303,15 @@ type Error struct {
 	Message string `json:"message"`
 }
 
+// GraphNode defines model for GraphNode.
+type GraphNode struct {
+	Config map[string]interface{} `json:"config"`
+
+	// Name Optional instance name to distinguish two nodes of the same type.
+	Name *string `json:"name,omitempty"`
+	Type string  `json:"type"`
+}
+
 // Me defines model for Me.
 type Me struct {
 	// CsrfToken Send as X-CSRF-Token header on all mutating requests.
@@ -192,8 +322,126 @@ type Me struct {
 	Role        Role                `json:"role"`
 }
 
+// Pipeline defines model for Pipeline.
+type Pipeline struct {
+	ActiveVersion *int               `json:"activeVersion,omitempty"`
+	CreatedAt     time.Time          `json:"createdAt"`
+	CustomerId    openapi_types.UUID `json:"customerId"`
+	CustomerName  *string            `json:"customerName,omitempty"`
+	Id            openapi_types.UUID `json:"id"`
+	LatestVersion *int               `json:"latestVersion,omitempty"`
+	Name          string             `json:"name"`
+
+	// TargetClass More classes (gateway
+	TargetClass PipelineTargetClass `json:"targetClass"`
+}
+
+// PipelineTargetClass More classes (gateway
+type PipelineTargetClass string
+
+// PipelineDetail defines model for PipelineDetail.
+type PipelineDetail struct {
+	ActiveVersion *int               `json:"activeVersion,omitempty"`
+	CreatedAt     time.Time          `json:"createdAt"`
+	CustomerId    openapi_types.UUID `json:"customerId"`
+	CustomerName  *string            `json:"customerName,omitempty"`
+	Id            openapi_types.UUID `json:"id"`
+	LatestVersion *int               `json:"latestVersion,omitempty"`
+	Name          string             `json:"name"`
+
+	// TargetClass More classes (gateway
+	TargetClass PipelineDetailTargetClass `json:"targetClass"`
+
+	// Versions Newest first; graph/renderedYaml only via the version endpoint.
+	Versions []PipelineVersionSummary `json:"versions"`
+}
+
+// PipelineDetailTargetClass More classes (gateway
+type PipelineDetailTargetClass string
+
+// PipelineGraph UI pipeline model. The receiver side is implicit: the customer's ingested stream, routed by tenant.id into this pipeline on the forwarding tier.
+type PipelineGraph struct {
+	Exporters []GraphNode `json:"exporters"`
+
+	// Processors Ordered processor chain.
+	Processors []GraphNode `json:"processors"`
+	Signals    []Signal    `json:"signals"`
+}
+
+// PipelineStageStats Flow view for one pipeline in the requested range. `received` comes from the per-tenant count-connector metrics; exporter stages from collector self-telemetry (exporter names encode pipeline + node).
+type PipelineStageStats struct {
+	Exporters []struct {
+		EnqueueFailed *int64 `json:"enqueueFailed,omitempty"`
+
+		// Name Exporter instance name
+		Name          string  `json:"name"`
+		QueueCapacity float32 `json:"queueCapacity"`
+
+		// QueueSize Current queue depth (last sample)
+		QueueSize  float32 `json:"queueSize"`
+		SendFailed int64   `json:"sendFailed"`
+		Sent       int64   `json:"sent"`
+		Type       string  `json:"type"`
+	} `json:"exporters"`
+
+	// Received Items entering the pipeline, per signal.
+	Received []struct {
+		Items  int64  `json:"items"`
+		Signal Signal `json:"signal"`
+	} `json:"received"`
+}
+
+// PipelineVersion defines model for PipelineVersion.
+type PipelineVersion struct {
+	Active bool `json:"active"`
+
+	// ConfigHash SHA-256 hex of renderedYaml
+	ConfigHash string    `json:"configHash"`
+	CreatedAt  time.Time `json:"createdAt"`
+
+	// CreatedBy Creator email
+	CreatedBy *string `json:"createdBy,omitempty"`
+
+	// Graph UI pipeline model. The receiver side is implicit: the customer's ingested stream, routed by tenant.id into this pipeline on the forwarding tier.
+	Graph PipelineGraph `json:"graph"`
+
+	// RenderedYaml The collector config fragment this version renders to.
+	RenderedYaml     string                          `json:"renderedYaml"`
+	ValidationStatus PipelineVersionValidationStatus `json:"validationStatus"`
+	Version          int                             `json:"version"`
+}
+
+// PipelineVersionValidationStatus defines model for PipelineVersion.ValidationStatus.
+type PipelineVersionValidationStatus string
+
+// PipelineVersionSummary defines model for PipelineVersionSummary.
+type PipelineVersionSummary struct {
+	Active    bool      `json:"active"`
+	CreatedAt time.Time `json:"createdAt"`
+
+	// CreatedBy Creator email
+	CreatedBy        *string                                `json:"createdBy,omitempty"`
+	ValidationStatus PipelineVersionSummaryValidationStatus `json:"validationStatus"`
+	Version          int                                    `json:"version"`
+}
+
+// PipelineVersionSummaryValidationStatus defines model for PipelineVersionSummary.ValidationStatus.
+type PipelineVersionSummaryValidationStatus string
+
 // Role defines model for Role.
 type Role string
+
+// RolloutStatus defines model for RolloutStatus.
+type RolloutStatus struct {
+	ActiveVersion int     `json:"activeVersion"`
+	Detail        *string `json:"detail,omitempty"`
+
+	// State applied = distributor confirmed rollout (Kubernetes operator); pending_restart = config published, forwarding collector restart required (compose dev).
+	State RolloutStatusState `json:"state"`
+}
+
+// RolloutStatusState applied = distributor confirmed rollout (Kubernetes operator); pending_restart = config published, forwarding collector restart required (compose dev).
+type RolloutStatusState string
 
 // Signal defines model for Signal.
 type Signal string
@@ -239,6 +487,20 @@ type ThroughputSeries struct {
 	Signal Signal            `json:"signal"`
 }
 
+// ValidationResult defines model for ValidationResult.
+type ValidationResult struct {
+	Errors []struct {
+		Message string `json:"message"`
+
+		// Path JSON-ish path into the graph (e.g. exporters[0].config.endpoint) when attributable.
+		Path *string `json:"path,omitempty"`
+	} `json:"errors"`
+
+	// RenderedYaml Present when rendering succeeded (even if otelcol validate then failed).
+	RenderedYaml *string `json:"renderedYaml,omitempty"`
+	Valid        bool    `json:"valid"`
+}
+
 // BadRequest defines model for BadRequest.
 type BadRequest = Error
 
@@ -282,6 +544,13 @@ type CreateApiKeyJSONBody struct {
 	Name      string     `json:"name"`
 }
 
+// CreatePipelineJSONBody defines parameters for CreatePipeline.
+type CreatePipelineJSONBody struct {
+	// Graph UI pipeline model. The receiver side is implicit: the customer's ingested stream, routed by tenant.id into this pipeline on the forwarding tier.
+	Graph PipelineGraph `json:"graph"`
+	Name  string        `json:"name"`
+}
+
 // GetCustomerThroughputParams defines parameters for GetCustomerThroughput.
 type GetCustomerThroughputParams struct {
 	// Signal Omit for all three signals
@@ -289,6 +558,24 @@ type GetCustomerThroughputParams struct {
 	From   time.Time `form:"from" json:"from"`
 	To     time.Time `form:"to" json:"to"`
 	Step   *string   `form:"step,omitempty" json:"step,omitempty"`
+}
+
+// ValidatePipelineJSONBody defines parameters for ValidatePipeline.
+type ValidatePipelineJSONBody struct {
+	// Graph UI pipeline model. The receiver side is implicit: the customer's ingested stream, routed by tenant.id into this pipeline on the forwarding tier.
+	Graph PipelineGraph `json:"graph"`
+}
+
+// GetPipelineStageStatsParams defines parameters for GetPipelineStageStats.
+type GetPipelineStageStatsParams struct {
+	From time.Time `form:"from" json:"from"`
+	To   time.Time `form:"to" json:"to"`
+}
+
+// CreatePipelineVersionJSONBody defines parameters for CreatePipelineVersion.
+type CreatePipelineVersionJSONBody struct {
+	// Graph UI pipeline model. The receiver side is implicit: the customer's ingested stream, routed by tenant.id into this pipeline on the forwarding tier.
+	Graph PipelineGraph `json:"graph"`
 }
 
 // GetStatsOverviewParams defines parameters for GetStatsOverview.
@@ -309,6 +596,15 @@ type UpdateCustomerJSONRequestBody UpdateCustomerJSONBody
 // CreateApiKeyJSONRequestBody defines body for CreateApiKey for application/json ContentType.
 type CreateApiKeyJSONRequestBody CreateApiKeyJSONBody
 
+// CreatePipelineJSONRequestBody defines body for CreatePipeline for application/json ContentType.
+type CreatePipelineJSONRequestBody CreatePipelineJSONBody
+
+// ValidatePipelineJSONRequestBody defines body for ValidatePipeline for application/json ContentType.
+type ValidatePipelineJSONRequestBody ValidatePipelineJSONBody
+
+// CreatePipelineVersionJSONRequestBody defines body for CreatePipelineVersion for application/json ContentType.
+type CreatePipelineVersionJSONRequestBody CreatePipelineVersionJSONBody
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Password-less local development login (disabled in production)
@@ -320,6 +616,9 @@ type ServerInterface interface {
 	// Configured SSO providers for the login page (public)
 	// (GET /api/v1/auth/providers)
 	ListAuthProviders(w http.ResponseWriter, r *http.Request)
+	// Curated collector components available in the pipeline builder
+	// (GET /api/v1/catalog/components)
+	GetComponentCatalog(w http.ResponseWriter, r *http.Request)
 	// List customers
 	// (GET /api/v1/customers)
 	ListCustomers(w http.ResponseWriter, r *http.Request, params ListCustomersParams)
@@ -344,12 +643,42 @@ type ServerInterface interface {
 	// Revoke an API key (takes effect at the gateway within ~60s)
 	// (DELETE /api/v1/customers/{customerId}/api-keys/{keyId})
 	RevokeApiKey(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID, keyId openapi_types.UUID)
+	// List pipelines of a customer
+	// (GET /api/v1/customers/{customerId}/pipelines)
+	ListCustomerPipelines(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID)
+	// Create a pipeline with an initial draft version
+	// (POST /api/v1/customers/{customerId}/pipelines)
+	CreatePipeline(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID)
 	// Per-signal ingest time series for one customer
 	// (GET /api/v1/customers/{customerId}/stats/throughput)
 	GetCustomerThroughput(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID, params GetCustomerThroughputParams)
 	// Current session user, role and CSRF token
 	// (GET /api/v1/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
+	// List all pipelines across customers
+	// (GET /api/v1/pipelines)
+	ListPipelines(w http.ResponseWriter, r *http.Request)
+	// Validate a pipeline graph (structural + real `otelcol validate`)
+	// (POST /api/v1/pipelines/validate)
+	ValidatePipeline(w http.ResponseWriter, r *http.Request)
+	// Delete a pipeline (removes it from the forwarding config on next rollout)
+	// (DELETE /api/v1/pipelines/{pipelineId})
+	DeletePipeline(w http.ResponseWriter, r *http.Request, pipelineId openapi_types.UUID)
+	// Get a pipeline including its versions
+	// (GET /api/v1/pipelines/{pipelineId})
+	GetPipeline(w http.ResponseWriter, r *http.Request, pipelineId openapi_types.UUID)
+	// Per-stage flow metrics for a pipeline (received/exported/failed/queued)
+	// (GET /api/v1/pipelines/{pipelineId}/stats/stages)
+	GetPipelineStageStats(w http.ResponseWriter, r *http.Request, pipelineId openapi_types.UUID, params GetPipelineStageStatsParams)
+	// Create a new version from a graph (validated; rejected when invalid)
+	// (POST /api/v1/pipelines/{pipelineId}/versions)
+	CreatePipelineVersion(w http.ResponseWriter, r *http.Request, pipelineId openapi_types.UUID)
+	// Get one version including rendered YAML
+	// (GET /api/v1/pipelines/{pipelineId}/versions/{version})
+	GetPipelineVersion(w http.ResponseWriter, r *http.Request, pipelineId openapi_types.UUID, version int)
+	// Activate a version (deploys it to the forwarding tier; also used for rollback)
+	// (POST /api/v1/pipelines/{pipelineId}/versions/{version}/activate)
+	ActivatePipelineVersion(w http.ResponseWriter, r *http.Request, pipelineId openapi_types.UUID, version int)
 	// Fleet-wide totals for the dashboard
 	// (GET /api/v1/stats/overview)
 	GetStatsOverview(w http.ResponseWriter, r *http.Request, params GetStatsOverviewParams)
@@ -374,6 +703,12 @@ func (_ Unimplemented) Logout(w http.ResponseWriter, r *http.Request) {
 // Configured SSO providers for the login page (public)
 // (GET /api/v1/auth/providers)
 func (_ Unimplemented) ListAuthProviders(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Curated collector components available in the pipeline builder
+// (GET /api/v1/catalog/components)
+func (_ Unimplemented) GetComponentCatalog(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -425,6 +760,18 @@ func (_ Unimplemented) RevokeApiKey(w http.ResponseWriter, r *http.Request, cust
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// List pipelines of a customer
+// (GET /api/v1/customers/{customerId}/pipelines)
+func (_ Unimplemented) ListCustomerPipelines(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create a pipeline with an initial draft version
+// (POST /api/v1/customers/{customerId}/pipelines)
+func (_ Unimplemented) CreatePipeline(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Per-signal ingest time series for one customer
 // (GET /api/v1/customers/{customerId}/stats/throughput)
 func (_ Unimplemented) GetCustomerThroughput(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID, params GetCustomerThroughputParams) {
@@ -434,6 +781,54 @@ func (_ Unimplemented) GetCustomerThroughput(w http.ResponseWriter, r *http.Requ
 // Current session user, role and CSRF token
 // (GET /api/v1/me)
 func (_ Unimplemented) GetMe(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List all pipelines across customers
+// (GET /api/v1/pipelines)
+func (_ Unimplemented) ListPipelines(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Validate a pipeline graph (structural + real `otelcol validate`)
+// (POST /api/v1/pipelines/validate)
+func (_ Unimplemented) ValidatePipeline(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete a pipeline (removes it from the forwarding config on next rollout)
+// (DELETE /api/v1/pipelines/{pipelineId})
+func (_ Unimplemented) DeletePipeline(w http.ResponseWriter, r *http.Request, pipelineId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get a pipeline including its versions
+// (GET /api/v1/pipelines/{pipelineId})
+func (_ Unimplemented) GetPipeline(w http.ResponseWriter, r *http.Request, pipelineId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Per-stage flow metrics for a pipeline (received/exported/failed/queued)
+// (GET /api/v1/pipelines/{pipelineId}/stats/stages)
+func (_ Unimplemented) GetPipelineStageStats(w http.ResponseWriter, r *http.Request, pipelineId openapi_types.UUID, params GetPipelineStageStatsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create a new version from a graph (validated; rejected when invalid)
+// (POST /api/v1/pipelines/{pipelineId}/versions)
+func (_ Unimplemented) CreatePipelineVersion(w http.ResponseWriter, r *http.Request, pipelineId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get one version including rendered YAML
+// (GET /api/v1/pipelines/{pipelineId}/versions/{version})
+func (_ Unimplemented) GetPipelineVersion(w http.ResponseWriter, r *http.Request, pipelineId openapi_types.UUID, version int) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Activate a version (deploys it to the forwarding tier; also used for rollback)
+// (POST /api/v1/pipelines/{pipelineId}/versions/{version}/activate)
+func (_ Unimplemented) ActivatePipelineVersion(w http.ResponseWriter, r *http.Request, pipelineId openapi_types.UUID, version int) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -485,6 +880,20 @@ func (siw *ServerInterfaceWrapper) ListAuthProviders(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListAuthProviders(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetComponentCatalog operation middleware
+func (siw *ServerInterfaceWrapper) GetComponentCatalog(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetComponentCatalog(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -706,6 +1115,58 @@ func (siw *ServerInterfaceWrapper) RevokeApiKey(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// ListCustomerPipelines operation middleware
+func (siw *ServerInterfaceWrapper) ListCustomerPipelines(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerId" -------------
+	var customerId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerId", chi.URLParam(r, "customerId"), &customerId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListCustomerPipelines(w, r, customerId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreatePipeline operation middleware
+func (siw *ServerInterfaceWrapper) CreatePipeline(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerId" -------------
+	var customerId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerId", chi.URLParam(r, "customerId"), &customerId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreatePipeline(w, r, customerId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetCustomerThroughput operation middleware
 func (siw *ServerInterfaceWrapper) GetCustomerThroughput(w http.ResponseWriter, r *http.Request) {
 
@@ -792,6 +1253,237 @@ func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPipelines operation middleware
+func (siw *ServerInterfaceWrapper) ListPipelines(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPipelines(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ValidatePipeline operation middleware
+func (siw *ServerInterfaceWrapper) ValidatePipeline(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ValidatePipeline(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeletePipeline operation middleware
+func (siw *ServerInterfaceWrapper) DeletePipeline(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "pipelineId" -------------
+	var pipelineId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "pipelineId", chi.URLParam(r, "pipelineId"), &pipelineId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pipelineId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeletePipeline(w, r, pipelineId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPipeline operation middleware
+func (siw *ServerInterfaceWrapper) GetPipeline(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "pipelineId" -------------
+	var pipelineId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "pipelineId", chi.URLParam(r, "pipelineId"), &pipelineId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pipelineId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPipeline(w, r, pipelineId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPipelineStageStats operation middleware
+func (siw *ServerInterfaceWrapper) GetPipelineStageStats(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "pipelineId" -------------
+	var pipelineId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "pipelineId", chi.URLParam(r, "pipelineId"), &pipelineId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pipelineId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPipelineStageStatsParams
+
+	// ------------- Required query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPipelineStageStats(w, r, pipelineId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreatePipelineVersion operation middleware
+func (siw *ServerInterfaceWrapper) CreatePipelineVersion(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "pipelineId" -------------
+	var pipelineId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "pipelineId", chi.URLParam(r, "pipelineId"), &pipelineId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pipelineId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreatePipelineVersion(w, r, pipelineId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPipelineVersion operation middleware
+func (siw *ServerInterfaceWrapper) GetPipelineVersion(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "pipelineId" -------------
+	var pipelineId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "pipelineId", chi.URLParam(r, "pipelineId"), &pipelineId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pipelineId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "version" -------------
+	var version int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "version", chi.URLParam(r, "version"), &version, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "version", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPipelineVersion(w, r, pipelineId, version)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ActivatePipelineVersion operation middleware
+func (siw *ServerInterfaceWrapper) ActivatePipelineVersion(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "pipelineId" -------------
+	var pipelineId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "pipelineId", chi.URLParam(r, "pipelineId"), &pipelineId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pipelineId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "version" -------------
+	var version int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "version", chi.URLParam(r, "version"), &version, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "version", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ActivatePipelineVersion(w, r, pipelineId, version)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -970,6 +1662,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/v1/auth/providers", wrapper.ListAuthProviders)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/catalog/components", wrapper.GetComponentCatalog)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/customers", wrapper.ListCustomers)
 	})
 	r.Group(func(r chi.Router) {
@@ -994,10 +1689,40 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Delete(options.BaseURL+"/api/v1/customers/{customerId}/api-keys/{keyId}", wrapper.RevokeApiKey)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/customers/{customerId}/pipelines", wrapper.ListCustomerPipelines)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/customers/{customerId}/pipelines", wrapper.CreatePipeline)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/customers/{customerId}/stats/throughput", wrapper.GetCustomerThroughput)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/me", wrapper.GetMe)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/pipelines", wrapper.ListPipelines)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/pipelines/validate", wrapper.ValidatePipeline)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/pipelines/{pipelineId}", wrapper.DeletePipeline)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/pipelines/{pipelineId}", wrapper.GetPipeline)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/pipelines/{pipelineId}/stats/stages", wrapper.GetPipelineStageStats)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/pipelines/{pipelineId}/versions", wrapper.CreatePipelineVersion)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/pipelines/{pipelineId}/versions/{version}", wrapper.GetPipelineVersion)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/pipelines/{pipelineId}/versions/{version}/activate", wrapper.ActivatePipelineVersion)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/stats/overview", wrapper.GetStatsOverview)
@@ -1082,6 +1807,44 @@ func (response ListAuthProviders200JSONResponse) VisitListAuthProvidersResponse(
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetComponentCatalogRequestObject struct {
+}
+
+type GetComponentCatalogResponseObject interface {
+	VisitGetComponentCatalogResponse(w http.ResponseWriter) error
+}
+
+type GetComponentCatalog200JSONResponse struct {
+	Exporters  []CatalogComponent `json:"exporters"`
+	Processors []CatalogComponent `json:"processors"`
+}
+
+func (response GetComponentCatalog200JSONResponse) VisitGetComponentCatalogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetComponentCatalog401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetComponentCatalog401JSONResponse) VisitGetComponentCatalogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1554,6 +2317,137 @@ func (response RevokeApiKey404JSONResponse) VisitRevokeApiKeyResponse(w http.Res
 	return err
 }
 
+type ListCustomerPipelinesRequestObject struct {
+	CustomerId openapi_types.UUID `json:"customerId"`
+}
+
+type ListCustomerPipelinesResponseObject interface {
+	VisitListCustomerPipelinesResponse(w http.ResponseWriter) error
+}
+
+type ListCustomerPipelines200JSONResponse struct {
+	Pipelines []Pipeline `json:"pipelines"`
+}
+
+func (response ListCustomerPipelines200JSONResponse) VisitListCustomerPipelinesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCustomerPipelines401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListCustomerPipelines401JSONResponse) VisitListCustomerPipelinesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCustomerPipelines404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ListCustomerPipelines404JSONResponse) VisitListCustomerPipelinesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePipelineRequestObject struct {
+	CustomerId openapi_types.UUID `json:"customerId"`
+	Body       *CreatePipelineJSONRequestBody
+}
+
+type CreatePipelineResponseObject interface {
+	VisitCreatePipelineResponse(w http.ResponseWriter) error
+}
+
+type CreatePipeline201JSONResponse Pipeline
+
+func (response CreatePipeline201JSONResponse) VisitCreatePipelineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePipeline400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreatePipeline400JSONResponse) VisitCreatePipelineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePipeline401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreatePipeline401JSONResponse) VisitCreatePipelineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePipeline403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreatePipeline403JSONResponse) VisitCreatePipelineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePipeline409JSONResponse struct{ ConflictJSONResponse }
+
+func (response CreatePipeline409JSONResponse) VisitCreatePipelineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetCustomerThroughputRequestObject struct {
 	CustomerId openapi_types.UUID `json:"customerId"`
 	Params     GetCustomerThroughputParams
@@ -1640,6 +2534,447 @@ func (response GetMe401JSONResponse) VisitGetMeResponse(w http.ResponseWriter) e
 	return err
 }
 
+type ListPipelinesRequestObject struct {
+}
+
+type ListPipelinesResponseObject interface {
+	VisitListPipelinesResponse(w http.ResponseWriter) error
+}
+
+type ListPipelines200JSONResponse struct {
+	Pipelines []Pipeline `json:"pipelines"`
+}
+
+func (response ListPipelines200JSONResponse) VisitListPipelinesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPipelines401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListPipelines401JSONResponse) VisitListPipelinesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ValidatePipelineRequestObject struct {
+	Body *ValidatePipelineJSONRequestBody
+}
+
+type ValidatePipelineResponseObject interface {
+	VisitValidatePipelineResponse(w http.ResponseWriter) error
+}
+
+type ValidatePipeline200JSONResponse ValidationResult
+
+func (response ValidatePipeline200JSONResponse) VisitValidatePipelineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ValidatePipeline401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ValidatePipeline401JSONResponse) VisitValidatePipelineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePipelineRequestObject struct {
+	PipelineId openapi_types.UUID `json:"pipelineId"`
+}
+
+type DeletePipelineResponseObject interface {
+	VisitDeletePipelineResponse(w http.ResponseWriter) error
+}
+
+type DeletePipeline204Response struct {
+}
+
+func (response DeletePipeline204Response) VisitDeletePipelineResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeletePipeline401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeletePipeline401JSONResponse) VisitDeletePipelineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePipeline403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeletePipeline403JSONResponse) VisitDeletePipelineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePipeline404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeletePipeline404JSONResponse) VisitDeletePipelineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPipelineRequestObject struct {
+	PipelineId openapi_types.UUID `json:"pipelineId"`
+}
+
+type GetPipelineResponseObject interface {
+	VisitGetPipelineResponse(w http.ResponseWriter) error
+}
+
+type GetPipeline200JSONResponse PipelineDetail
+
+func (response GetPipeline200JSONResponse) VisitGetPipelineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPipeline401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetPipeline401JSONResponse) VisitGetPipelineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPipeline404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetPipeline404JSONResponse) VisitGetPipelineResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPipelineStageStatsRequestObject struct {
+	PipelineId openapi_types.UUID `json:"pipelineId"`
+	Params     GetPipelineStageStatsParams
+}
+
+type GetPipelineStageStatsResponseObject interface {
+	VisitGetPipelineStageStatsResponse(w http.ResponseWriter) error
+}
+
+type GetPipelineStageStats200JSONResponse PipelineStageStats
+
+func (response GetPipelineStageStats200JSONResponse) VisitGetPipelineStageStatsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPipelineStageStats401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetPipelineStageStats401JSONResponse) VisitGetPipelineStageStatsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPipelineStageStats404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetPipelineStageStats404JSONResponse) VisitGetPipelineStageStatsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePipelineVersionRequestObject struct {
+	PipelineId openapi_types.UUID `json:"pipelineId"`
+	Body       *CreatePipelineVersionJSONRequestBody
+}
+
+type CreatePipelineVersionResponseObject interface {
+	VisitCreatePipelineVersionResponse(w http.ResponseWriter) error
+}
+
+type CreatePipelineVersion201JSONResponse PipelineVersion
+
+func (response CreatePipelineVersion201JSONResponse) VisitCreatePipelineVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePipelineVersion400JSONResponse ValidationResult
+
+func (response CreatePipelineVersion400JSONResponse) VisitCreatePipelineVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePipelineVersion401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreatePipelineVersion401JSONResponse) VisitCreatePipelineVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePipelineVersion403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreatePipelineVersion403JSONResponse) VisitCreatePipelineVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePipelineVersion404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response CreatePipelineVersion404JSONResponse) VisitCreatePipelineVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPipelineVersionRequestObject struct {
+	PipelineId openapi_types.UUID `json:"pipelineId"`
+	Version    int                `json:"version"`
+}
+
+type GetPipelineVersionResponseObject interface {
+	VisitGetPipelineVersionResponse(w http.ResponseWriter) error
+}
+
+type GetPipelineVersion200JSONResponse PipelineVersion
+
+func (response GetPipelineVersion200JSONResponse) VisitGetPipelineVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPipelineVersion401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetPipelineVersion401JSONResponse) VisitGetPipelineVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPipelineVersion404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetPipelineVersion404JSONResponse) VisitGetPipelineVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ActivatePipelineVersionRequestObject struct {
+	PipelineId openapi_types.UUID `json:"pipelineId"`
+	Version    int                `json:"version"`
+}
+
+type ActivatePipelineVersionResponseObject interface {
+	VisitActivatePipelineVersionResponse(w http.ResponseWriter) error
+}
+
+type ActivatePipelineVersion200JSONResponse RolloutStatus
+
+func (response ActivatePipelineVersion200JSONResponse) VisitActivatePipelineVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ActivatePipelineVersion400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ActivatePipelineVersion400JSONResponse) VisitActivatePipelineVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ActivatePipelineVersion401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ActivatePipelineVersion401JSONResponse) VisitActivatePipelineVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ActivatePipelineVersion403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ActivatePipelineVersion403JSONResponse) VisitActivatePipelineVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ActivatePipelineVersion404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ActivatePipelineVersion404JSONResponse) VisitActivatePipelineVersionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetStatsOverviewRequestObject struct {
 	Params GetStatsOverviewParams
 }
@@ -1687,6 +3022,9 @@ type StrictServerInterface interface {
 	// Configured SSO providers for the login page (public)
 	// (GET /api/v1/auth/providers)
 	ListAuthProviders(ctx context.Context, request ListAuthProvidersRequestObject) (ListAuthProvidersResponseObject, error)
+	// Curated collector components available in the pipeline builder
+	// (GET /api/v1/catalog/components)
+	GetComponentCatalog(ctx context.Context, request GetComponentCatalogRequestObject) (GetComponentCatalogResponseObject, error)
 	// List customers
 	// (GET /api/v1/customers)
 	ListCustomers(ctx context.Context, request ListCustomersRequestObject) (ListCustomersResponseObject, error)
@@ -1711,12 +3049,42 @@ type StrictServerInterface interface {
 	// Revoke an API key (takes effect at the gateway within ~60s)
 	// (DELETE /api/v1/customers/{customerId}/api-keys/{keyId})
 	RevokeApiKey(ctx context.Context, request RevokeApiKeyRequestObject) (RevokeApiKeyResponseObject, error)
+	// List pipelines of a customer
+	// (GET /api/v1/customers/{customerId}/pipelines)
+	ListCustomerPipelines(ctx context.Context, request ListCustomerPipelinesRequestObject) (ListCustomerPipelinesResponseObject, error)
+	// Create a pipeline with an initial draft version
+	// (POST /api/v1/customers/{customerId}/pipelines)
+	CreatePipeline(ctx context.Context, request CreatePipelineRequestObject) (CreatePipelineResponseObject, error)
 	// Per-signal ingest time series for one customer
 	// (GET /api/v1/customers/{customerId}/stats/throughput)
 	GetCustomerThroughput(ctx context.Context, request GetCustomerThroughputRequestObject) (GetCustomerThroughputResponseObject, error)
 	// Current session user, role and CSRF token
 	// (GET /api/v1/me)
 	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+	// List all pipelines across customers
+	// (GET /api/v1/pipelines)
+	ListPipelines(ctx context.Context, request ListPipelinesRequestObject) (ListPipelinesResponseObject, error)
+	// Validate a pipeline graph (structural + real `otelcol validate`)
+	// (POST /api/v1/pipelines/validate)
+	ValidatePipeline(ctx context.Context, request ValidatePipelineRequestObject) (ValidatePipelineResponseObject, error)
+	// Delete a pipeline (removes it from the forwarding config on next rollout)
+	// (DELETE /api/v1/pipelines/{pipelineId})
+	DeletePipeline(ctx context.Context, request DeletePipelineRequestObject) (DeletePipelineResponseObject, error)
+	// Get a pipeline including its versions
+	// (GET /api/v1/pipelines/{pipelineId})
+	GetPipeline(ctx context.Context, request GetPipelineRequestObject) (GetPipelineResponseObject, error)
+	// Per-stage flow metrics for a pipeline (received/exported/failed/queued)
+	// (GET /api/v1/pipelines/{pipelineId}/stats/stages)
+	GetPipelineStageStats(ctx context.Context, request GetPipelineStageStatsRequestObject) (GetPipelineStageStatsResponseObject, error)
+	// Create a new version from a graph (validated; rejected when invalid)
+	// (POST /api/v1/pipelines/{pipelineId}/versions)
+	CreatePipelineVersion(ctx context.Context, request CreatePipelineVersionRequestObject) (CreatePipelineVersionResponseObject, error)
+	// Get one version including rendered YAML
+	// (GET /api/v1/pipelines/{pipelineId}/versions/{version})
+	GetPipelineVersion(ctx context.Context, request GetPipelineVersionRequestObject) (GetPipelineVersionResponseObject, error)
+	// Activate a version (deploys it to the forwarding tier; also used for rollback)
+	// (POST /api/v1/pipelines/{pipelineId}/versions/{version}/activate)
+	ActivatePipelineVersion(ctx context.Context, request ActivatePipelineVersionRequestObject) (ActivatePipelineVersionResponseObject, error)
 	// Fleet-wide totals for the dashboard
 	// (GET /api/v1/stats/overview)
 	GetStatsOverview(ctx context.Context, request GetStatsOverviewRequestObject) (GetStatsOverviewResponseObject, error)
@@ -1823,6 +3191,30 @@ func (sh *strictHandler) ListAuthProviders(w http.ResponseWriter, r *http.Reques
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListAuthProvidersResponseObject); ok {
 		if err := validResponse.VisitListAuthProvidersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetComponentCatalog operation middleware
+func (sh *strictHandler) GetComponentCatalog(w http.ResponseWriter, r *http.Request) {
+	var request GetComponentCatalogRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetComponentCatalog(ctx, request.(GetComponentCatalogRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetComponentCatalog")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetComponentCatalogResponseObject); ok {
+		if err := validResponse.VisitGetComponentCatalogResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -2058,6 +3450,65 @@ func (sh *strictHandler) RevokeApiKey(w http.ResponseWriter, r *http.Request, cu
 	}
 }
 
+// ListCustomerPipelines operation middleware
+func (sh *strictHandler) ListCustomerPipelines(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID) {
+	var request ListCustomerPipelinesRequestObject
+
+	request.CustomerId = customerId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListCustomerPipelines(ctx, request.(ListCustomerPipelinesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListCustomerPipelines")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListCustomerPipelinesResponseObject); ok {
+		if err := validResponse.VisitListCustomerPipelinesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreatePipeline operation middleware
+func (sh *strictHandler) CreatePipeline(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID) {
+	var request CreatePipelineRequestObject
+
+	request.CustomerId = customerId
+
+	var body CreatePipelineJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreatePipeline(ctx, request.(CreatePipelineRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreatePipeline")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreatePipelineResponseObject); ok {
+		if err := validResponse.VisitCreatePipelineResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetCustomerThroughput operation middleware
 func (sh *strictHandler) GetCustomerThroughput(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID, params GetCustomerThroughputParams) {
 	var request GetCustomerThroughputRequestObject
@@ -2102,6 +3553,227 @@ func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetMeResponseObject); ok {
 		if err := validResponse.VisitGetMeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPipelines operation middleware
+func (sh *strictHandler) ListPipelines(w http.ResponseWriter, r *http.Request) {
+	var request ListPipelinesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPipelines(ctx, request.(ListPipelinesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPipelines")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPipelinesResponseObject); ok {
+		if err := validResponse.VisitListPipelinesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ValidatePipeline operation middleware
+func (sh *strictHandler) ValidatePipeline(w http.ResponseWriter, r *http.Request) {
+	var request ValidatePipelineRequestObject
+
+	var body ValidatePipelineJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ValidatePipeline(ctx, request.(ValidatePipelineRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ValidatePipeline")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ValidatePipelineResponseObject); ok {
+		if err := validResponse.VisitValidatePipelineResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeletePipeline operation middleware
+func (sh *strictHandler) DeletePipeline(w http.ResponseWriter, r *http.Request, pipelineId openapi_types.UUID) {
+	var request DeletePipelineRequestObject
+
+	request.PipelineId = pipelineId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeletePipeline(ctx, request.(DeletePipelineRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeletePipeline")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeletePipelineResponseObject); ok {
+		if err := validResponse.VisitDeletePipelineResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPipeline operation middleware
+func (sh *strictHandler) GetPipeline(w http.ResponseWriter, r *http.Request, pipelineId openapi_types.UUID) {
+	var request GetPipelineRequestObject
+
+	request.PipelineId = pipelineId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPipeline(ctx, request.(GetPipelineRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPipeline")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPipelineResponseObject); ok {
+		if err := validResponse.VisitGetPipelineResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPipelineStageStats operation middleware
+func (sh *strictHandler) GetPipelineStageStats(w http.ResponseWriter, r *http.Request, pipelineId openapi_types.UUID, params GetPipelineStageStatsParams) {
+	var request GetPipelineStageStatsRequestObject
+
+	request.PipelineId = pipelineId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPipelineStageStats(ctx, request.(GetPipelineStageStatsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPipelineStageStats")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPipelineStageStatsResponseObject); ok {
+		if err := validResponse.VisitGetPipelineStageStatsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreatePipelineVersion operation middleware
+func (sh *strictHandler) CreatePipelineVersion(w http.ResponseWriter, r *http.Request, pipelineId openapi_types.UUID) {
+	var request CreatePipelineVersionRequestObject
+
+	request.PipelineId = pipelineId
+
+	var body CreatePipelineVersionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreatePipelineVersion(ctx, request.(CreatePipelineVersionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreatePipelineVersion")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreatePipelineVersionResponseObject); ok {
+		if err := validResponse.VisitCreatePipelineVersionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPipelineVersion operation middleware
+func (sh *strictHandler) GetPipelineVersion(w http.ResponseWriter, r *http.Request, pipelineId openapi_types.UUID, version int) {
+	var request GetPipelineVersionRequestObject
+
+	request.PipelineId = pipelineId
+	request.Version = version
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPipelineVersion(ctx, request.(GetPipelineVersionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPipelineVersion")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPipelineVersionResponseObject); ok {
+		if err := validResponse.VisitGetPipelineVersionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ActivatePipelineVersion operation middleware
+func (sh *strictHandler) ActivatePipelineVersion(w http.ResponseWriter, r *http.Request, pipelineId openapi_types.UUID, version int) {
+	var request ActivatePipelineVersionRequestObject
+
+	request.PipelineId = pipelineId
+	request.Version = version
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ActivatePipelineVersion(ctx, request.(ActivatePipelineVersionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ActivatePipelineVersion")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ActivatePipelineVersionResponseObject); ok {
+		if err := validResponse.VisitActivatePipelineVersionResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -1,7 +1,8 @@
 # otelfleet collector distribution
 
 Custom OpenTelemetry Collector distribution for the otelfleet ingest tier
-(gateway), built with the [OpenTelemetry Collector Builder (OCB)](https://opentelemetry.io/docs/collector/custom-collector/).
+(gateway) and the forwarding tier, built with the
+[OpenTelemetry Collector Builder (OCB)](https://opentelemetry.io/docs/collector/custom-collector/).
 
 Pinned release train: **collector core v1.62.0 / v0.156.0, contrib v0.156.0,
 OCB v0.156.0** (see `builder-config.yaml`).
@@ -11,10 +12,17 @@ OCB v0.156.0** (see `builder-config.yaml`).
 | Kind | Components |
 | --- | --- |
 | Receivers | `otlp` |
-| Processors | `memory_limiter`, `batch`, **`tenantstamp`** (local) |
-| Exporters | `clickhouse`, `prometheusremotewrite`, `debug` |
-| Connectors | `count` |
+| Processors | `memory_limiter`, `batch`, **`tenantstamp`** (local), `filter`, `transform`, `attributes`, `resource` |
+| Exporters | `clickhouse`, `prometheusremotewrite`, `debug`, `otlp`, `otlphttp`, `file` |
+| Connectors | `count`, `routing` |
 | Extensions | **`tenantauth`** (local), `file_storage`, `health_check`, `pprof` |
+| Providers | `env`, `file`, `http`, `https`, `yaml` |
+
+The forwarding tier loads its entire (control-plane-rendered) config through
+the `http` confmap provider
+(`--config=http://.../internal/v1/collector-config/forwarding`);
+`testdata/forwarding-sample.yaml` is the contract test for the rendered
+config shape and is checked by `make -C collector validate`.
 
 Local components (own Go modules, wired in via `replaces`):
 

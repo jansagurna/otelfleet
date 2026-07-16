@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateCustomerData, CreateCustomerErrors, CreateCustomerResponses, DeleteCustomerData, DeleteCustomerErrors, DeleteCustomerResponses, DevLoginData, DevLoginErrors, DevLoginResponses, GetCustomerData, GetCustomerErrors, GetCustomerResponses, GetCustomerThroughputData, GetCustomerThroughputErrors, GetCustomerThroughputResponses, GetMeData, GetMeErrors, GetMeResponses, GetStatsOverviewData, GetStatsOverviewErrors, GetStatsOverviewResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListAuthProvidersData, ListAuthProvidersResponses, ListCustomersData, ListCustomersErrors, ListCustomersResponses, LogoutData, LogoutResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, UpdateCustomerData, UpdateCustomerErrors, UpdateCustomerResponses } from './types.gen';
+import type { ActivatePipelineVersionData, ActivatePipelineVersionErrors, ActivatePipelineVersionResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateCustomerData, CreateCustomerErrors, CreateCustomerResponses, CreatePipelineData, CreatePipelineErrors, CreatePipelineResponses, CreatePipelineVersionData, CreatePipelineVersionErrors, CreatePipelineVersionResponses, DeleteCustomerData, DeleteCustomerErrors, DeleteCustomerResponses, DeletePipelineData, DeletePipelineErrors, DeletePipelineResponses, DevLoginData, DevLoginErrors, DevLoginResponses, GetComponentCatalogData, GetComponentCatalogErrors, GetComponentCatalogResponses, GetCustomerData, GetCustomerErrors, GetCustomerResponses, GetCustomerThroughputData, GetCustomerThroughputErrors, GetCustomerThroughputResponses, GetMeData, GetMeErrors, GetMeResponses, GetPipelineData, GetPipelineErrors, GetPipelineResponses, GetPipelineStageStatsData, GetPipelineStageStatsErrors, GetPipelineStageStatsResponses, GetPipelineVersionData, GetPipelineVersionErrors, GetPipelineVersionResponses, GetStatsOverviewData, GetStatsOverviewErrors, GetStatsOverviewResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListAuthProvidersData, ListAuthProvidersResponses, ListCustomerPipelinesData, ListCustomerPipelinesErrors, ListCustomerPipelinesResponses, ListCustomersData, ListCustomersErrors, ListCustomersResponses, ListPipelinesData, ListPipelinesErrors, ListPipelinesResponses, LogoutData, LogoutResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, UpdateCustomerData, UpdateCustomerErrors, UpdateCustomerResponses, ValidatePipelineData, ValidatePipelineErrors, ValidatePipelineResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -115,3 +115,79 @@ export const getStatsOverview = <ThrowOnError extends boolean = false>(options: 
  * Per-signal ingest time series for one customer
  */
 export const getCustomerThroughput = <ThrowOnError extends boolean = false>(options: Options<GetCustomerThroughputData, ThrowOnError>): RequestResult<GetCustomerThroughputResponses, GetCustomerThroughputErrors, ThrowOnError> => (options.client ?? client).get<GetCustomerThroughputResponses, GetCustomerThroughputErrors, ThrowOnError>({ url: '/api/v1/customers/{customerId}/stats/throughput', ...options });
+
+/**
+ * Curated collector components available in the pipeline builder
+ */
+export const getComponentCatalog = <ThrowOnError extends boolean = false>(options?: Options<GetComponentCatalogData, ThrowOnError>): RequestResult<GetComponentCatalogResponses, GetComponentCatalogErrors, ThrowOnError> => (options?.client ?? client).get<GetComponentCatalogResponses, GetComponentCatalogErrors, ThrowOnError>({ url: '/api/v1/catalog/components', ...options });
+
+/**
+ * List all pipelines across customers
+ */
+export const listPipelines = <ThrowOnError extends boolean = false>(options?: Options<ListPipelinesData, ThrowOnError>): RequestResult<ListPipelinesResponses, ListPipelinesErrors, ThrowOnError> => (options?.client ?? client).get<ListPipelinesResponses, ListPipelinesErrors, ThrowOnError>({ url: '/api/v1/pipelines', ...options });
+
+/**
+ * Validate a pipeline graph (structural + real `otelcol validate`)
+ */
+export const validatePipeline = <ThrowOnError extends boolean = false>(options: Options<ValidatePipelineData, ThrowOnError>): RequestResult<ValidatePipelineResponses, ValidatePipelineErrors, ThrowOnError> => (options.client ?? client).post<ValidatePipelineResponses, ValidatePipelineErrors, ThrowOnError>({
+    url: '/api/v1/pipelines/validate',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List pipelines of a customer
+ */
+export const listCustomerPipelines = <ThrowOnError extends boolean = false>(options: Options<ListCustomerPipelinesData, ThrowOnError>): RequestResult<ListCustomerPipelinesResponses, ListCustomerPipelinesErrors, ThrowOnError> => (options.client ?? client).get<ListCustomerPipelinesResponses, ListCustomerPipelinesErrors, ThrowOnError>({ url: '/api/v1/customers/{customerId}/pipelines', ...options });
+
+/**
+ * Create a pipeline with an initial draft version
+ */
+export const createPipeline = <ThrowOnError extends boolean = false>(options: Options<CreatePipelineData, ThrowOnError>): RequestResult<CreatePipelineResponses, CreatePipelineErrors, ThrowOnError> => (options.client ?? client).post<CreatePipelineResponses, CreatePipelineErrors, ThrowOnError>({
+    url: '/api/v1/customers/{customerId}/pipelines',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete a pipeline (removes it from the forwarding config on next rollout)
+ */
+export const deletePipeline = <ThrowOnError extends boolean = false>(options: Options<DeletePipelineData, ThrowOnError>): RequestResult<DeletePipelineResponses, DeletePipelineErrors, ThrowOnError> => (options.client ?? client).delete<DeletePipelineResponses, DeletePipelineErrors, ThrowOnError>({ url: '/api/v1/pipelines/{pipelineId}', ...options });
+
+/**
+ * Get a pipeline including its versions
+ */
+export const getPipeline = <ThrowOnError extends boolean = false>(options: Options<GetPipelineData, ThrowOnError>): RequestResult<GetPipelineResponses, GetPipelineErrors, ThrowOnError> => (options.client ?? client).get<GetPipelineResponses, GetPipelineErrors, ThrowOnError>({ url: '/api/v1/pipelines/{pipelineId}', ...options });
+
+/**
+ * Create a new version from a graph (validated; rejected when invalid)
+ */
+export const createPipelineVersion = <ThrowOnError extends boolean = false>(options: Options<CreatePipelineVersionData, ThrowOnError>): RequestResult<CreatePipelineVersionResponses, CreatePipelineVersionErrors, ThrowOnError> => (options.client ?? client).post<CreatePipelineVersionResponses, CreatePipelineVersionErrors, ThrowOnError>({
+    url: '/api/v1/pipelines/{pipelineId}/versions',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get one version including rendered YAML
+ */
+export const getPipelineVersion = <ThrowOnError extends boolean = false>(options: Options<GetPipelineVersionData, ThrowOnError>): RequestResult<GetPipelineVersionResponses, GetPipelineVersionErrors, ThrowOnError> => (options.client ?? client).get<GetPipelineVersionResponses, GetPipelineVersionErrors, ThrowOnError>({ url: '/api/v1/pipelines/{pipelineId}/versions/{version}', ...options });
+
+/**
+ * Activate a version (deploys it to the forwarding tier; also used for rollback)
+ */
+export const activatePipelineVersion = <ThrowOnError extends boolean = false>(options: Options<ActivatePipelineVersionData, ThrowOnError>): RequestResult<ActivatePipelineVersionResponses, ActivatePipelineVersionErrors, ThrowOnError> => (options.client ?? client).post<ActivatePipelineVersionResponses, ActivatePipelineVersionErrors, ThrowOnError>({ url: '/api/v1/pipelines/{pipelineId}/versions/{version}/activate', ...options });
+
+/**
+ * Per-stage flow metrics for a pipeline (received/exported/failed/queued)
+ */
+export const getPipelineStageStats = <ThrowOnError extends boolean = false>(options: Options<GetPipelineStageStatsData, ThrowOnError>): RequestResult<GetPipelineStageStatsResponses, GetPipelineStageStatsErrors, ThrowOnError> => (options.client ?? client).get<GetPipelineStageStatsResponses, GetPipelineStageStatsErrors, ThrowOnError>({ url: '/api/v1/pipelines/{pipelineId}/stats/stages', ...options });

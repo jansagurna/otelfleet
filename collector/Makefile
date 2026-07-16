@@ -27,11 +27,14 @@ proto:
 	cd extension/tenantauth && PATH="$(TOOLS_BIN):$$PATH" \
 		go run github.com/bufbuild/buf/cmd/buf@$(BUF_VERSION) generate ../../../proto --template buf.gen.yaml
 
-# Validate the dev gateway config against the built binary.
+# Validate the dev gateway config and a representative forwarding-tier config
+# (testdata/forwarding-sample.yaml is the contract test for control-plane
+# rendered configs) against the built binary.
 validate:
 	OTELFLEET_AUTH_ENDPOINT=localhost:9443 \
 	CLICKHOUSE_ENDPOINT='tcp://localhost:9000?database=otel' \
 	./$(DIST) validate --config=../deploy/compose/otelcol-gateway.yaml
+	./$(DIST) validate --config=testdata/forwarding-sample.yaml
 
 # Build the gateway container image (repo root as context).
 docker:

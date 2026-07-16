@@ -19,7 +19,7 @@ func TestOpsHandler(t *testing.T) {
 	c.Inc()
 
 	ready := errors.New("db down")
-	h := NewOpsHandler(reg, func(context.Context) error { return ready })
+	h := NewOpsHandler(reg, func(context.Context) error { return ready }, func(context.Context) (string, error) { return "receivers: {}\n", nil })
 	srv := httptest.NewServer(h)
 	defer srv.Close()
 

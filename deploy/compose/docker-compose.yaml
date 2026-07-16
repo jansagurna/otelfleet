@@ -81,6 +81,38 @@ services:
       clickhouse:
         condition: service_healthy
 
+  # P2 forwarding tier. Its entire config is rendered by the control plane
+  # (running on the host via `make run`) and loaded through the collector's
+  # HTTP config provider; config changes are picked up on container restart.
+  # NOTE: until the control plane is up and serving this endpoint, the
+  # container crash-loops harmlessly (restart: unless-stopped).
+  forwarding:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.collector
+    command: ["--config=http://host.docker.internal:9090/internal/v1/collector-config/forwarding"]
+    restart: unless-stopped
+    expose:
+      - "8888" # collector self-telemetry, scraped by vmagent
+    ports:
+      - "8889:8888" # host mapping for debugging only
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # Demo "customer backend": target of the P2 forwarding e2e. The forwarding
+  # tier's per-customer otlp exporter sends here; the debug exporter prints
+  # what arrives. Stands in for a customer's own OTLP endpoint.
+  acme-backend:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.collector
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./otelcol-acme-backend.yaml:/etc/otelcol/config.yaml:ro
+    expose:
+      - "4317" # OTLP gRPC (from the forwarding tier)
+      - "8888" # collector self-telemetry, scraped by vmagent
+
 volumes:
   pgdata:
   chdata:

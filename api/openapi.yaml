@@ -271,6 +271,226 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/v1/catalog/components:
+    get:
+      tags: [pipelines]
+      operationId: getComponentCatalog
+      summary: Curated collector components available in the pipeline builder
+      responses:
+        "200":
+          description: Catalog with a JSON Schema per component (drives UI forms)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [processors, exporters]
+                properties:
+                  processors:
+                    type: array
+                    items: { $ref: "#/components/schemas/CatalogComponent" }
+                  exporters:
+                    type: array
+                    items: { $ref: "#/components/schemas/CatalogComponent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/pipelines:
+    get:
+      tags: [pipelines]
+      operationId: listPipelines
+      summary: List all pipelines across customers
+      responses:
+        "200":
+          description: Pipelines
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [pipelines]
+                properties:
+                  pipelines:
+                    type: array
+                    items: { $ref: "#/components/schemas/Pipeline" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/pipelines/validate:
+    post:
+      tags: [pipelines]
+      operationId: validatePipeline
+      summary: Validate a pipeline graph (structural + real `otelcol validate`)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [graph]
+              properties:
+                graph: { $ref: "#/components/schemas/PipelineGraph" }
+      responses:
+        "200":
+          description: Validation result (also returned for invalid graphs)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationResult" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/customers/{customerId}/pipelines:
+    parameters:
+      - { name: customerId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [pipelines]
+      operationId: listCustomerPipelines
+      summary: List pipelines of a customer
+      responses:
+        "200":
+          description: Pipelines
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [pipelines]
+                properties:
+                  pipelines:
+                    type: array
+                    items: { $ref: "#/components/schemas/Pipeline" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [pipelines]
+      operationId: createPipeline
+      summary: Create a pipeline with an initial draft version
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, graph]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 200 }
+                graph: { $ref: "#/components/schemas/PipelineGraph" }
+      responses:
+        "201":
+          description: Pipeline created (version 1, not yet active)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Pipeline" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { description: Name already exists for this customer, $ref: "#/components/responses/Conflict" }
+
+  /api/v1/pipelines/{pipelineId}:
+    parameters:
+      - { name: pipelineId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [pipelines]
+      operationId: getPipeline
+      summary: Get a pipeline including its versions
+      responses:
+        "200":
+          description: Pipeline detail
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PipelineDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [pipelines]
+      operationId: deletePipeline
+      summary: Delete a pipeline (removes it from the forwarding config on next rollout)
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/pipelines/{pipelineId}/versions:
+    parameters:
+      - { name: pipelineId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [pipelines]
+      operationId: createPipelineVersion
+      summary: Create a new version from a graph (validated; rejected when invalid)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [graph]
+              properties:
+                graph: { $ref: "#/components/schemas/PipelineGraph" }
+      responses:
+        "201":
+          description: Version created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PipelineVersion" }
+        "400":
+          description: Graph failed validation (details in errors)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationResult" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/pipelines/{pipelineId}/versions/{version}:
+    parameters:
+      - { name: pipelineId, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: version, in: path, required: true, schema: { type: integer } }
+    get:
+      tags: [pipelines]
+      operationId: getPipelineVersion
+      summary: Get one version including rendered YAML
+      responses:
+        "200":
+          description: Version detail
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PipelineVersion" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/pipelines/{pipelineId}/versions/{version}/activate:
+    parameters:
+      - { name: pipelineId, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: version, in: path, required: true, schema: { type: integer } }
+    post:
+      tags: [pipelines]
+      operationId: activatePipelineVersion
+      summary: Activate a version (deploys it to the forwarding tier; also used for rollback)
+      responses:
+        "200":
+          description: Activation result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RolloutStatus" }
+        "400": { description: Version is not valid, $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/pipelines/{pipelineId}/stats/stages:
+    parameters:
+      - { name: pipelineId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [stats]
+      operationId: getPipelineStageStats
+      summary: Per-stage flow metrics for a pipeline (received/exported/failed/queued)
+      parameters:
+        - { name: from, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: Stage stats
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PipelineStageStats" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
 components:
   responses:
     Unauthorized:
@@ -435,3 +655,165 @@ components:
         series:
           type: array
           items: { $ref: "#/components/schemas/ThroughputSeries" }
+
+    CatalogComponent:
+      type: object
+      required: [type, kind, displayName, description, schema]
+      properties:
+        type: { type: string, example: batch, description: Collector component type id }
+        kind: { type: string, enum: [processor, exporter] }
+        displayName: { type: string, example: Batch }
+        description: { type: string }
+        docsUrl: { type: string, nullable: true }
+        schema:
+          type: object
+          additionalProperties: true
+          description: JSON Schema (draft 2020-12) for the component's config; drives the builder form.
+        defaults:
+          type: object
+          additionalProperties: true
+          description: Sensible default config used when the component is added.
+
+    PipelineGraph:
+      type: object
+      required: [signals, processors, exporters]
+      description: >
+        UI pipeline model. The receiver side is implicit: the customer's ingested
+        stream, routed by tenant.id into this pipeline on the forwarding tier.
+      properties:
+        signals:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/Signal" }
+        processors:
+          type: array
+          description: Ordered processor chain.
+          items: { $ref: "#/components/schemas/GraphNode" }
+        exporters:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/GraphNode" }
+
+    GraphNode:
+      type: object
+      required: [type, config]
+      properties:
+        type: { type: string, example: otlphttp }
+        name:
+          type: string
+          nullable: true
+          description: Optional instance name to distinguish two nodes of the same type.
+        config:
+          type: object
+          additionalProperties: true
+
+    Pipeline:
+      type: object
+      required: [id, customerId, name, targetClass, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        customerId: { type: string, format: uuid }
+        customerName: { type: string, nullable: true }
+        name: { type: string }
+        targetClass: { type: string, enum: [forwarding], description: More classes (gateway, edge) follow in later phases. }
+        activeVersion: { type: integer, nullable: true }
+        latestVersion: { type: integer, nullable: true }
+        createdAt: { type: string, format: date-time }
+
+    PipelineDetail:
+      allOf:
+        - $ref: "#/components/schemas/Pipeline"
+        - type: object
+          required: [versions]
+          properties:
+            versions:
+              type: array
+              description: Newest first; graph/renderedYaml only via the version endpoint.
+              items: { $ref: "#/components/schemas/PipelineVersionSummary" }
+
+    PipelineVersionSummary:
+      type: object
+      required: [version, validationStatus, createdAt, active]
+      properties:
+        version: { type: integer }
+        validationStatus: { type: string, enum: [valid, invalid] }
+        active: { type: boolean }
+        createdBy: { type: string, nullable: true, description: Creator email }
+        createdAt: { type: string, format: date-time }
+
+    PipelineVersion:
+      allOf:
+        - $ref: "#/components/schemas/PipelineVersionSummary"
+        - type: object
+          required: [graph, renderedYaml, configHash]
+          properties:
+            graph: { $ref: "#/components/schemas/PipelineGraph" }
+            renderedYaml:
+              type: string
+              description: The collector config fragment this version renders to.
+            configHash: { type: string, description: SHA-256 hex of renderedYaml }
+
+    ValidationResult:
+      type: object
+      required: [valid, errors]
+      properties:
+        valid: { type: boolean }
+        errors:
+          type: array
+          items:
+            type: object
+            required: [message]
+            properties:
+              path:
+                type: string
+                nullable: true
+                description: JSON-ish path into the graph (e.g. exporters[0].config.endpoint) when attributable.
+              message: { type: string }
+        renderedYaml:
+          type: string
+          nullable: true
+          description: Present when rendering succeeded (even if otelcol validate then failed).
+
+    RolloutStatus:
+      type: object
+      required: [activeVersion, state]
+      properties:
+        activeVersion: { type: integer }
+        state:
+          type: string
+          enum: [applied, pending_restart]
+          description: >
+            applied = distributor confirmed rollout (Kubernetes operator);
+            pending_restart = config published, forwarding collector restart required (compose dev).
+        detail: { type: string, nullable: true }
+
+    PipelineStageStats:
+      type: object
+      required: [received, exporters]
+      description: >
+        Flow view for one pipeline in the requested range. `received` comes from
+        the per-tenant count-connector metrics; exporter stages from collector
+        self-telemetry (exporter names encode pipeline + node).
+      properties:
+        received:
+          type: array
+          description: Items entering the pipeline, per signal.
+          items:
+            type: object
+            required: [signal, items]
+            properties:
+              signal: { $ref: "#/components/schemas/Signal" }
+              items: { type: integer, format: int64 }
+        exporters:
+          type: array
+          items:
+            type: object
+            required: [name, type, sent, sendFailed, queueSize, queueCapacity]
+            properties:
+              name: { type: string, description: Exporter instance name, e.g. otlphttp/acme_backup }
+              type: { type: string }
+              sent: { type: integer, format: int64 }
+              sendFailed: { type: integer, format: int64 }
+              enqueueFailed: { type: integer, format: int64 }
+              queueSize: { type: number, description: Current queue depth (last sample) }
+              queueCapacity: { type: number }

@@ -75,6 +75,24 @@ exporters:
     endpoint: http://victoriametrics:8428/api/v1/write
     resource_to_telemetry_conversion:
       enabled: true # tenant.id resource attribute becomes a metric label
+  # P2: unconditional copy of all ingested data to the forwarding tier. The
+  # forwarding collector's routing connector has default_pipelines: [], so
+  # tenants without rendered forwarding pipelines are dropped there.
+  # Future optimization: route conditionally here in ingest so only tenants
+  # with forwarding pipelines are copied across.
+  # Memory-only queue (no `storage:` key): if the forwarding service is down,
+  # the queue fills and data for this exporter is dropped — the clickhouse
+  # pipeline branch is unaffected (per-exporter queues are independent).
+  otlp/forwardtier:
+    endpoint: forwarding:4317
+    tls:
+      insecure: true
+    sending_queue:
+      enabled: true
+      queue_size: 2000
+    retry_on_failure:
+      enabled: true
+      max_elapsed_time: 60s
 
 service:
   extensions: [tenantauth, file_storage, health_check]
@@ -82,15 +100,15 @@ service:
     logs:
       receivers: [otlp]
       processors: [memory_limiter, tenantstamp, batch]
-      exporters: [count, clickhouse]
+      exporters: [count, clickhouse, otlp/forwardtier]
     traces:
       receivers: [otlp]
       processors: [memory_limiter, tenantstamp, batch]
-      exporters: [count, clickhouse]
+      exporters: [count, clickhouse, otlp/forwardtier]
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, tenantstamp, batch]
-      exporters: [count, clickhouse]
+      exporters: [count, clickhouse, otlp/forwardtier]
     metrics/internal:
       receivers: [count]
       processors: [batch]

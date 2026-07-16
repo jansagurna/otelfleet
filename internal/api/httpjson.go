@@ -72,3 +72,15 @@ type devLoginErrResponse struct{ errorResponse }
 func (e devLoginErrResponse) VisitDevLoginResponse(w http.ResponseWriter) error {
 	return e.write(w)
 }
+
+type createPipelineErrResponse struct{ errorResponse }
+
+func (e createPipelineErrResponse) VisitCreatePipelineResponse(w http.ResponseWriter) error {
+	return e.write(w)
+}
+
+type stageStatsErrResponse struct{ errorResponse }
+
+func (e stageStatsErrResponse) VisitGetPipelineStageStatsResponse(w http.ResponseWriter) error {
+	return e.write(w)
+}

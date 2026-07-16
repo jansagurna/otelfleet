@@ -1,0 +1,82 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 20
+  batch:
+    send_batch_size: 8192
+    timeout: 5s
+  batch/acme-corp__backup__0:
+    send_batch_size: 512
+connectors:
+  routing/tenants_logs:
+    default_pipelines: []
+    error_mode: ignore
+    table:
+      - condition: resource.attributes["tenant.id"] == "cust_aaaa1111"
+        pipelines: [logs/acme-corp__backup]
+      - condition: resource.attributes["tenant.id"] == "cust_bbbb2222"
+        pipelines: [logs/globex__audit]
+  routing/tenants_traces:
+    default_pipelines: []
+    error_mode: ignore
+    table:
+      - condition: resource.attributes["tenant.id"] == "cust_aaaa1111"
+        pipelines: [traces/acme-corp__backup]
+exporters:
+  debug: {}
+  otlp/acme-corp__backup__0:
+    endpoint: acme-backend:4317
+    tls:
+      insecure: true
+  otlphttp/globex__audit__grafana:
+    endpoint: https://otlp.example.com
+    headers:
+      authorization: Bearer secret
+  debug/globex__audit__1: {}
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+service:
+  extensions: [health_check]
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888
+  pipelines:
+    logs/in:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [routing/tenants_logs]
+    traces/in:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [routing/tenants_traces]
+    metrics/in:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug]
+    logs/acme-corp__backup:
+      receivers: [routing/tenants_logs]
+      processors: [batch/acme-corp__backup__0]
+      exporters: [otlp/acme-corp__backup__0]
+    traces/acme-corp__backup:
+      receivers: [routing/tenants_traces]
+      processors: [batch/acme-corp__backup__0]
+      exporters: [otlp/acme-corp__backup__0]
+    logs/globex__audit:
+      receivers: [routing/tenants_logs]
+      exporters: [otlphttp/globex__audit__grafana, debug/globex__audit__1]

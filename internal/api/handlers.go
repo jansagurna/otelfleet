@@ -13,6 +13,7 @@ import (
 	"github.com/sag-solutions/otelfleet/internal/auth"
 	"github.com/sag-solutions/otelfleet/internal/authz"
 	"github.com/sag-solutions/otelfleet/internal/config"
+	"github.com/sag-solutions/otelfleet/internal/pipelines"
 	"github.com/sag-solutions/otelfleet/internal/stats"
 	"github.com/sag-solutions/otelfleet/internal/store"
 	"github.com/sag-solutions/otelfleet/internal/tenants"
@@ -20,19 +21,20 @@ import (
 
 // Server implements the OpenAPI strict-server interface.
 type Server struct {
-	cfg      *config.Config
-	store    store.Store
-	tenants  *tenants.Service
-	stats    *stats.Service
-	sessions *auth.Sessions
-	log      *slog.Logger
+	cfg       *config.Config
+	store     store.Store
+	tenants   *tenants.Service
+	pipelines *pipelines.Service
+	stats     *stats.Service
+	sessions  *auth.Sessions
+	log       *slog.Logger
 }
 
 var _ apigen.StrictServerInterface = (*Server)(nil)
 
 // NewServer wires the REST handlers.
-func NewServer(cfg *config.Config, st store.Store, ten *tenants.Service, sts *stats.Service, sessions *auth.Sessions, log *slog.Logger) *Server {
-	return &Server{cfg: cfg, store: st, tenants: ten, stats: sts, sessions: sessions, log: log}
+func NewServer(cfg *config.Config, st store.Store, ten *tenants.Service, pipes *pipelines.Service, sts *stats.Service, sessions *auth.Sessions, log *slog.Logger) *Server {
+	return &Server{cfg: cfg, store: st, tenants: ten, pipelines: pipes, stats: sts, sessions: sessions, log: log}
 }
 
 func actorID(ctx context.Context) *openapi_types.UUID {

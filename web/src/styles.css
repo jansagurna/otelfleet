@@ -79,6 +79,26 @@ body {
   background: color-mix(in oklab, var(--accent) 30%, transparent);
 }
 
+/*
+ * CodeMirror YAML token colors (@lezer/highlight classHighlighter classes).
+ * Kept on the design tokens so both themes read as one system.
+ */
+.tok-propertyName {
+  color: var(--ink);
+}
+.tok-string {
+  color: var(--ok);
+}
+.tok-number,
+.tok-bool,
+.tok-keyword {
+  color: var(--accent);
+}
+.tok-comment {
+  color: var(--ink-3);
+  font-style: italic;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

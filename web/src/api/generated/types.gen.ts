@@ -112,6 +112,151 @@ export type ThroughputResponse = {
     series: Array<ThroughputSeries>;
 };
 
+export type CatalogComponent = {
+    /**
+     * Collector component type id
+     */
+    type: string;
+    kind: 'processor' | 'exporter';
+    displayName: string;
+    description: string;
+    docsUrl?: string | null;
+    /**
+     * JSON Schema (draft 2020-12) for the component's config; drives the builder form.
+     */
+    schema: {
+        [key: string]: unknown;
+    };
+    /**
+     * Sensible default config used when the component is added.
+     */
+    defaults?: {
+        [key: string]: unknown;
+    };
+};
+
+/**
+ * UI pipeline model. The receiver side is implicit: the customer's ingested stream, routed by tenant.id into this pipeline on the forwarding tier.
+ *
+ */
+export type PipelineGraph = {
+    signals: Array<Signal>;
+    /**
+     * Ordered processor chain.
+     */
+    processors: Array<GraphNode>;
+    exporters: Array<GraphNode>;
+};
+
+export type GraphNode = {
+    type: string;
+    /**
+     * Optional instance name to distinguish two nodes of the same type.
+     */
+    name?: string | null;
+    config: {
+        [key: string]: unknown;
+    };
+};
+
+export type Pipeline = {
+    id: string;
+    customerId: string;
+    customerName?: string | null;
+    name: string;
+    /**
+     * More classes (gateway
+     */
+    targetClass: 'forwarding';
+    activeVersion?: number | null;
+    latestVersion?: number | null;
+    createdAt: string;
+};
+
+export type PipelineDetail = Pipeline & {
+    /**
+     * Newest first; graph/renderedYaml only via the version endpoint.
+     */
+    versions: Array<PipelineVersionSummary>;
+};
+
+export type PipelineVersionSummary = {
+    version: number;
+    validationStatus: 'valid' | 'invalid';
+    active: boolean;
+    /**
+     * Creator email
+     */
+    createdBy?: string | null;
+    createdAt: string;
+};
+
+export type PipelineVersion = PipelineVersionSummary & {
+    graph: PipelineGraph;
+    /**
+     * The collector config fragment this version renders to.
+     */
+    renderedYaml: string;
+    /**
+     * SHA-256 hex of renderedYaml
+     */
+    configHash: string;
+};
+
+export type ValidationResult = {
+    valid: boolean;
+    errors: Array<{
+        /**
+         * JSON-ish path into the graph (e.g. exporters[0].config.endpoint) when attributable.
+         */
+        path?: string | null;
+        message: string;
+    }>;
+    /**
+     * Present when rendering succeeded (even if otelcol validate then failed).
+     */
+    renderedYaml?: string | null;
+};
+
+export type RolloutStatus = {
+    activeVersion: number;
+    /**
+     * applied = distributor confirmed rollout (Kubernetes operator); pending_restart = config published, forwarding collector restart required (compose dev).
+     *
+     */
+    state: 'applied' | 'pending_restart';
+    detail?: string | null;
+};
+
+/**
+ * Flow view for one pipeline in the requested range. `received` comes from the per-tenant count-connector metrics; exporter stages from collector self-telemetry (exporter names encode pipeline + node).
+ *
+ */
+export type PipelineStageStats = {
+    /**
+     * Items entering the pipeline, per signal.
+     */
+    received: Array<{
+        signal: Signal;
+        items: number;
+    }>;
+    exporters: Array<{
+        /**
+         * Exporter instance name
+         */
+        name: string;
+        type: string;
+        sent: number;
+        sendFailed: number;
+        enqueueFailed?: number;
+        /**
+         * Current queue depth (last sample)
+         */
+        queueSize: number;
+        queueCapacity: number;
+    }>;
+};
+
 export type GetMeData = {
     body?: never;
     path?: never;
@@ -552,3 +697,373 @@ export type GetCustomerThroughputResponses = {
 };
 
 export type GetCustomerThroughputResponse = GetCustomerThroughputResponses[keyof GetCustomerThroughputResponses];
+
+export type GetComponentCatalogData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/catalog/components';
+};
+
+export type GetComponentCatalogErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+};
+
+export type GetComponentCatalogError = GetComponentCatalogErrors[keyof GetComponentCatalogErrors];
+
+export type GetComponentCatalogResponses = {
+    /**
+     * Catalog with a JSON Schema per component (drives UI forms)
+     */
+    200: {
+        processors: Array<CatalogComponent>;
+        exporters: Array<CatalogComponent>;
+    };
+};
+
+export type GetComponentCatalogResponse = GetComponentCatalogResponses[keyof GetComponentCatalogResponses];
+
+export type ListPipelinesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/pipelines';
+};
+
+export type ListPipelinesErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+};
+
+export type ListPipelinesError = ListPipelinesErrors[keyof ListPipelinesErrors];
+
+export type ListPipelinesResponses = {
+    /**
+     * Pipelines
+     */
+    200: {
+        pipelines: Array<Pipeline>;
+    };
+};
+
+export type ListPipelinesResponse = ListPipelinesResponses[keyof ListPipelinesResponses];
+
+export type ValidatePipelineData = {
+    body: {
+        graph: PipelineGraph;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/pipelines/validate';
+};
+
+export type ValidatePipelineErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+};
+
+export type ValidatePipelineError = ValidatePipelineErrors[keyof ValidatePipelineErrors];
+
+export type ValidatePipelineResponses = {
+    /**
+     * Validation result (also returned for invalid graphs)
+     */
+    200: ValidationResult;
+};
+
+export type ValidatePipelineResponse = ValidatePipelineResponses[keyof ValidatePipelineResponses];
+
+export type ListCustomerPipelinesData = {
+    body?: never;
+    path: {
+        customerId: string;
+    };
+    query?: never;
+    url: '/api/v1/customers/{customerId}/pipelines';
+};
+
+export type ListCustomerPipelinesErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+};
+
+export type ListCustomerPipelinesError = ListCustomerPipelinesErrors[keyof ListCustomerPipelinesErrors];
+
+export type ListCustomerPipelinesResponses = {
+    /**
+     * Pipelines
+     */
+    200: {
+        pipelines: Array<Pipeline>;
+    };
+};
+
+export type ListCustomerPipelinesResponse = ListCustomerPipelinesResponses[keyof ListCustomerPipelinesResponses];
+
+export type CreatePipelineData = {
+    body: {
+        name: string;
+        graph: PipelineGraph;
+    };
+    path: {
+        customerId: string;
+    };
+    query?: never;
+    url: '/api/v1/customers/{customerId}/pipelines';
+};
+
+export type CreatePipelineErrors = {
+    /**
+     * Validation error
+     */
+    400: Error;
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+    /**
+     * Conflict
+     */
+    409: Error;
+};
+
+export type CreatePipelineError = CreatePipelineErrors[keyof CreatePipelineErrors];
+
+export type CreatePipelineResponses = {
+    /**
+     * Pipeline created (version 1, not yet active)
+     */
+    201: Pipeline;
+};
+
+export type CreatePipelineResponse = CreatePipelineResponses[keyof CreatePipelineResponses];
+
+export type DeletePipelineData = {
+    body?: never;
+    path: {
+        pipelineId: string;
+    };
+    query?: never;
+    url: '/api/v1/pipelines/{pipelineId}';
+};
+
+export type DeletePipelineErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+};
+
+export type DeletePipelineError = DeletePipelineErrors[keyof DeletePipelineErrors];
+
+export type DeletePipelineResponses = {
+    /**
+     * Deleted
+     */
+    204: void;
+};
+
+export type DeletePipelineResponse = DeletePipelineResponses[keyof DeletePipelineResponses];
+
+export type GetPipelineData = {
+    body?: never;
+    path: {
+        pipelineId: string;
+    };
+    query?: never;
+    url: '/api/v1/pipelines/{pipelineId}';
+};
+
+export type GetPipelineErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+};
+
+export type GetPipelineError = GetPipelineErrors[keyof GetPipelineErrors];
+
+export type GetPipelineResponses = {
+    /**
+     * Pipeline detail
+     */
+    200: PipelineDetail;
+};
+
+export type GetPipelineResponse = GetPipelineResponses[keyof GetPipelineResponses];
+
+export type CreatePipelineVersionData = {
+    body: {
+        graph: PipelineGraph;
+    };
+    path: {
+        pipelineId: string;
+    };
+    query?: never;
+    url: '/api/v1/pipelines/{pipelineId}/versions';
+};
+
+export type CreatePipelineVersionErrors = {
+    /**
+     * Graph failed validation (details in errors)
+     */
+    400: ValidationResult;
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+};
+
+export type CreatePipelineVersionError = CreatePipelineVersionErrors[keyof CreatePipelineVersionErrors];
+
+export type CreatePipelineVersionResponses = {
+    /**
+     * Version created
+     */
+    201: PipelineVersion;
+};
+
+export type CreatePipelineVersionResponse = CreatePipelineVersionResponses[keyof CreatePipelineVersionResponses];
+
+export type GetPipelineVersionData = {
+    body?: never;
+    path: {
+        pipelineId: string;
+        version: number;
+    };
+    query?: never;
+    url: '/api/v1/pipelines/{pipelineId}/versions/{version}';
+};
+
+export type GetPipelineVersionErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+};
+
+export type GetPipelineVersionError = GetPipelineVersionErrors[keyof GetPipelineVersionErrors];
+
+export type GetPipelineVersionResponses = {
+    /**
+     * Version detail
+     */
+    200: PipelineVersion;
+};
+
+export type GetPipelineVersionResponse = GetPipelineVersionResponses[keyof GetPipelineVersionResponses];
+
+export type ActivatePipelineVersionData = {
+    body?: never;
+    path: {
+        pipelineId: string;
+        version: number;
+    };
+    query?: never;
+    url: '/api/v1/pipelines/{pipelineId}/versions/{version}/activate';
+};
+
+export type ActivatePipelineVersionErrors = {
+    /**
+     * Validation error
+     */
+    400: Error;
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+};
+
+export type ActivatePipelineVersionError = ActivatePipelineVersionErrors[keyof ActivatePipelineVersionErrors];
+
+export type ActivatePipelineVersionResponses = {
+    /**
+     * Activation result
+     */
+    200: RolloutStatus;
+};
+
+export type ActivatePipelineVersionResponse = ActivatePipelineVersionResponses[keyof ActivatePipelineVersionResponses];
+
+export type GetPipelineStageStatsData = {
+    body?: never;
+    path: {
+        pipelineId: string;
+    };
+    query: {
+        from: string;
+        to: string;
+    };
+    url: '/api/v1/pipelines/{pipelineId}/stats/stages';
+};
+
+export type GetPipelineStageStatsErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+};
+
+export type GetPipelineStageStatsError = GetPipelineStageStatsErrors[keyof GetPipelineStageStatsErrors];
+
+export type GetPipelineStageStatsResponses = {
+    /**
+     * Stage stats
+     */
+    200: PipelineStageStats;
+};
+
+export type GetPipelineStageStatsResponse = GetPipelineStageStatsResponses[keyof GetPipelineStageStatsResponses];

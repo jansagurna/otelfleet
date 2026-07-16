@@ -10,11 +10,28 @@ import (
 )
 
 // NewOpsHandler serves the operational endpoints on the ops listener:
-// /metrics (Prometheus), /healthz (liveness) and /readyz (readiness; the
-// supplied check typically pings PostgreSQL).
-func NewOpsHandler(reg *prometheus.Registry, ready func(ctx context.Context) error) http.Handler {
+// /metrics (Prometheus), /healthz (liveness), /readyz (readiness; the supplied
+// check typically pings PostgreSQL) and the internal forwarding-collector
+// config. forwardingConfig re-renders from database state on every request;
+// nil disables the endpoint.
+//
+// TODO(security): the config endpoint may carry customer exporter credentials.
+// The ops listener must stay cluster-internal; authenticating this endpoint is
+// part of the later secrets work.
+func NewOpsHandler(reg *prometheus.Registry, ready func(ctx context.Context) error, forwardingConfig func(ctx context.Context) (string, error)) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
+	if forwardingConfig != nil {
+		mux.HandleFunc("GET /internal/v1/collector-config/forwarding", func(w http.ResponseWriter, r *http.Request) {
+			cfg, err := forwardingConfig(r.Context())
+			if err != nil {
+				http.Error(w, "render forwarding config: "+err.Error(), http.StatusServiceUnavailable)
+				return
+			}
+			w.Header().Set("Content-Type", "application/x-yaml")
+			_, _ = w.Write([]byte(cfg))
+		})
+	}
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))

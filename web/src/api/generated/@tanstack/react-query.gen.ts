@@ -3,8 +3,8 @@
 import { type DefaultError, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { createApiKey, createCustomer, deleteCustomer, devLogin, getCustomer, getCustomerThroughput, getMe, getStatsOverview, listApiKeys, listAuthProviders, listCustomers, logout, type Options, revokeApiKey, updateCustomer } from '../sdk.gen';
-import type { CreateApiKeyData, CreateApiKeyError, CreateApiKeyResponse, CreateCustomerData, CreateCustomerError, CreateCustomerResponse, DeleteCustomerData, DeleteCustomerError, DeleteCustomerResponse, DevLoginData, DevLoginError, DevLoginResponse, GetCustomerData, GetCustomerError, GetCustomerResponse, GetCustomerThroughputData, GetCustomerThroughputError, GetCustomerThroughputResponse, GetMeData, GetMeError, GetMeResponse, GetStatsOverviewData, GetStatsOverviewError, GetStatsOverviewResponse, ListApiKeysData, ListApiKeysError, ListApiKeysResponse, ListAuthProvidersData, ListAuthProvidersResponse, ListCustomersData, ListCustomersError, ListCustomersResponse, LogoutData, LogoutResponse, RevokeApiKeyData, RevokeApiKeyError, RevokeApiKeyResponse, UpdateCustomerData, UpdateCustomerError, UpdateCustomerResponse } from '../types.gen';
+import { activatePipelineVersion, createApiKey, createCustomer, createPipeline, createPipelineVersion, deleteCustomer, deletePipeline, devLogin, getComponentCatalog, getCustomer, getCustomerThroughput, getMe, getPipeline, getPipelineStageStats, getPipelineVersion, getStatsOverview, listApiKeys, listAuthProviders, listCustomerPipelines, listCustomers, listPipelines, logout, type Options, revokeApiKey, updateCustomer, validatePipeline } from '../sdk.gen';
+import type { ActivatePipelineVersionData, ActivatePipelineVersionError, ActivatePipelineVersionResponse, CreateApiKeyData, CreateApiKeyError, CreateApiKeyResponse, CreateCustomerData, CreateCustomerError, CreateCustomerResponse, CreatePipelineData, CreatePipelineError, CreatePipelineResponse, CreatePipelineVersionData, CreatePipelineVersionError, CreatePipelineVersionResponse, DeleteCustomerData, DeleteCustomerError, DeleteCustomerResponse, DeletePipelineData, DeletePipelineError, DeletePipelineResponse, DevLoginData, DevLoginError, DevLoginResponse, GetComponentCatalogData, GetComponentCatalogError, GetComponentCatalogResponse, GetCustomerData, GetCustomerError, GetCustomerResponse, GetCustomerThroughputData, GetCustomerThroughputError, GetCustomerThroughputResponse, GetMeData, GetMeError, GetMeResponse, GetPipelineData, GetPipelineError, GetPipelineResponse, GetPipelineStageStatsData, GetPipelineStageStatsError, GetPipelineStageStatsResponse, GetPipelineVersionData, GetPipelineVersionError, GetPipelineVersionResponse, GetStatsOverviewData, GetStatsOverviewError, GetStatsOverviewResponse, ListApiKeysData, ListApiKeysError, ListApiKeysResponse, ListAuthProvidersData, ListAuthProvidersResponse, ListCustomerPipelinesData, ListCustomerPipelinesError, ListCustomerPipelinesResponse, ListCustomersData, ListCustomersError, ListCustomersResponse, ListPipelinesData, ListPipelinesError, ListPipelinesResponse, LogoutData, LogoutResponse, RevokeApiKeyData, RevokeApiKeyError, RevokeApiKeyResponse, UpdateCustomerData, UpdateCustomerError, UpdateCustomerResponse, ValidatePipelineData, ValidatePipelineError, ValidatePipelineResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -282,4 +282,197 @@ export const getCustomerThroughputOptions = (options: Options<GetCustomerThrough
         return data;
     },
     queryKey: getCustomerThroughputQueryKey(options)
+});
+
+export const getComponentCatalogQueryKey = (options?: Options<GetComponentCatalogData>) => createQueryKey('getComponentCatalog', options);
+
+/**
+ * Curated collector components available in the pipeline builder
+ */
+export const getComponentCatalogOptions = (options?: Options<GetComponentCatalogData>) => queryOptions<GetComponentCatalogResponse, GetComponentCatalogError, GetComponentCatalogResponse, ReturnType<typeof getComponentCatalogQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getComponentCatalog({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getComponentCatalogQueryKey(options)
+});
+
+export const listPipelinesQueryKey = (options?: Options<ListPipelinesData>) => createQueryKey('listPipelines', options);
+
+/**
+ * List all pipelines across customers
+ */
+export const listPipelinesOptions = (options?: Options<ListPipelinesData>) => queryOptions<ListPipelinesResponse, ListPipelinesError, ListPipelinesResponse, ReturnType<typeof listPipelinesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listPipelines({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listPipelinesQueryKey(options)
+});
+
+/**
+ * Validate a pipeline graph (structural + real `otelcol validate`)
+ */
+export const validatePipelineMutation = (options?: Partial<Options<ValidatePipelineData>>): UseMutationOptions<ValidatePipelineResponse, ValidatePipelineError, Options<ValidatePipelineData>> => {
+    const mutationOptions: UseMutationOptions<ValidatePipelineResponse, ValidatePipelineError, Options<ValidatePipelineData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await validatePipeline({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listCustomerPipelinesQueryKey = (options: Options<ListCustomerPipelinesData>) => createQueryKey('listCustomerPipelines', options);
+
+/**
+ * List pipelines of a customer
+ */
+export const listCustomerPipelinesOptions = (options: Options<ListCustomerPipelinesData>) => queryOptions<ListCustomerPipelinesResponse, ListCustomerPipelinesError, ListCustomerPipelinesResponse, ReturnType<typeof listCustomerPipelinesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listCustomerPipelines({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listCustomerPipelinesQueryKey(options)
+});
+
+/**
+ * Create a pipeline with an initial draft version
+ */
+export const createPipelineMutation = (options?: Partial<Options<CreatePipelineData>>): UseMutationOptions<CreatePipelineResponse, CreatePipelineError, Options<CreatePipelineData>> => {
+    const mutationOptions: UseMutationOptions<CreatePipelineResponse, CreatePipelineError, Options<CreatePipelineData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createPipeline({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete a pipeline (removes it from the forwarding config on next rollout)
+ */
+export const deletePipelineMutation = (options?: Partial<Options<DeletePipelineData>>): UseMutationOptions<DeletePipelineResponse, DeletePipelineError, Options<DeletePipelineData>> => {
+    const mutationOptions: UseMutationOptions<DeletePipelineResponse, DeletePipelineError, Options<DeletePipelineData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deletePipeline({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getPipelineQueryKey = (options: Options<GetPipelineData>) => createQueryKey('getPipeline', options);
+
+/**
+ * Get a pipeline including its versions
+ */
+export const getPipelineOptions = (options: Options<GetPipelineData>) => queryOptions<GetPipelineResponse, GetPipelineError, GetPipelineResponse, ReturnType<typeof getPipelineQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getPipeline({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getPipelineQueryKey(options)
+});
+
+/**
+ * Create a new version from a graph (validated; rejected when invalid)
+ */
+export const createPipelineVersionMutation = (options?: Partial<Options<CreatePipelineVersionData>>): UseMutationOptions<CreatePipelineVersionResponse, CreatePipelineVersionError, Options<CreatePipelineVersionData>> => {
+    const mutationOptions: UseMutationOptions<CreatePipelineVersionResponse, CreatePipelineVersionError, Options<CreatePipelineVersionData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createPipelineVersion({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getPipelineVersionQueryKey = (options: Options<GetPipelineVersionData>) => createQueryKey('getPipelineVersion', options);
+
+/**
+ * Get one version including rendered YAML
+ */
+export const getPipelineVersionOptions = (options: Options<GetPipelineVersionData>) => queryOptions<GetPipelineVersionResponse, GetPipelineVersionError, GetPipelineVersionResponse, ReturnType<typeof getPipelineVersionQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getPipelineVersion({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getPipelineVersionQueryKey(options)
+});
+
+/**
+ * Activate a version (deploys it to the forwarding tier; also used for rollback)
+ */
+export const activatePipelineVersionMutation = (options?: Partial<Options<ActivatePipelineVersionData>>): UseMutationOptions<ActivatePipelineVersionResponse, ActivatePipelineVersionError, Options<ActivatePipelineVersionData>> => {
+    const mutationOptions: UseMutationOptions<ActivatePipelineVersionResponse, ActivatePipelineVersionError, Options<ActivatePipelineVersionData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await activatePipelineVersion({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getPipelineStageStatsQueryKey = (options: Options<GetPipelineStageStatsData>) => createQueryKey('getPipelineStageStats', options);
+
+/**
+ * Per-stage flow metrics for a pipeline (received/exported/failed/queued)
+ */
+export const getPipelineStageStatsOptions = (options: Options<GetPipelineStageStatsData>) => queryOptions<GetPipelineStageStatsResponse, GetPipelineStageStatsError, GetPipelineStageStatsResponse, ReturnType<typeof getPipelineStageStatsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getPipelineStageStats({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getPipelineStageStatsQueryKey(options)
 });

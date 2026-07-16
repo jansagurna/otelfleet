@@ -43,6 +43,16 @@ type Config struct {
 	AdminEmails   []string
 	SessionSecure bool
 
+	// OtelcolBin is the collector distro binary used for `otelcol validate`;
+	// when missing, pipeline validation degrades to structural checks.
+	OtelcolBin string
+	// Distributor selects how rendered forwarding configs are rolled out:
+	// "publish" (ops endpoint + collector restart) or "k8s" (patch the
+	// OpenTelemetryCollector CR named below).
+	Distributor    string
+	K8sCRName      string
+	K8sCRNamespace string
+
 	// OIDCProviders holds every configured OIDC provider. In Phase 1 at most
 	// one (the generic OTELFLEET_OIDC_* provider) is present.
 	OIDCProviders []OIDCProvider
@@ -62,6 +72,13 @@ func Load() (*Config, error) {
 		OpsAddr:            env("OPS_ADDR", ":9090"),
 		BaseURL:            strings.TrimSuffix(env("BASE_URL", "http://localhost:8080"), "/"),
 		WebDir:             env("WEB_DIR", ""),
+		OtelcolBin:         env("OTELCOL_BIN", "collector/dist/otelfleet-collector"),
+		Distributor:        env("DISTRIBUTOR", "publish"),
+		K8sCRName:          env("K8S_CR_NAME", "otelfleet-forwarding"),
+		K8sCRNamespace:     env("K8S_CR_NAMESPACE", "otelfleet"),
+	}
+	if cfg.Distributor != "publish" && cfg.Distributor != "k8s" {
+		return nil, fmt.Errorf("OTELFLEET_DISTRIBUTOR must be 'publish' or 'k8s', got %q", cfg.Distributor)
 	}
 
 	var err error

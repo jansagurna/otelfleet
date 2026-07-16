@@ -27,6 +27,7 @@ import (
 	"github.com/sag-solutions/otelfleet/internal/config"
 	"github.com/sag-solutions/otelfleet/internal/ingestauth"
 	"github.com/sag-solutions/otelfleet/internal/ingestauth/authv1"
+	"github.com/sag-solutions/otelfleet/internal/pipelines"
 	"github.com/sag-solutions/otelfleet/internal/stats"
 	"github.com/sag-solutions/otelfleet/internal/store"
 	"github.com/sag-solutions/otelfleet/internal/tenants"
@@ -93,6 +94,20 @@ func run(log *slog.Logger) error {
 	statsSvc := stats.New(chConn, st, cfg.VictoriaMetricsURL, log)
 	ingestAuth := ingestauth.New(st, log, reg)
 
+	// Pipeline service: validator (real collector binary) + distributor.
+	validator := pipelines.NewValidator(cfg.OtelcolBin, log)
+	var distributor pipelines.Distributor
+	if cfg.Distributor == "k8s" {
+		distributor, err = pipelines.NewK8sDistributor(cfg.K8sCRName, cfg.K8sCRNamespace)
+		if err != nil {
+			return fmt.Errorf("configure k8s distributor: %w", err)
+		}
+		log.Info("using k8s distributor", "cr", cfg.K8sCRNamespace+"/"+cfg.K8sCRName)
+	} else {
+		distributor = pipelines.NewPublishDistributor()
+	}
+	pipelinesSvc := pipelines.NewService(st, validator, distributor, log)
+
 	// OIDC handlers.
 	var oidcHandlers []*auth.OIDCHandler
 	for _, p := range cfg.OIDCProviders {
@@ -100,7 +115,7 @@ func run(log *slog.Logger) error {
 	}
 
 	// REST API server.
-	server := api.NewServer(cfg, st, tenantsSvc, statsSvc, sessions, log)
+	server := api.NewServer(cfg, st, tenantsSvc, pipelinesSvc, statsSvc, sessions, log)
 	httpSrv := &http.Server{
 		Addr: cfg.HTTPAddr,
 		Handler: api.NewRouter(api.RouterDeps{
@@ -125,7 +140,7 @@ func run(log *slog.Logger) error {
 	// Ops server.
 	opsSrv := &http.Server{
 		Addr:              cfg.OpsAddr,
-		Handler:           api.NewOpsHandler(reg, st.Ping),
+		Handler:           api.NewOpsHandler(reg, st.Ping, pipelinesSvc.RenderCurrent),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

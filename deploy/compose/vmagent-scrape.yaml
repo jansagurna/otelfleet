@@ -7,6 +7,16 @@ scrape_configs:
       - targets: ["gateway:8888"]
         labels:
           collector_class: gateway
+  - job_name: otelcol-forwarding
+    static_configs:
+      - targets: ["forwarding:8888"]
+        labels:
+          collector_class: forwarding
+  - job_name: otelcol-acme-backend
+    static_configs:
+      - targets: ["acme-backend:8888"]
+        labels:
+          collector_class: demo-backend
   - job_name: otelfleet-control-plane
     static_configs:
       - targets: ["host.docker.internal:9090"]
