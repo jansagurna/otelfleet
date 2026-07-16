@@ -17,6 +17,57 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for AgentClass.
+const (
+	AgentClassEdge    AgentClass = "edge"
+	AgentClassGateway AgentClass = "gateway"
+)
+
+// Valid indicates whether the value is a known member of the AgentClass enum.
+func (e AgentClass) Valid() bool {
+	switch e {
+	case AgentClassEdge:
+		return true
+	case AgentClassGateway:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AgentEventEventType.
+const (
+	ConfigApplied AgentEventEventType = "config_applied"
+	ConfigFailed  AgentEventEventType = "config_failed"
+	Connected     AgentEventEventType = "connected"
+	Disconnected  AgentEventEventType = "disconnected"
+	Enrolled      AgentEventEventType = "enrolled"
+	Healthy       AgentEventEventType = "healthy"
+	Unhealthy     AgentEventEventType = "unhealthy"
+)
+
+// Valid indicates whether the value is a known member of the AgentEventEventType enum.
+func (e AgentEventEventType) Valid() bool {
+	switch e {
+	case ConfigApplied:
+		return true
+	case ConfigFailed:
+		return true
+	case Connected:
+		return true
+	case Disconnected:
+		return true
+	case Enrolled:
+		return true
+	case Healthy:
+		return true
+	case Unhealthy:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CatalogComponentKind.
 const (
 	Exporter  CatalogComponentKind = "exporter"
@@ -58,12 +109,15 @@ func (e CustomerStatus) Valid() bool {
 
 // Defines values for PipelineTargetClass.
 const (
+	PipelineTargetClassEdge       PipelineTargetClass = "edge"
 	PipelineTargetClassForwarding PipelineTargetClass = "forwarding"
 )
 
 // Valid indicates whether the value is a known member of the PipelineTargetClass enum.
 func (e PipelineTargetClass) Valid() bool {
 	switch e {
+	case PipelineTargetClassEdge:
+		return true
 	case PipelineTargetClassForwarding:
 		return true
 	default:
@@ -73,12 +127,15 @@ func (e PipelineTargetClass) Valid() bool {
 
 // Defines values for PipelineDetailTargetClass.
 const (
+	PipelineDetailTargetClassEdge       PipelineDetailTargetClass = "edge"
 	PipelineDetailTargetClassForwarding PipelineDetailTargetClass = "forwarding"
 )
 
 // Valid indicates whether the value is a known member of the PipelineDetailTargetClass enum.
 func (e PipelineDetailTargetClass) Valid() bool {
 	switch e {
+	case PipelineDetailTargetClassEdge:
+		return true
 	case PipelineDetailTargetClassForwarding:
 		return true
 	default:
@@ -122,6 +179,30 @@ func (e PipelineVersionSummaryValidationStatus) Valid() bool {
 	}
 }
 
+// Defines values for RemoteConfigStatus.
+const (
+	RemoteConfigStatusApplied  RemoteConfigStatus = "applied"
+	RemoteConfigStatusApplying RemoteConfigStatus = "applying"
+	RemoteConfigStatusFailed   RemoteConfigStatus = "failed"
+	RemoteConfigStatusUnset    RemoteConfigStatus = "unset"
+)
+
+// Valid indicates whether the value is a known member of the RemoteConfigStatus enum.
+func (e RemoteConfigStatus) Valid() bool {
+	switch e {
+	case RemoteConfigStatusApplied:
+		return true
+	case RemoteConfigStatusApplying:
+		return true
+	case RemoteConfigStatusFailed:
+		return true
+	case RemoteConfigStatusUnset:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Role.
 const (
 	Admin    Role = "admin"
@@ -145,16 +226,16 @@ func (e Role) Valid() bool {
 
 // Defines values for RolloutStatusState.
 const (
-	Applied        RolloutStatusState = "applied"
-	PendingRestart RolloutStatusState = "pending_restart"
+	RolloutStatusStateApplied        RolloutStatusState = "applied"
+	RolloutStatusStatePendingRestart RolloutStatusState = "pending_restart"
 )
 
 // Valid indicates whether the value is a known member of the RolloutStatusState enum.
 func (e RolloutStatusState) Valid() bool {
 	switch e {
-	case Applied:
+	case RolloutStatusStateApplied:
 		return true
-	case PendingRestart:
+	case RolloutStatusStatePendingRestart:
 		return true
 	default:
 		return false
@@ -176,6 +257,24 @@ func (e Signal) Valid() bool {
 	case Metrics:
 		return true
 	case Traces:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListAgentsParamsClass.
+const (
+	ListAgentsParamsClassEdge    ListAgentsParamsClass = "edge"
+	ListAgentsParamsClassGateway ListAgentsParamsClass = "gateway"
+)
+
+// Valid indicates whether the value is a known member of the ListAgentsParamsClass enum.
+func (e ListAgentsParamsClass) Valid() bool {
+	switch e {
+	case ListAgentsParamsClassEdge:
+		return true
+	case ListAgentsParamsClassGateway:
 		return true
 	default:
 		return false
@@ -218,6 +317,126 @@ func (e UpdateCustomerJSONBodyStatus) Valid() bool {
 	}
 }
 
+// Defines values for CreatePipelineJSONBodyTargetClass.
+const (
+	CreatePipelineJSONBodyTargetClassEdge       CreatePipelineJSONBodyTargetClass = "edge"
+	CreatePipelineJSONBodyTargetClassForwarding CreatePipelineJSONBodyTargetClass = "forwarding"
+)
+
+// Valid indicates whether the value is a known member of the CreatePipelineJSONBodyTargetClass enum.
+func (e CreatePipelineJSONBodyTargetClass) Valid() bool {
+	switch e {
+	case CreatePipelineJSONBodyTargetClassEdge:
+		return true
+	case CreatePipelineJSONBodyTargetClassForwarding:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ValidatePipelineJSONBodyTargetClass.
+const (
+	ValidatePipelineJSONBodyTargetClassEdge       ValidatePipelineJSONBodyTargetClass = "edge"
+	ValidatePipelineJSONBodyTargetClassForwarding ValidatePipelineJSONBodyTargetClass = "forwarding"
+)
+
+// Valid indicates whether the value is a known member of the ValidatePipelineJSONBodyTargetClass enum.
+func (e ValidatePipelineJSONBodyTargetClass) Valid() bool {
+	switch e {
+	case ValidatePipelineJSONBodyTargetClassEdge:
+		return true
+	case ValidatePipelineJSONBodyTargetClassForwarding:
+		return true
+	default:
+		return false
+	}
+}
+
+// Agent defines model for Agent.
+type Agent struct {
+	AgentVersion *string `json:"agentVersion,omitempty"`
+
+	// AssignedConfigHash SHA-256 hex of the desired config
+	AssignedConfigHash *string    `json:"assignedConfigHash,omitempty"`
+	Class              AgentClass `json:"class"`
+
+	// ConfigInSync assigned == reported; null when either side is unknown.
+	ConfigInSync *bool               `json:"configInSync,omitempty"`
+	Connected    bool                `json:"connected"`
+	CreatedAt    time.Time           `json:"createdAt"`
+	CustomerId   *openapi_types.UUID `json:"customerId,omitempty"`
+	CustomerName *string             `json:"customerName,omitempty"`
+
+	// Healthy Last reported ComponentHealth; null when never reported
+	Healthy *bool              `json:"healthy,omitempty"`
+	Id      openapi_types.UUID `json:"id"`
+
+	// InstanceUid OpAMP instance UID (hex)
+	InstanceUid string     `json:"instanceUid"`
+	LastSeenAt  *time.Time `json:"lastSeenAt,omitempty"`
+
+	// Name From AgentDescription (host.name / service.name)
+	Name               *string            `json:"name,omitempty"`
+	RemoteConfigError  *string            `json:"remoteConfigError,omitempty"`
+	RemoteConfigStatus RemoteConfigStatus `json:"remoteConfigStatus"`
+
+	// ReportedConfigHash Hash the agent says it runs
+	ReportedConfigHash *string `json:"reportedConfigHash,omitempty"`
+}
+
+// AgentClass defines model for AgentClass.
+type AgentClass string
+
+// AgentDetail defines model for AgentDetail.
+type AgentDetail struct {
+	AgentVersion *string `json:"agentVersion,omitempty"`
+
+	// AssignedConfigHash SHA-256 hex of the desired config
+	AssignedConfigHash *string    `json:"assignedConfigHash,omitempty"`
+	Class              AgentClass `json:"class"`
+
+	// ConfigInSync assigned == reported; null when either side is unknown.
+	ConfigInSync *bool               `json:"configInSync,omitempty"`
+	Connected    bool                `json:"connected"`
+	CreatedAt    time.Time           `json:"createdAt"`
+	CustomerId   *openapi_types.UUID `json:"customerId,omitempty"`
+	CustomerName *string             `json:"customerName,omitempty"`
+
+	// Description Full OpAMP AgentDescription attributes.
+	Description *map[string]interface{} `json:"description,omitempty"`
+
+	// Health Last ComponentHealth tree as reported.
+	Health *map[string]interface{} `json:"health,omitempty"`
+
+	// Healthy Last reported ComponentHealth; null when never reported
+	Healthy *bool              `json:"healthy,omitempty"`
+	Id      openapi_types.UUID `json:"id"`
+
+	// InstanceUid OpAMP instance UID (hex)
+	InstanceUid string     `json:"instanceUid"`
+	LastSeenAt  *time.Time `json:"lastSeenAt,omitempty"`
+
+	// Name From AgentDescription (host.name / service.name)
+	Name               *string            `json:"name,omitempty"`
+	RemoteConfigError  *string            `json:"remoteConfigError,omitempty"`
+	RemoteConfigStatus RemoteConfigStatus `json:"remoteConfigStatus"`
+
+	// ReportedConfigHash Hash the agent says it runs
+	ReportedConfigHash *string `json:"reportedConfigHash,omitempty"`
+}
+
+// AgentEvent defines model for AgentEvent.
+type AgentEvent struct {
+	CreatedAt time.Time               `json:"createdAt"`
+	Detail    *map[string]interface{} `json:"detail,omitempty"`
+	EventType AgentEventEventType     `json:"eventType"`
+	Id        int64                   `json:"id"`
+}
+
+// AgentEventEventType defines model for AgentEvent.EventType.
+type AgentEventEventType string
+
 // ApiKey defines model for ApiKey.
 type ApiKey struct {
 	CreatedAt  time.Time          `json:"createdAt"`
@@ -254,6 +473,39 @@ type AuthProvider struct {
 	DisplayName string `json:"displayName"`
 	LoginUrl    string `json:"loginUrl"`
 	Name        string `json:"name"`
+}
+
+// BootstrapToken defines model for BootstrapToken.
+type BootstrapToken struct {
+	CreatedAt  time.Time          `json:"createdAt"`
+	CustomerId openapi_types.UUID `json:"customerId"`
+	ExpiresAt  time.Time          `json:"expiresAt"`
+	Id         openapi_types.UUID `json:"id"`
+
+	// MaxUses 0 = unlimited
+	MaxUses     int        `json:"maxUses"`
+	Name        string     `json:"name"`
+	RevokedAt   *time.Time `json:"revokedAt,omitempty"`
+	TokenPrefix string     `json:"tokenPrefix"`
+	UsedCount   int        `json:"usedCount"`
+}
+
+// BootstrapTokenCreated defines model for BootstrapTokenCreated.
+type BootstrapTokenCreated struct {
+	CreatedAt  time.Time          `json:"createdAt"`
+	CustomerId openapi_types.UUID `json:"customerId"`
+	ExpiresAt  time.Time          `json:"expiresAt"`
+	Id         openapi_types.UUID `json:"id"`
+
+	// MaxUses 0 = unlimited
+	MaxUses   int        `json:"maxUses"`
+	Name      string     `json:"name"`
+	RevokedAt *time.Time `json:"revokedAt,omitempty"`
+
+	// Secret Full enrollment token. Shown exactly once; only a hash is stored.
+	Secret      string `json:"secret"`
+	TokenPrefix string `json:"tokenPrefix"`
+	UsedCount   int    `json:"usedCount"`
 }
 
 // CatalogComponent defines model for CatalogComponent.
@@ -332,11 +584,11 @@ type Pipeline struct {
 	LatestVersion *int               `json:"latestVersion,omitempty"`
 	Name          string             `json:"name"`
 
-	// TargetClass More classes (gateway
+	// TargetClass forwarding = runs on the central forwarding tier (tenant-routed); edge = rendered as standalone config pushed to the customer's edge agents via OpAMP.
 	TargetClass PipelineTargetClass `json:"targetClass"`
 }
 
-// PipelineTargetClass More classes (gateway
+// PipelineTargetClass forwarding = runs on the central forwarding tier (tenant-routed); edge = rendered as standalone config pushed to the customer's edge agents via OpAMP.
 type PipelineTargetClass string
 
 // PipelineDetail defines model for PipelineDetail.
@@ -349,14 +601,14 @@ type PipelineDetail struct {
 	LatestVersion *int               `json:"latestVersion,omitempty"`
 	Name          string             `json:"name"`
 
-	// TargetClass More classes (gateway
+	// TargetClass forwarding = runs on the central forwarding tier (tenant-routed); edge = rendered as standalone config pushed to the customer's edge agents via OpAMP.
 	TargetClass PipelineDetailTargetClass `json:"targetClass"`
 
 	// Versions Newest first; graph/renderedYaml only via the version endpoint.
 	Versions []PipelineVersionSummary `json:"versions"`
 }
 
-// PipelineDetailTargetClass More classes (gateway
+// PipelineDetailTargetClass forwarding = runs on the central forwarding tier (tenant-routed); edge = rendered as standalone config pushed to the customer's edge agents via OpAMP.
 type PipelineDetailTargetClass string
 
 // PipelineGraph UI pipeline model. The receiver side is implicit: the customer's ingested stream, routed by tenant.id into this pipeline on the forwarding tier.
@@ -427,6 +679,9 @@ type PipelineVersionSummary struct {
 
 // PipelineVersionSummaryValidationStatus defines model for PipelineVersionSummary.ValidationStatus.
 type PipelineVersionSummaryValidationStatus string
+
+// RemoteConfigStatus defines model for RemoteConfigStatus.
+type RemoteConfigStatus string
 
 // Role defines model for Role.
 type Role string
@@ -516,6 +771,21 @@ type NotFound = Error
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = Error
 
+// ListAgentsParams defines parameters for ListAgents.
+type ListAgentsParams struct {
+	Class      *ListAgentsParamsClass `form:"class,omitempty" json:"class,omitempty"`
+	CustomerId *openapi_types.UUID    `form:"customerId,omitempty" json:"customerId,omitempty"`
+	Connected  *bool                  `form:"connected,omitempty" json:"connected,omitempty"`
+}
+
+// ListAgentsParamsClass defines parameters for ListAgents.
+type ListAgentsParamsClass string
+
+// ListAgentEventsParams defines parameters for ListAgentEvents.
+type ListAgentEventsParams struct {
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // DevLoginJSONBody defines parameters for DevLogin.
 type DevLoginJSONBody struct {
 	Email openapi_types.Email `json:"email"`
@@ -544,12 +814,26 @@ type CreateApiKeyJSONBody struct {
 	Name      string     `json:"name"`
 }
 
+// CreateBootstrapTokenJSONBody defines parameters for CreateBootstrapToken.
+type CreateBootstrapTokenJSONBody struct {
+	// ExpiresAt Defaults to 30 days
+	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
+
+	// MaxUses 0 = unlimited
+	MaxUses *int   `json:"maxUses,omitempty"`
+	Name    string `json:"name"`
+}
+
 // CreatePipelineJSONBody defines parameters for CreatePipeline.
 type CreatePipelineJSONBody struct {
 	// Graph UI pipeline model. The receiver side is implicit: the customer's ingested stream, routed by tenant.id into this pipeline on the forwarding tier.
-	Graph PipelineGraph `json:"graph"`
-	Name  string        `json:"name"`
+	Graph       PipelineGraph                      `json:"graph"`
+	Name        string                             `json:"name"`
+	TargetClass *CreatePipelineJSONBodyTargetClass `json:"targetClass,omitempty"`
 }
+
+// CreatePipelineJSONBodyTargetClass defines parameters for CreatePipeline.
+type CreatePipelineJSONBodyTargetClass string
 
 // GetCustomerThroughputParams defines parameters for GetCustomerThroughput.
 type GetCustomerThroughputParams struct {
@@ -563,8 +847,12 @@ type GetCustomerThroughputParams struct {
 // ValidatePipelineJSONBody defines parameters for ValidatePipeline.
 type ValidatePipelineJSONBody struct {
 	// Graph UI pipeline model. The receiver side is implicit: the customer's ingested stream, routed by tenant.id into this pipeline on the forwarding tier.
-	Graph PipelineGraph `json:"graph"`
+	Graph       PipelineGraph                        `json:"graph"`
+	TargetClass *ValidatePipelineJSONBodyTargetClass `json:"targetClass,omitempty"`
 }
+
+// ValidatePipelineJSONBodyTargetClass defines parameters for ValidatePipeline.
+type ValidatePipelineJSONBodyTargetClass string
 
 // GetPipelineStageStatsParams defines parameters for GetPipelineStageStats.
 type GetPipelineStageStatsParams struct {
@@ -596,6 +884,9 @@ type UpdateCustomerJSONRequestBody UpdateCustomerJSONBody
 // CreateApiKeyJSONRequestBody defines body for CreateApiKey for application/json ContentType.
 type CreateApiKeyJSONRequestBody CreateApiKeyJSONBody
 
+// CreateBootstrapTokenJSONRequestBody defines body for CreateBootstrapToken for application/json ContentType.
+type CreateBootstrapTokenJSONRequestBody CreateBootstrapTokenJSONBody
+
 // CreatePipelineJSONRequestBody defines body for CreatePipeline for application/json ContentType.
 type CreatePipelineJSONRequestBody CreatePipelineJSONBody
 
@@ -607,6 +898,21 @@ type CreatePipelineVersionJSONRequestBody CreatePipelineVersionJSONBody
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// List collector agents (gateway replicas and edge agents)
+	// (GET /api/v1/agents)
+	ListAgents(w http.ResponseWriter, r *http.Request, params ListAgentsParams)
+	// Forget a stale agent (a reconnecting agent re-registers itself)
+	// (DELETE /api/v1/agents/{agentId})
+	DeleteAgent(w http.ResponseWriter, r *http.Request, agentId openapi_types.UUID)
+	// Get one agent including its health tree
+	// (GET /api/v1/agents/{agentId})
+	GetAgent(w http.ResponseWriter, r *http.Request, agentId openapi_types.UUID)
+	// Assigned (desired) and reported (effective) config for the diff view
+	// (GET /api/v1/agents/{agentId}/config)
+	GetAgentConfig(w http.ResponseWriter, r *http.Request, agentId openapi_types.UUID)
+	// Status transitions of one agent, newest first
+	// (GET /api/v1/agents/{agentId}/events)
+	ListAgentEvents(w http.ResponseWriter, r *http.Request, agentId openapi_types.UUID, params ListAgentEventsParams)
 	// Password-less local development login (disabled in production)
 	// (POST /api/v1/auth/dev-login)
 	DevLogin(w http.ResponseWriter, r *http.Request)
@@ -643,6 +949,15 @@ type ServerInterface interface {
 	// Revoke an API key (takes effect at the gateway within ~60s)
 	// (DELETE /api/v1/customers/{customerId}/api-keys/{keyId})
 	RevokeApiKey(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID, keyId openapi_types.UUID)
+	// List edge-agent enrollment tokens (never includes secrets)
+	// (GET /api/v1/customers/{customerId}/bootstrap-tokens)
+	ListBootstrapTokens(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID)
+	// Create an enrollment token (secret returned exactly once)
+	// (POST /api/v1/customers/{customerId}/bootstrap-tokens)
+	CreateBootstrapToken(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID)
+	// Revoke an enrollment token (existing agents stay connected)
+	// (DELETE /api/v1/customers/{customerId}/bootstrap-tokens/{tokenId})
+	RevokeBootstrapToken(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID, tokenId openapi_types.UUID)
 	// List pipelines of a customer
 	// (GET /api/v1/customers/{customerId}/pipelines)
 	ListCustomerPipelines(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID)
@@ -687,6 +1002,36 @@ type ServerInterface interface {
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
+
+// List collector agents (gateway replicas and edge agents)
+// (GET /api/v1/agents)
+func (_ Unimplemented) ListAgents(w http.ResponseWriter, r *http.Request, params ListAgentsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Forget a stale agent (a reconnecting agent re-registers itself)
+// (DELETE /api/v1/agents/{agentId})
+func (_ Unimplemented) DeleteAgent(w http.ResponseWriter, r *http.Request, agentId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get one agent including its health tree
+// (GET /api/v1/agents/{agentId})
+func (_ Unimplemented) GetAgent(w http.ResponseWriter, r *http.Request, agentId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Assigned (desired) and reported (effective) config for the diff view
+// (GET /api/v1/agents/{agentId}/config)
+func (_ Unimplemented) GetAgentConfig(w http.ResponseWriter, r *http.Request, agentId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Status transitions of one agent, newest first
+// (GET /api/v1/agents/{agentId}/events)
+func (_ Unimplemented) ListAgentEvents(w http.ResponseWriter, r *http.Request, agentId openapi_types.UUID, params ListAgentEventsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
 
 // Password-less local development login (disabled in production)
 // (POST /api/v1/auth/dev-login)
@@ -757,6 +1102,24 @@ func (_ Unimplemented) CreateApiKey(w http.ResponseWriter, r *http.Request, cust
 // Revoke an API key (takes effect at the gateway within ~60s)
 // (DELETE /api/v1/customers/{customerId}/api-keys/{keyId})
 func (_ Unimplemented) RevokeApiKey(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID, keyId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List edge-agent enrollment tokens (never includes secrets)
+// (GET /api/v1/customers/{customerId}/bootstrap-tokens)
+func (_ Unimplemented) ListBootstrapTokens(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create an enrollment token (secret returned exactly once)
+// (POST /api/v1/customers/{customerId}/bootstrap-tokens)
+func (_ Unimplemented) CreateBootstrapToken(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Revoke an enrollment token (existing agents stay connected)
+// (DELETE /api/v1/customers/{customerId}/bootstrap-tokens/{tokenId})
+func (_ Unimplemented) RevokeBootstrapToken(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID, tokenId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -846,6 +1209,185 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// ListAgents operation middleware
+func (siw *ServerInterfaceWrapper) ListAgents(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAgentsParams
+
+	// ------------- Optional query parameter "class" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "class", r.URL.Query(), &params.Class, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "class"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "class", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "customerId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "customerId", r.URL.Query(), &params.CustomerId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "customerId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerId", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "connected" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "connected", r.URL.Query(), &params.Connected, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "connected"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "connected", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAgents(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAgent operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAgent(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "agentId" -------------
+	var agentId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "agentId", chi.URLParam(r, "agentId"), &agentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "agentId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAgent(w, r, agentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAgent operation middleware
+func (siw *ServerInterfaceWrapper) GetAgent(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "agentId" -------------
+	var agentId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "agentId", chi.URLParam(r, "agentId"), &agentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "agentId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAgent(w, r, agentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAgentConfig operation middleware
+func (siw *ServerInterfaceWrapper) GetAgentConfig(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "agentId" -------------
+	var agentId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "agentId", chi.URLParam(r, "agentId"), &agentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "agentId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAgentConfig(w, r, agentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAgentEvents operation middleware
+func (siw *ServerInterfaceWrapper) ListAgentEvents(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "agentId" -------------
+	var agentId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "agentId", chi.URLParam(r, "agentId"), &agentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "agentId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAgentEventsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAgentEvents(w, r, agentId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // DevLogin operation middleware
 func (siw *ServerInterfaceWrapper) DevLogin(w http.ResponseWriter, r *http.Request) {
@@ -1106,6 +1648,93 @@ func (siw *ServerInterfaceWrapper) RevokeApiKey(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RevokeApiKey(w, r, customerId, keyId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListBootstrapTokens operation middleware
+func (siw *ServerInterfaceWrapper) ListBootstrapTokens(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerId" -------------
+	var customerId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerId", chi.URLParam(r, "customerId"), &customerId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListBootstrapTokens(w, r, customerId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateBootstrapToken operation middleware
+func (siw *ServerInterfaceWrapper) CreateBootstrapToken(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerId" -------------
+	var customerId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerId", chi.URLParam(r, "customerId"), &customerId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateBootstrapToken(w, r, customerId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevokeBootstrapToken operation middleware
+func (siw *ServerInterfaceWrapper) RevokeBootstrapToken(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerId" -------------
+	var customerId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerId", chi.URLParam(r, "customerId"), &customerId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "tokenId" -------------
+	var tokenId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tokenId", chi.URLParam(r, "tokenId"), &tokenId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tokenId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokeBootstrapToken(w, r, customerId, tokenId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1653,6 +2282,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/agents", wrapper.ListAgents)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/agents/{agentId}", wrapper.DeleteAgent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/agents/{agentId}", wrapper.GetAgent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/agents/{agentId}/config", wrapper.GetAgentConfig)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/agents/{agentId}/events", wrapper.ListAgentEvents)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/auth/dev-login", wrapper.DevLogin)
 	})
 	r.Group(func(r chi.Router) {
@@ -1687,6 +2331,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/v1/customers/{customerId}/api-keys/{keyId}", wrapper.RevokeApiKey)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/customers/{customerId}/bootstrap-tokens", wrapper.ListBootstrapTokens)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/customers/{customerId}/bootstrap-tokens", wrapper.CreateBootstrapToken)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/customers/{customerId}/bootstrap-tokens/{tokenId}", wrapper.RevokeBootstrapToken)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/customers/{customerId}/pipelines", wrapper.ListCustomerPipelines)
@@ -1740,6 +2393,275 @@ type ForbiddenJSONResponse Error
 type NotFoundJSONResponse Error
 
 type UnauthorizedJSONResponse Error
+
+type ListAgentsRequestObject struct {
+	Params ListAgentsParams
+}
+
+type ListAgentsResponseObject interface {
+	VisitListAgentsResponse(w http.ResponseWriter) error
+}
+
+type ListAgents200JSONResponse struct {
+	Agents []Agent `json:"agents"`
+}
+
+func (response ListAgents200JSONResponse) VisitListAgentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAgents401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListAgents401JSONResponse) VisitListAgentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAgentRequestObject struct {
+	AgentId openapi_types.UUID `json:"agentId"`
+}
+
+type DeleteAgentResponseObject interface {
+	VisitDeleteAgentResponse(w http.ResponseWriter) error
+}
+
+type DeleteAgent204Response struct {
+}
+
+func (response DeleteAgent204Response) VisitDeleteAgentResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteAgent401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteAgent401JSONResponse) VisitDeleteAgentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAgent403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteAgent403JSONResponse) VisitDeleteAgentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAgent404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteAgent404JSONResponse) VisitDeleteAgentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAgent409JSONResponse struct{ ConflictJSONResponse }
+
+func (response DeleteAgent409JSONResponse) VisitDeleteAgentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAgentRequestObject struct {
+	AgentId openapi_types.UUID `json:"agentId"`
+}
+
+type GetAgentResponseObject interface {
+	VisitGetAgentResponse(w http.ResponseWriter) error
+}
+
+type GetAgent200JSONResponse AgentDetail
+
+func (response GetAgent200JSONResponse) VisitGetAgentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAgent401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAgent401JSONResponse) VisitGetAgentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAgent404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetAgent404JSONResponse) VisitGetAgentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAgentConfigRequestObject struct {
+	AgentId openapi_types.UUID `json:"agentId"`
+}
+
+type GetAgentConfigResponseObject interface {
+	VisitGetAgentConfigResponse(w http.ResponseWriter) error
+}
+
+type GetAgentConfig200JSONResponse struct {
+	// AssignedYaml What the control plane wants the agent to run ("" for gateway-class agents managed outside OpAMP).
+	AssignedYaml string `json:"assignedYaml"`
+
+	// ReportedYaml Last effective config the agent reported ("" when unknown).
+	ReportedYaml string `json:"reportedYaml"`
+}
+
+func (response GetAgentConfig200JSONResponse) VisitGetAgentConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAgentConfig401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetAgentConfig401JSONResponse) VisitGetAgentConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAgentConfig404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetAgentConfig404JSONResponse) VisitGetAgentConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAgentEventsRequestObject struct {
+	AgentId openapi_types.UUID `json:"agentId"`
+	Params  ListAgentEventsParams
+}
+
+type ListAgentEventsResponseObject interface {
+	VisitListAgentEventsResponse(w http.ResponseWriter) error
+}
+
+type ListAgentEvents200JSONResponse struct {
+	Events []AgentEvent `json:"events"`
+}
+
+func (response ListAgentEvents200JSONResponse) VisitListAgentEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAgentEvents401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListAgentEvents401JSONResponse) VisitListAgentEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAgentEvents404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ListAgentEvents404JSONResponse) VisitListAgentEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
 
 type DevLoginRequestObject struct {
 	Body *DevLoginJSONRequestBody
@@ -2306,6 +3228,182 @@ func (response RevokeApiKey403JSONResponse) VisitRevokeApiKeyResponse(w http.Res
 type RevokeApiKey404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response RevokeApiKey404JSONResponse) VisitRevokeApiKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListBootstrapTokensRequestObject struct {
+	CustomerId openapi_types.UUID `json:"customerId"`
+}
+
+type ListBootstrapTokensResponseObject interface {
+	VisitListBootstrapTokensResponse(w http.ResponseWriter) error
+}
+
+type ListBootstrapTokens200JSONResponse struct {
+	Tokens []BootstrapToken `json:"tokens"`
+}
+
+func (response ListBootstrapTokens200JSONResponse) VisitListBootstrapTokensResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListBootstrapTokens401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListBootstrapTokens401JSONResponse) VisitListBootstrapTokensResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListBootstrapTokens404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ListBootstrapTokens404JSONResponse) VisitListBootstrapTokensResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBootstrapTokenRequestObject struct {
+	CustomerId openapi_types.UUID `json:"customerId"`
+	Body       *CreateBootstrapTokenJSONRequestBody
+}
+
+type CreateBootstrapTokenResponseObject interface {
+	VisitCreateBootstrapTokenResponse(w http.ResponseWriter) error
+}
+
+type CreateBootstrapToken201JSONResponse BootstrapTokenCreated
+
+func (response CreateBootstrapToken201JSONResponse) VisitCreateBootstrapTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBootstrapToken401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateBootstrapToken401JSONResponse) VisitCreateBootstrapTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBootstrapToken403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateBootstrapToken403JSONResponse) VisitCreateBootstrapTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBootstrapToken404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response CreateBootstrapToken404JSONResponse) VisitCreateBootstrapTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokeBootstrapTokenRequestObject struct {
+	CustomerId openapi_types.UUID `json:"customerId"`
+	TokenId    openapi_types.UUID `json:"tokenId"`
+}
+
+type RevokeBootstrapTokenResponseObject interface {
+	VisitRevokeBootstrapTokenResponse(w http.ResponseWriter) error
+}
+
+type RevokeBootstrapToken204Response struct {
+}
+
+func (response RevokeBootstrapToken204Response) VisitRevokeBootstrapTokenResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type RevokeBootstrapToken401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response RevokeBootstrapToken401JSONResponse) VisitRevokeBootstrapTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokeBootstrapToken403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RevokeBootstrapToken403JSONResponse) VisitRevokeBootstrapTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokeBootstrapToken404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response RevokeBootstrapToken404JSONResponse) VisitRevokeBootstrapTokenResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -3013,6 +4111,21 @@ func (response GetStatsOverview401JSONResponse) VisitGetStatsOverviewResponse(w 
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// List collector agents (gateway replicas and edge agents)
+	// (GET /api/v1/agents)
+	ListAgents(ctx context.Context, request ListAgentsRequestObject) (ListAgentsResponseObject, error)
+	// Forget a stale agent (a reconnecting agent re-registers itself)
+	// (DELETE /api/v1/agents/{agentId})
+	DeleteAgent(ctx context.Context, request DeleteAgentRequestObject) (DeleteAgentResponseObject, error)
+	// Get one agent including its health tree
+	// (GET /api/v1/agents/{agentId})
+	GetAgent(ctx context.Context, request GetAgentRequestObject) (GetAgentResponseObject, error)
+	// Assigned (desired) and reported (effective) config for the diff view
+	// (GET /api/v1/agents/{agentId}/config)
+	GetAgentConfig(ctx context.Context, request GetAgentConfigRequestObject) (GetAgentConfigResponseObject, error)
+	// Status transitions of one agent, newest first
+	// (GET /api/v1/agents/{agentId}/events)
+	ListAgentEvents(ctx context.Context, request ListAgentEventsRequestObject) (ListAgentEventsResponseObject, error)
 	// Password-less local development login (disabled in production)
 	// (POST /api/v1/auth/dev-login)
 	DevLogin(ctx context.Context, request DevLoginRequestObject) (DevLoginResponseObject, error)
@@ -3049,6 +4162,15 @@ type StrictServerInterface interface {
 	// Revoke an API key (takes effect at the gateway within ~60s)
 	// (DELETE /api/v1/customers/{customerId}/api-keys/{keyId})
 	RevokeApiKey(ctx context.Context, request RevokeApiKeyRequestObject) (RevokeApiKeyResponseObject, error)
+	// List edge-agent enrollment tokens (never includes secrets)
+	// (GET /api/v1/customers/{customerId}/bootstrap-tokens)
+	ListBootstrapTokens(ctx context.Context, request ListBootstrapTokensRequestObject) (ListBootstrapTokensResponseObject, error)
+	// Create an enrollment token (secret returned exactly once)
+	// (POST /api/v1/customers/{customerId}/bootstrap-tokens)
+	CreateBootstrapToken(ctx context.Context, request CreateBootstrapTokenRequestObject) (CreateBootstrapTokenResponseObject, error)
+	// Revoke an enrollment token (existing agents stay connected)
+	// (DELETE /api/v1/customers/{customerId}/bootstrap-tokens/{tokenId})
+	RevokeBootstrapToken(ctx context.Context, request RevokeBootstrapTokenRequestObject) (RevokeBootstrapTokenResponseObject, error)
 	// List pipelines of a customer
 	// (GET /api/v1/customers/{customerId}/pipelines)
 	ListCustomerPipelines(ctx context.Context, request ListCustomerPipelinesRequestObject) (ListCustomerPipelinesResponseObject, error)
@@ -3117,6 +4239,137 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// ListAgents operation middleware
+func (sh *strictHandler) ListAgents(w http.ResponseWriter, r *http.Request, params ListAgentsParams) {
+	var request ListAgentsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAgents(ctx, request.(ListAgentsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAgents")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAgentsResponseObject); ok {
+		if err := validResponse.VisitListAgentsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteAgent operation middleware
+func (sh *strictHandler) DeleteAgent(w http.ResponseWriter, r *http.Request, agentId openapi_types.UUID) {
+	var request DeleteAgentRequestObject
+
+	request.AgentId = agentId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAgent(ctx, request.(DeleteAgentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAgent")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteAgentResponseObject); ok {
+		if err := validResponse.VisitDeleteAgentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAgent operation middleware
+func (sh *strictHandler) GetAgent(w http.ResponseWriter, r *http.Request, agentId openapi_types.UUID) {
+	var request GetAgentRequestObject
+
+	request.AgentId = agentId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAgent(ctx, request.(GetAgentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAgent")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAgentResponseObject); ok {
+		if err := validResponse.VisitGetAgentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAgentConfig operation middleware
+func (sh *strictHandler) GetAgentConfig(w http.ResponseWriter, r *http.Request, agentId openapi_types.UUID) {
+	var request GetAgentConfigRequestObject
+
+	request.AgentId = agentId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAgentConfig(ctx, request.(GetAgentConfigRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAgentConfig")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAgentConfigResponseObject); ok {
+		if err := validResponse.VisitGetAgentConfigResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListAgentEvents operation middleware
+func (sh *strictHandler) ListAgentEvents(w http.ResponseWriter, r *http.Request, agentId openapi_types.UUID, params ListAgentEventsParams) {
+	var request ListAgentEventsRequestObject
+
+	request.AgentId = agentId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAgentEvents(ctx, request.(ListAgentEventsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAgentEvents")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAgentEventsResponseObject); ok {
+		if err := validResponse.VisitListAgentEventsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // DevLogin operation middleware
@@ -3443,6 +4696,92 @@ func (sh *strictHandler) RevokeApiKey(w http.ResponseWriter, r *http.Request, cu
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(RevokeApiKeyResponseObject); ok {
 		if err := validResponse.VisitRevokeApiKeyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListBootstrapTokens operation middleware
+func (sh *strictHandler) ListBootstrapTokens(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID) {
+	var request ListBootstrapTokensRequestObject
+
+	request.CustomerId = customerId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListBootstrapTokens(ctx, request.(ListBootstrapTokensRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListBootstrapTokens")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListBootstrapTokensResponseObject); ok {
+		if err := validResponse.VisitListBootstrapTokensResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateBootstrapToken operation middleware
+func (sh *strictHandler) CreateBootstrapToken(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID) {
+	var request CreateBootstrapTokenRequestObject
+
+	request.CustomerId = customerId
+
+	var body CreateBootstrapTokenJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateBootstrapToken(ctx, request.(CreateBootstrapTokenRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateBootstrapToken")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateBootstrapTokenResponseObject); ok {
+		if err := validResponse.VisitCreateBootstrapTokenResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RevokeBootstrapToken operation middleware
+func (sh *strictHandler) RevokeBootstrapToken(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID, tokenId openapi_types.UUID) {
+	var request RevokeBootstrapTokenRequestObject
+
+	request.CustomerId = customerId
+	request.TokenId = tokenId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RevokeBootstrapToken(ctx, request.(RevokeBootstrapTokenRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RevokeBootstrapToken")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RevokeBootstrapTokenResponseObject); ok {
+		if err := validResponse.VisitRevokeBootstrapTokenResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

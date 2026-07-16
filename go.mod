@@ -11,6 +11,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/oapi-codegen/runtime v1.5.0
+	github.com/open-telemetry/opamp-go v0.23.0
 	github.com/pressly/goose/v3 v3.27.2
 	github.com/prometheus/client_golang v1.23.2
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
@@ -76,6 +77,7 @@ require (
 	github.com/gofrs/flock v0.13.0 // indirect
 	github.com/google/cel-go v0.28.1 // indirect
 	github.com/google/go-containerregistry v0.21.6 // indirect
+	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect

@@ -72,7 +72,7 @@ exporters:
       enabled: true
       storage: file_storage
   prometheusremotewrite:
-    endpoint: http://victoriametrics:8428/api/v1/write
+    endpoint: ${env:OTELFLEET_VM_REMOTE_WRITE:-http://victoriametrics:8428/api/v1/write}
     resource_to_telemetry_conversion:
       enabled: true # tenant.id resource attribute becomes a metric label
   # P2: unconditional copy of all ingested data to the forwarding tier. The
@@ -84,7 +84,7 @@ exporters:
   # the queue fills and data for this exporter is dropped — the clickhouse
   # pipeline branch is unaffected (per-exporter queues are independent).
   otlp/forwardtier:
-    endpoint: forwarding:4317
+    endpoint: ${env:OTELFLEET_FORWARD_ENDPOINT:-forwarding:4317}
     tls:
       insecure: true
     sending_queue:

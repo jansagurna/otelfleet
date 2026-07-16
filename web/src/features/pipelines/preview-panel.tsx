@@ -15,17 +15,21 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { toast } from '@/components/toaster'
-import type { PipelineGraph, ValidationResult } from '@/api/generated'
+import type { Pipeline, PipelineGraph, ValidationResult } from '@/api/generated'
 
 type ValidationErrors = ValidationResult['errors']
+type TargetClass = Pipeline['targetClass']
 
 /** Debounced live validation of the current draft graph. */
-function useDraftValidation(graph: PipelineGraph) {
+function useDraftValidation(graph: PipelineGraph, targetClass: TargetClass) {
   const debounced = useDebouncedValue(graph, 600)
   const query = useQuery({
-    queryKey: ['validatePipelineDraft', debounced],
+    queryKey: ['validatePipelineDraft', targetClass, debounced],
     queryFn: async () => {
-      const { data } = await validatePipeline({ body: { graph: debounced }, throwOnError: true })
+      const { data } = await validatePipeline({
+        body: { graph: debounced, targetClass },
+        throwOnError: true,
+      })
       return data
     },
     placeholderData: keepPreviousData,
@@ -42,6 +46,7 @@ function useDraftValidation(graph: PipelineGraph) {
  */
 export function PreviewPanel({
   pipelineId,
+  targetClass,
   selectedVersion,
   onClearSelection,
   onActivateVersion,
@@ -49,6 +54,8 @@ export function PreviewPanel({
   saveErrors,
 }: {
   pipelineId: string
+  /** The pipeline's target class — validation is class-specific. */
+  targetClass: TargetClass
   selectedVersion: number | null
   onClearSelection: () => void
   onActivateVersion: (version: number) => void
@@ -57,7 +64,7 @@ export function PreviewPanel({
   saveErrors: ValidationErrors | null
 }) {
   const graph = useDraftStore((s) => s.graph)
-  const { query, settling } = useDraftValidation(graph)
+  const { query, settling } = useDraftValidation(graph, targetClass)
   const draftYaml = query.data?.renderedYaml ?? null
 
   return (

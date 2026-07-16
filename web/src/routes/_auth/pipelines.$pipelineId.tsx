@@ -21,7 +21,7 @@ import { PipelineBuilder } from '@/features/pipelines/builder'
 import { PreviewPanel } from '@/features/pipelines/preview-panel'
 import { VersionsSheet } from '@/features/pipelines/versions-sheet'
 import { StageMetricsTab } from '@/features/pipelines/stage-metrics'
-import { ActiveVersionBadge } from '@/features/pipelines/pipelines-table'
+import { ActiveVersionBadge, TargetClassBadge } from '@/features/pipelines/pipelines-table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -114,7 +114,7 @@ function PipelineHeader({ pipeline }: { pipeline: PipelineDetail }) {
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-lg font-semibold text-ink">{pipeline.name}</h1>
         <ActiveVersionBadge pipeline={pipeline} />
-        <Badge className="font-mono">{pipeline.targetClass}</Badge>
+        <TargetClassBadge targetClass={pipeline.targetClass} />
         {canMutate(me) && (
           <Button
             variant="danger"
@@ -256,7 +256,12 @@ function EditorTab({ pipeline }: { pipeline: PipelineDetail }) {
     onSuccess: (status, variables) => {
       setRollout(status)
       setConfirmActivate(null)
-      toast(`v${variables.path.version} is now the active version`)
+      // Edge rollouts apply immediately over OpAMP — surface the push result.
+      if (status.state === 'applied' && status.detail) {
+        toast(status.detail)
+      } else {
+        toast(`v${variables.path.version} is now the active version`)
+      }
       void queryClient.invalidateQueries({
         queryKey: getPipelineQueryKey({ path: { pipelineId: pipeline.id } }),
       })
@@ -316,7 +321,9 @@ function EditorTab({ pipeline }: { pipeline: PipelineDetail }) {
         </Button>
       </div>
 
-      {rollout?.state === 'pending_restart' && <PendingRestartBanner rollout={rollout} />}
+      {pipeline.targetClass === 'forwarding' && rollout?.state === 'pending_restart' && (
+        <PendingRestartBanner rollout={rollout} />
+      )}
 
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,30rem)]">
         <div className="min-w-0">
@@ -349,6 +356,7 @@ function EditorTab({ pipeline }: { pipeline: PipelineDetail }) {
           ) : (
             <PreviewPanel
               pipelineId={pipeline.id}
+              targetClass={pipeline.targetClass}
               selectedVersion={selectedVersion}
               onClearSelection={() => setSelectedVersion(null)}
               onActivateVersion={(version) => setConfirmActivate(version)}
@@ -373,7 +381,11 @@ function EditorTab({ pipeline }: { pipeline: PipelineDetail }) {
           if (!open) setConfirmActivate(null)
         }}
         title={`Activate v${confirmActivate ?? ''}?`}
-        description="The forwarding tier's configuration is regenerated with this version. In the compose dev setup the forwarding collector must be restarted to pick it up."
+        description={
+          pipeline.targetClass === 'edge'
+            ? "The rendered configuration is pushed to this customer's connected edge agents over OpAMP immediately."
+            : "The forwarding tier's configuration is regenerated with this version. In the compose dev setup the forwarding collector must be restarted to pick it up."
+        }
         confirmLabel="Activate version"
         pending={activate.isPending}
         onConfirm={() => {

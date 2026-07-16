@@ -9,6 +9,7 @@ import {
   listPipelinesQueryKey,
 } from '@/api/generated/@tanstack/react-query.gen'
 import { defaultGraph } from '@/features/pipelines/graph'
+import { cn } from '@/lib/utils'
 import {
   Dialog,
   DialogClose,
@@ -22,6 +23,22 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
+import type { Pipeline } from '@/api/generated'
+
+type TargetClass = Pipeline['targetClass']
+
+const TARGET_CLASS_OPTIONS: { value: TargetClass; title: string; description: string }[] = [
+  {
+    value: 'forwarding',
+    title: 'Central forwarding tier',
+    description: 'Runs on the shared forwarding collectors, routed by tenant.id.',
+  },
+  {
+    value: 'edge',
+    title: 'Customer edge agents (OpAMP)',
+    description: 'Rendered as a standalone config and pushed to the customer’s enrolled edge agents.',
+  },
+]
 
 /**
  * Creates a pipeline with the minimal default graph (logs → batch → debug)
@@ -40,6 +57,7 @@ export function NewPipelineDialog({
 }) {
   const [name, setName] = useState('')
   const [selectedCustomer, setSelectedCustomer] = useState('')
+  const [targetClass, setTargetClass] = useState<TargetClass>('forwarding')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
@@ -57,6 +75,7 @@ export function NewPipelineDialog({
       })
       setName('')
       setSelectedCustomer('')
+      setTargetClass('forwarding')
       onOpenChange(false)
       void navigate({ to: '/pipelines/$pipelineId', params: { pipelineId: pipeline.id } })
     },
@@ -67,7 +86,7 @@ export function NewPipelineDialog({
     if (name.trim() === '' || effectiveCustomer === '') return
     create.mutate({
       path: { customerId: effectiveCustomer },
-      body: { name: name.trim(), graph: defaultGraph(catalogQuery.data) },
+      body: { name: name.trim(), targetClass, graph: defaultGraph(catalogQuery.data) },
     })
   }
 
@@ -78,7 +97,7 @@ export function NewPipelineDialog({
           <DialogTitle>New pipeline</DialogTitle>
           <DialogDescription>
             Starts as a draft with logs → batch → debug. Edit the graph and activate a version to
-            deploy it to the forwarding tier.
+            deploy it to its target tier.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="flex flex-col gap-4">
@@ -119,6 +138,35 @@ export function NewPipelineDialog({
               onChange={(e) => setName(e.target.value)}
             />
           </div>
+          <fieldset className="flex flex-col gap-1.5">
+            <legend className="mb-1.5 text-xs font-medium text-ink-2">Runs on</legend>
+            <div className="flex flex-col gap-1.5">
+              {TARGET_CLASS_OPTIONS.map((option) => (
+                <label
+                  key={option.value}
+                  className={cn(
+                    'flex cursor-pointer items-start gap-2.5 rounded-md border px-3 py-2.5 transition-colors',
+                    targetClass === option.value
+                      ? 'border-accent/60 bg-accent/5'
+                      : 'border-line hover:bg-surface-2',
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="pipeline-target-class"
+                    value={option.value}
+                    checked={targetClass === option.value}
+                    onChange={() => setTargetClass(option.value)}
+                    className="mt-0.5 accent-[var(--accent)]"
+                  />
+                  <span className="flex min-w-0 flex-col gap-0.5">
+                    <span className="text-[13px] font-medium text-ink">{option.title}</span>
+                    <span className="text-xs text-ink-3">{option.description}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
           {create.isError && (
             <p role="alert" className="text-xs text-danger">
               Could not create the pipeline — the name may already exist for this customer.

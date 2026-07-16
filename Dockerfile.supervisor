@@ -1,0 +1,70 @@
+# Builds the otelfleet edge agent: OpAMP supervisor + otelfleet collector.
+# Build context: repo root. Used by the `edge-agent` service in
+# deploy/compose/docker-compose.yaml (profile "edge").
+#
+# The supervisor connects out to the control plane's OpAMP server, receives
+# the full collector config as remote config, and runs the otelfleet
+# collector as a child process (persisting the last-good config in
+# /var/lib/otelfleet-supervisor and reverting locally on crash-loop).
+
+# --- Source A: OpAMP supervisor ---------------------------------------------
+# `go install .../cmd/opampsupervisor@v0.156.0` does NOT work: the module's
+# go.mod carries replace directives at this version, which go install refuses.
+# The cleanest reproducible route is the official release image (published per
+# version from the `cmd/opampsupervisor/v0.156.0` tag of
+# opentelemetry-collector-releases); the static binary is copied out of it.
+# The same binary is also downloadable from the GitHub release
+# `cmd/opampsupervisor/v0.156.0` if an image pull is ever unavailable.
+ARG SUPERVISOR_VERSION=0.156.0
+FROM ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-opampsupervisor:${SUPERVISOR_VERSION} AS supervisor-source
+
+# --- Builder B: otelfleet collector via OCB ---------------------------------
+# NOTE: this duplicates the OCB build in Dockerfile.collector (kept in sync by
+# hand for now; when bumping the release train, update OCB_VERSION here too —
+# see collector/README.md "Version bumps").
+FROM golang:1.26 AS collector-builder
+
+ARG OCB_VERSION=v0.156.0
+
+WORKDIR /src
+
+# The builder manifest references the local component modules via replaces.
+COPY proto/ proto/
+COPY collector/ collector/
+
+WORKDIR /src/collector
+
+# The supervisor requires the managed collector to include the contrib
+# `opamp` extension: it injects an `extensions: opamp:` block into every
+# config it hands the collector (bootstrap + remote) to receive health and
+# effective-config reports over a local OpAMP connection. The shared
+# builder-config.yaml (owned by the gateway build) does not include it yet,
+# so it is patched in at image build time. TODO: move this into
+# collector/builder-config.yaml once the collector owners pick it up.
+RUN sed -i '/^extensions:/a\  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/opampextension v0.156.0' \
+      builder-config.yaml
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 go run go.opentelemetry.io/collector/cmd/builder@${OCB_VERSION} \
+      --config builder-config.yaml
+
+# --- Runtime -----------------------------------------------------------------
+# alpine (not distroless): the supervisor needs a writable storage dir and
+# spawns the collector as a subprocess; a shell keeps debugging sane.
+FROM alpine:3.22
+
+RUN addgroup -S -g 65532 otelfleet \
+ && adduser -S -u 65532 -G otelfleet -h /var/lib/otelfleet-supervisor otelfleet \
+ && mkdir -p /var/lib/otelfleet-supervisor /etc/otelfleet \
+ && chown 65532:65532 /var/lib/otelfleet-supervisor
+
+COPY --from=supervisor-source /usr/local/bin/opampsupervisor /usr/local/bin/opampsupervisor
+COPY --from=collector-builder /src/collector/dist/otelfleet-collector /usr/local/bin/otelfleet-collector
+
+USER 65532:65532
+
+# No EXPOSE: edge agents live in customer networks and only dial out.
+
+ENTRYPOINT ["/usr/local/bin/opampsupervisor"]
+CMD ["--config", "/etc/otelfleet/supervisor.yaml"]

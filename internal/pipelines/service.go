@@ -22,19 +22,36 @@ var (
 	ErrSlugTaken = errors.New("a pipeline with an equivalent name already exists")
 )
 
+// EdgeNotifier is how the pipeline service tells the OpAMP module that the
+// desired edge config of a customer changed (edge pipeline activated or
+// deleted). Implemented by the opamp package; pipelines only knows this
+// interface to avoid an import cycle. It returns how many connected agents
+// received the push and how many known edge agents were offline.
+type EdgeNotifier interface {
+	EdgeConfigChanged(ctx context.Context, customerID uuid.UUID) (pushed, offline int, err error)
+}
+
 // Service orchestrates pipeline management: validation, versioning,
-// activation/rollback and distribution of the rendered forwarding config.
+// activation/rollback and distribution of the rendered configs (forwarding
+// tier via the Distributor, edge agents via the EdgeNotifier).
 type Service struct {
 	store     store.Store
 	validator *Validator
 	dist      Distributor
+	edge      EdgeNotifier
 	log       *slog.Logger
 }
 
-// NewService wires the pipeline service.
+// NewService wires the pipeline service. The EdgeNotifier is attached later
+// via SetEdgeNotifier (the OpAMP module depends on this service, so main.go
+// constructs it afterwards).
 func NewService(st store.Store, v *Validator, dist Distributor, log *slog.Logger) *Service {
 	return &Service{store: st, validator: v, dist: dist, log: log}
 }
+
+// SetEdgeNotifier attaches the OpAMP push hook. Must be called during wiring,
+// before the service handles requests.
+func (s *Service) SetEdgeNotifier(n EdgeNotifier) { s.edge = n }
 
 // toRender converts a stored active pipeline into a renderer input.
 func toRender(ap store.ActivePipeline) (RenderPipeline, error) {
@@ -50,10 +67,12 @@ func toRender(ap store.ActivePipeline) (RenderPipeline, error) {
 	}, nil
 }
 
-// activeRenderPipelines lists the renderer inputs, optionally excluding one
-// pipeline (used when validating a candidate that replaces its active version).
-func (s *Service) activeRenderPipelines(ctx context.Context, exclude *uuid.UUID) ([]RenderPipeline, error) {
-	aps, err := s.store.ListActivePipelines(ctx)
+// activeRenderPipelines lists the renderer inputs of one target class,
+// optionally narrowed to one customer (edge configs are per customer) and
+// optionally excluding one pipeline (used when validating a candidate that
+// replaces its active version).
+func (s *Service) activeRenderPipelines(ctx context.Context, targetClass string, customerID *uuid.UUID, exclude *uuid.UUID) ([]RenderPipeline, error) {
+	aps, err := s.store.ListActivePipelines(ctx, targetClass, customerID)
 	if err != nil {
 		return nil, err
 	}
@@ -74,30 +93,49 @@ func (s *Service) activeRenderPipelines(ctx context.Context, exclude *uuid.UUID)
 // RenderCurrent renders the full forwarding config from database state. It is
 // what the ops endpoint serves and what activation distributes.
 func (s *Service) RenderCurrent(ctx context.Context) (string, error) {
-	inputs, err := s.activeRenderPipelines(ctx, nil)
+	inputs, err := s.activeRenderPipelines(ctx, ClassForwarding, nil, nil)
 	if err != nil {
 		return "", err
 	}
 	return RenderForwardingConfig(inputs)
 }
 
+// RenderEdgeCurrent renders the merged edge config of one customer from
+// database state. It is what the OpAMP module pushes to that customer's edge
+// agents and what the agent-config endpoint serves as the assigned config.
+func (s *Service) RenderEdgeCurrent(ctx context.Context, customerID uuid.UUID) (string, error) {
+	inputs, err := s.activeRenderPipelines(ctx, ClassEdge, &customerID, nil)
+	if err != nil {
+		return "", err
+	}
+	return RenderEdgeConfig(inputs)
+}
+
 // ValidateDraft validates a graph without a persisted pipeline context (the
 // editor's live preview). The candidate renders under a placeholder identity
-// alongside all currently active pipelines.
-func (s *Service) ValidateDraft(ctx context.Context, g Graph) Result {
+// alongside the currently active pipelines of the same target class.
+func (s *Service) ValidateDraft(ctx context.Context, targetClass string, g Graph) Result {
 	candidate := RenderPipeline{
 		CustomerSlug: "draft-validation",
 		ClientID:     "cust_draft_validation",
 		PipelineSlug: "draft",
 		Graph:        g,
 	}
-	others, err := s.activeRenderPipelines(ctx, nil)
-	if err != nil {
-		// Still give the editor structural feedback when the store is unhappy.
-		s.log.Warn("validate draft: cannot load active pipelines", "err", err)
+	var others []RenderPipeline
+	var err error
+	if targetClass == ClassEdge {
+		// Edge configs are per customer; a draft has none, so it validates as
+		// the sole pipeline of a placeholder customer.
 		others = nil
+	} else {
+		others, err = s.activeRenderPipelines(ctx, ClassForwarding, nil, nil)
+		if err != nil {
+			// Still give the editor structural feedback when the store is unhappy.
+			s.log.Warn("validate draft: cannot load active pipelines", "err", err)
+			others = nil
+		}
 	}
-	return s.validator.Validate(ctx, candidate, others)
+	return s.validator.Validate(ctx, targetClass, candidate, others)
 }
 
 // Created bundles the results of creating a pipeline.
@@ -108,7 +146,7 @@ type Created struct {
 
 // prepare validates the name and graph for a customer and builds the version
 // insert payload. Returns a non-nil Result when the graph is invalid.
-func (s *Service) prepare(ctx context.Context, cust store.Customer, name string, excludePipeline *uuid.UUID, g Graph, actor *uuid.UUID) (store.NewPipelineVersion, *Result, error) {
+func (s *Service) prepare(ctx context.Context, cust store.Customer, name, targetClass string, excludePipeline *uuid.UUID, g Graph, actor *uuid.UUID) (store.NewPipelineVersion, *Result, error) {
 	slug := PipelineSlug(name)
 	candidate := RenderPipeline{
 		CustomerSlug: cust.Slug,
@@ -116,11 +154,16 @@ func (s *Service) prepare(ctx context.Context, cust store.Customer, name string,
 		PipelineSlug: slug,
 		Graph:        g,
 	}
-	others, err := s.activeRenderPipelines(ctx, excludePipeline)
+	var customerScope *uuid.UUID
+	if targetClass == ClassEdge {
+		id := cust.ID
+		customerScope = &id
+	}
+	others, err := s.activeRenderPipelines(ctx, targetClass, customerScope, excludePipeline)
 	if err != nil {
 		return store.NewPipelineVersion{}, nil, err
 	}
-	res := s.validator.Validate(ctx, candidate, others)
+	res := s.validator.Validate(ctx, targetClass, candidate, others)
 	if !res.Valid {
 		return store.NewPipelineVersion{}, &res, nil
 	}
@@ -157,10 +200,13 @@ func (s *Service) prepare(ctx context.Context, cust store.Customer, name string,
 // Create validates and creates a pipeline with version 1 (not yet active).
 // A ValidationResult with Valid=false is returned instead of persisting when
 // the graph is invalid.
-func (s *Service) Create(ctx context.Context, actor *uuid.UUID, customerID uuid.UUID, name string, g Graph) (Created, *Result, error) {
+func (s *Service) Create(ctx context.Context, actor *uuid.UUID, customerID uuid.UUID, name, targetClass string, g Graph) (Created, *Result, error) {
 	name = strings.TrimSpace(name)
 	if name == "" || len(name) > 200 || PipelineSlug(name) == "" {
 		return Created{}, nil, ErrInvalidName
+	}
+	if targetClass == "" {
+		targetClass = ClassForwarding
 	}
 	cust, err := s.store.GetCustomer(ctx, customerID)
 	if err != nil {
@@ -185,7 +231,7 @@ func (s *Service) Create(ctx context.Context, actor *uuid.UUID, customerID uuid.
 		}
 	}
 
-	nv, res, err := s.prepare(ctx, cust, name, nil, g, actor)
+	nv, res, err := s.prepare(ctx, cust, name, targetClass, nil, g, actor)
 	if err != nil {
 		return Created{}, nil, err
 	}
@@ -196,10 +242,10 @@ func (s *Service) Create(ctx context.Context, actor *uuid.UUID, customerID uuid.
 	pipelineID := uuid.New()
 	nv.PipelineID = pipelineID
 	pipe, ver, err := s.store.CreatePipeline(ctx,
-		store.NewPipeline{ID: pipelineID, CustomerID: customerID, Name: name}, nv,
+		store.NewPipeline{ID: pipelineID, CustomerID: customerID, Name: name, TargetClass: targetClass}, nv,
 		[]audit.Entry{
 			{ActorUserID: actor, Action: "pipeline.create", EntityType: "pipeline", EntityID: pipelineID.String(), CustomerID: &customerID,
-				Payload: map[string]any{"name": name, "slug": slug}},
+				Payload: map[string]any{"name": name, "slug": slug, "target_class": targetClass}},
 			{ActorUserID: actor, Action: "pipeline_version.create", EntityType: "pipeline_version", EntityID: nv.ID.String(), CustomerID: &customerID,
 				Payload: map[string]any{"pipeline": pipelineID.String(), "version": 1}},
 		})
@@ -217,8 +263,8 @@ func (s *Service) CreateVersion(ctx context.Context, actor *uuid.UUID, pipelineI
 	if err != nil {
 		return store.PipelineVersion{}, nil, err
 	}
-	cust := store.Customer{Slug: pipe.CustomerSlug, ClientID: pipe.ClientID, Status: store.CustomerActive}
-	nv, res, err := s.prepare(ctx, cust, pipe.Name, &pipelineID, g, actor)
+	cust := store.Customer{ID: pipe.CustomerID, Slug: pipe.CustomerSlug, ClientID: pipe.ClientID, Status: store.CustomerActive}
+	nv, res, err := s.prepare(ctx, cust, pipe.Name, pipe.TargetClass, &pipelineID, g, actor)
 	if err != nil {
 		return store.PipelineVersion{}, nil, err
 	}
@@ -237,20 +283,27 @@ func (s *Service) CreateVersion(ctx context.Context, actor *uuid.UUID, pipelineI
 }
 
 // Activate points the pipeline at the given version (also the rollback path)
-// and distributes the newly rendered forwarding config.
+// and rolls the new config out: forwarding pipelines re-render and distribute
+// the forwarding config, edge pipelines push the customer's merged edge
+// config to its connected agents via OpAMP.
 func (s *Service) Activate(ctx context.Context, actor *uuid.UUID, pipelineID uuid.UUID, version int) (store.Pipeline, string, string, error) {
-	pipe, ver, err := s.store.ActivatePipelineVersion(ctx, pipelineID, version, []audit.Entry{
+	pipe, _, err := s.store.ActivatePipelineVersion(ctx, pipelineID, version, []audit.Entry{
 		{ActorUserID: actor, Action: "pipeline_version.activate", EntityType: "pipeline", EntityID: pipelineID.String(),
 			Payload: map[string]any{"version": version}},
 	})
 	if err != nil {
 		return store.Pipeline{}, "", "", err
 	}
-	_ = ver
-	state, detail, err := s.distribute(ctx)
+
+	var state, detail string
+	if pipe.TargetClass == ClassEdge {
+		state, detail, err = s.notifyEdge(ctx, pipe.CustomerID)
+	} else {
+		state, detail, err = s.distribute(ctx)
+	}
 	if err != nil {
-		// The version IS active in the database; the config endpoint always
-		// re-renders, so a failed push is a delivery problem, not state loss.
+		// The version IS active in the database; the config endpoints always
+		// re-render, so a failed push is a delivery problem, not state loss.
 		return store.Pipeline{}, "", "", fmt.Errorf("version %d activated, but distributing the config failed: %w", version, err)
 	}
 	return pipe, state, detail, nil
@@ -258,7 +311,7 @@ func (s *Service) Activate(ctx context.Context, actor *uuid.UUID, pipelineID uui
 
 // Delete removes a pipeline and redistributes the config without it. A failed
 // redistribution is logged, not fatal — the deletion has already happened and
-// the config endpoint re-renders from database state.
+// the config endpoints re-render from database state.
 func (s *Service) Delete(ctx context.Context, actor *uuid.UUID, pipelineID uuid.UUID) error {
 	pipe, err := s.store.GetPipeline(ctx, pipelineID)
 	if err != nil {
@@ -272,7 +325,11 @@ func (s *Service) Delete(ctx context.Context, actor *uuid.UUID, pipelineID uuid.
 		return err
 	}
 	if wasActive {
-		if _, _, err := s.distribute(ctx); err != nil {
+		if pipe.TargetClass == ClassEdge {
+			if _, _, err := s.notifyEdge(ctx, pipe.CustomerID); err != nil {
+				s.log.Warn("edge pipeline deleted but config push failed", "pipeline", pipelineID, "err", err)
+			}
+		} else if _, _, err := s.distribute(ctx); err != nil {
 			s.log.Warn("pipeline deleted but config redistribution failed", "pipeline", pipelineID, "err", err)
 		}
 	}
@@ -285,4 +342,20 @@ func (s *Service) distribute(ctx context.Context) (string, string, error) {
 		return "", "", err
 	}
 	return s.dist.Distribute(ctx, full)
+}
+
+// notifyEdge asks the OpAMP module to push the customer's re-rendered edge
+// config. The push either lands immediately (connected agents) or on
+// reconnect (the OpAMP handler compares hashes on every connect), so the
+// rollout state is 'applied'.
+func (s *Service) notifyEdge(ctx context.Context, customerID uuid.UUID) (string, string, error) {
+	if s.edge == nil {
+		return StateApplied, "no OpAMP module attached; agents update on reconnect", nil
+	}
+	pushed, offline, err := s.edge.EdgeConfigChanged(ctx, customerID)
+	if err != nil {
+		return "", "", err
+	}
+	detail := fmt.Sprintf("pushed to %d connected agents (%d offline agents update on reconnect)", pushed, offline)
+	return StateApplied, detail, nil
 }

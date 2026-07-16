@@ -67,9 +67,13 @@ func (s *PG) CreatePipeline(ctx context.Context, p NewPipeline, v NewPipelineVer
 			return err
 		}
 
+		targetClass := p.TargetClass
+		if targetClass == "" {
+			targetClass = ClassForwarding
+		}
 		_, err = tx.Exec(ctx, `
-			INSERT INTO pipelines (id, customer_id, name) VALUES ($1, $2, $3)`,
-			p.ID, p.CustomerID, p.Name)
+			INSERT INTO pipelines (id, customer_id, name, target_class) VALUES ($1, $2, $3, $4)`,
+			p.ID, p.CustomerID, p.Name, targetClass)
 		if isUniqueViolation(err, "pipelines_customer_id_name_key") {
 			return ErrNameExists
 		}
@@ -263,17 +267,25 @@ func (s *PG) ActivatePipelineVersion(ctx context.Context, pipelineID uuid.UUID, 
 	return pipe, ver, nil
 }
 
-// ListActivePipelines returns the renderer inputs: every pipeline of an
-// active customer that has an active version. Suspended customers are
-// excluded — the gateway refuses their data already, and dropping them from
-// the routing table keeps the forwarding tier consistent with ingest.
-func (s *PG) ListActivePipelines(ctx context.Context) ([]ActivePipeline, error) {
-	rows, err := s.pool.Query(ctx, `
-		SELECT p.id, p.name, c.slug, c.client_id, v.graph
+// ListActivePipelines returns the renderer inputs: every pipeline of the
+// given target class with an active version, owned by an active customer
+// (optionally one customer). Suspended customers are excluded — the gateway
+// refuses their data already, and dropping them from the routing table keeps
+// the forwarding tier consistent with ingest.
+func (s *PG) ListActivePipelines(ctx context.Context, targetClass string, customerID *uuid.UUID) ([]ActivePipeline, error) {
+	q := `
+		SELECT p.id, p.name, p.customer_id, c.slug, c.client_id, v.graph
 		FROM pipelines p
 		JOIN customers c ON c.id = p.customer_id AND c.status = 'active'
 		JOIN pipeline_versions v ON v.id = p.active_version_id
-		ORDER BY c.slug, p.name, p.id`)
+		WHERE p.target_class = $1`
+	args := []any{targetClass}
+	if customerID != nil {
+		q += ` AND p.customer_id = $2`
+		args = append(args, *customerID)
+	}
+	q += ` ORDER BY c.slug, p.name, p.id`
+	rows, err := s.pool.Query(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -281,7 +293,7 @@ func (s *PG) ListActivePipelines(ctx context.Context) ([]ActivePipeline, error) 
 	out := []ActivePipeline{}
 	for rows.Next() {
 		var p ActivePipeline
-		if err := rows.Scan(&p.PipelineID, &p.PipelineName, &p.CustomerSlug, &p.ClientID, &p.Graph); err != nil {
+		if err := rows.Scan(&p.PipelineID, &p.PipelineName, &p.CustomerID, &p.CustomerSlug, &p.ClientID, &p.Graph); err != nil {
 			return nil, err
 		}
 		out = append(out, p)

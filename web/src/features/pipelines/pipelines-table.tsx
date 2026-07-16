@@ -12,6 +12,11 @@ import {
 } from '@/components/ui/table'
 import type { Pipeline } from '@/api/generated'
 
+/** forwarding / edge target-class chip used in tables and the editor header. */
+export function TargetClassBadge({ targetClass }: { targetClass: Pipeline['targetClass'] }) {
+  return <Badge className="font-mono">{targetClass}</Badge>
+}
+
 /** "v3 active" / "draft only" chip used in tables and the editor header. */
 export function ActiveVersionBadge({ pipeline }: { pipeline: Pipeline }) {
   if (pipeline.activeVersion != null) {
@@ -54,6 +59,7 @@ export function PipelinesTable({
           <TableRow className="hover:bg-transparent">
             <TableHead>Name</TableHead>
             {showCustomer && <TableHead>Customer</TableHead>}
+            <TableHead>Class</TableHead>
             <TableHead>Active version</TableHead>
             <TableHead>Latest</TableHead>
             <TableHead>Created</TableHead>
@@ -82,6 +88,9 @@ export function PipelinesTable({
                   </Link>
                 </TableCell>
               )}
+              <TableCell>
+                <TargetClassBadge targetClass={pipeline.targetClass} />
+              </TableCell>
               <TableCell>
                 <ActiveVersionBadge pipeline={pipeline} />
               </TableCell>

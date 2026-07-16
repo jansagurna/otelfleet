@@ -1,0 +1,121 @@
+{{- if .Values.gateway.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "otelfleet.fullname" . }}-gateway
+  labels:
+    {{- include "otelfleet.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+data:
+  config.yaml: |
+{{ .Files.Get "files/otelcol-gateway.yaml" | indent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "otelfleet.fullname" . }}-gateway
+  labels:
+    {{- include "otelfleet.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+spec:
+  replicas: {{ .Values.gateway.replicas }}
+  selector:
+    matchLabels:
+      {{- include "otelfleet.selector" . | nindent 6 }}
+      app.kubernetes.io/component: gateway
+  template:
+    metadata:
+      labels:
+        {{- include "otelfleet.labels" . | nindent 8 }}
+        app.kubernetes.io/component: gateway
+      annotations:
+        # Roll the pods when the static ingest config changes.
+        checksum/config: {{ .Files.Get "files/otelcol-gateway.yaml" | sha256sum }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: otelcol
+          image: {{ include "otelfleet.collectorImage" . }}
+          imagePullPolicy: {{ .Values.images.collector.pullPolicy }}
+          args: ["--config=/etc/otelcol/config.yaml"]
+          env:
+            - name: OTELFLEET_AUTH_ENDPOINT
+              value: {{ printf "%s-control-plane:9443" (include "otelfleet.fullname" .) | quote }}
+            - name: CLICKHOUSE_ENDPOINT
+              value: {{ .Values.external.clickhouse.exporterEndpoint | quote }}
+            - name: OTELFLEET_VM_REMOTE_WRITE
+              value: {{ .Values.external.victoriaMetrics.remoteWriteUrl | quote }}
+            - name: OTELFLEET_FORWARD_ENDPOINT
+              value: {{ printf "%s-forwarding:4317" (include "otelfleet.fullname" .) | quote }}
+            - name: GOMEMLIMIT
+              value: "750MiB"
+          ports:
+            - { name: otlp-grpc, containerPort: 4317 }
+            - { name: otlp-http, containerPort: 4318 }
+            - { name: telemetry, containerPort: 8888 }
+            - { name: health, containerPort: 13133 }
+          readinessProbe:
+            httpGet: { path: /, port: health }
+            initialDelaySeconds: 3
+          livenessProbe:
+            httpGet: { path: /, port: health }
+            initialDelaySeconds: 10
+          volumeMounts:
+            - { name: config, mountPath: /etc/otelcol, readOnly: true }
+            - { name: queue, mountPath: /var/lib/otelcol }
+          resources: {{- toYaml .Values.gateway.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "otelfleet.fullname" . }}-gateway
+        - name: queue
+          {{- if .Values.gateway.persistentQueue.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "otelfleet.fullname" . }}-gateway-queue
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "otelfleet.fullname" . }}-gateway
+  labels:
+    {{- include "otelfleet.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+spec:
+  type: {{ .Values.gateway.service.type }}
+  selector:
+    {{- include "otelfleet.selector" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+  ports:
+    - { name: otlp-grpc, port: 4317, targetPort: otlp-grpc }
+    - { name: otlp-http, port: 4318, targetPort: otlp-http }
+    - { name: telemetry, port: 8888, targetPort: telemetry }
+{{- if .Values.gateway.persistentQueue.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "otelfleet.fullname" . }}-gateway-queue
+  labels:
+    {{- include "otelfleet.labels" . | nindent 4 }}
+    app.kubernetes.io/component: gateway
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: {{ .Values.gateway.persistentQueue.size }}
+  {{- with .Values.gateway.persistentQueue.storageClassName }}
+  storageClassName: {{ . }}
+  {{- end }}
+{{- end }}
+{{- end }}

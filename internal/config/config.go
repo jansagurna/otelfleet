@@ -32,9 +32,10 @@ type Config struct {
 
 	VictoriaMetricsURL string
 
-	HTTPAddr string
-	GRPCAddr string
-	OpsAddr  string
+	HTTPAddr  string
+	GRPCAddr  string
+	OpsAddr   string
+	OpAMPAddr string
 
 	BaseURL string
 	WebDir  string
@@ -70,6 +71,7 @@ func Load() (*Config, error) {
 		HTTPAddr:           env("HTTP_ADDR", ":8080"),
 		GRPCAddr:           env("GRPC_ADDR", ":9443"),
 		OpsAddr:            env("OPS_ADDR", ":9090"),
+		OpAMPAddr:          env("OPAMP_ADDR", ":4320"),
 		BaseURL:            strings.TrimSuffix(env("BASE_URL", "http://localhost:8080"), "/"),
 		WebDir:             env("WEB_DIR", ""),
 		OtelcolBin:         env("OTELCOL_BIN", "collector/dist/otelfleet-collector"),

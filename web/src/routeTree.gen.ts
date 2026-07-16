@@ -13,8 +13,10 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as AuthIndexRouteImport } from './routes/_auth/index'
 import { Route as AuthPipelinesIndexRouteImport } from './routes/_auth/pipelines.index'
+import { Route as AuthFleetIndexRouteImport } from './routes/_auth/fleet.index'
 import { Route as AuthCustomersIndexRouteImport } from './routes/_auth/customers.index'
 import { Route as AuthPipelinesPipelineIdRouteImport } from './routes/_auth/pipelines.$pipelineId'
+import { Route as AuthFleetAgentIdRouteImport } from './routes/_auth/fleet.$agentId'
 import { Route as AuthCustomersCustomerIdRouteImport } from './routes/_auth/customers.$customerId'
 
 const LoginRoute = LoginRouteImport.update({
@@ -36,6 +38,11 @@ const AuthPipelinesIndexRoute = AuthPipelinesIndexRouteImport.update({
   path: '/pipelines/',
   getParentRoute: () => AuthRoute,
 } as any)
+const AuthFleetIndexRoute = AuthFleetIndexRouteImport.update({
+  id: '/fleet/',
+  path: '/fleet/',
+  getParentRoute: () => AuthRoute,
+} as any)
 const AuthCustomersIndexRoute = AuthCustomersIndexRouteImport.update({
   id: '/customers/',
   path: '/customers/',
@@ -44,6 +51,11 @@ const AuthCustomersIndexRoute = AuthCustomersIndexRouteImport.update({
 const AuthPipelinesPipelineIdRoute = AuthPipelinesPipelineIdRouteImport.update({
   id: '/pipelines/$pipelineId',
   path: '/pipelines/$pipelineId',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthFleetAgentIdRoute = AuthFleetAgentIdRouteImport.update({
+  id: '/fleet/$agentId',
+  path: '/fleet/$agentId',
   getParentRoute: () => AuthRoute,
 } as any)
 const AuthCustomersCustomerIdRoute = AuthCustomersCustomerIdRouteImport.update({
@@ -56,16 +68,20 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthIndexRoute
   '/login': typeof LoginRoute
   '/customers/$customerId': typeof AuthCustomersCustomerIdRoute
+  '/fleet/$agentId': typeof AuthFleetAgentIdRoute
   '/pipelines/$pipelineId': typeof AuthPipelinesPipelineIdRoute
   '/customers/': typeof AuthCustomersIndexRoute
+  '/fleet/': typeof AuthFleetIndexRoute
   '/pipelines/': typeof AuthPipelinesIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/': typeof AuthIndexRoute
   '/customers/$customerId': typeof AuthCustomersCustomerIdRoute
+  '/fleet/$agentId': typeof AuthFleetAgentIdRoute
   '/pipelines/$pipelineId': typeof AuthPipelinesPipelineIdRoute
   '/customers': typeof AuthCustomersIndexRoute
+  '/fleet': typeof AuthFleetIndexRoute
   '/pipelines': typeof AuthPipelinesIndexRoute
 }
 export interface FileRoutesById {
@@ -74,8 +90,10 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_auth/': typeof AuthIndexRoute
   '/_auth/customers/$customerId': typeof AuthCustomersCustomerIdRoute
+  '/_auth/fleet/$agentId': typeof AuthFleetAgentIdRoute
   '/_auth/pipelines/$pipelineId': typeof AuthPipelinesPipelineIdRoute
   '/_auth/customers/': typeof AuthCustomersIndexRoute
+  '/_auth/fleet/': typeof AuthFleetIndexRoute
   '/_auth/pipelines/': typeof AuthPipelinesIndexRoute
 }
 export interface FileRouteTypes {
@@ -84,16 +102,20 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/customers/$customerId'
+    | '/fleet/$agentId'
     | '/pipelines/$pipelineId'
     | '/customers/'
+    | '/fleet/'
     | '/pipelines/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
     | '/'
     | '/customers/$customerId'
+    | '/fleet/$agentId'
     | '/pipelines/$pipelineId'
     | '/customers'
+    | '/fleet'
     | '/pipelines'
   id:
     | '__root__'
@@ -101,8 +123,10 @@ export interface FileRouteTypes {
     | '/login'
     | '/_auth/'
     | '/_auth/customers/$customerId'
+    | '/_auth/fleet/$agentId'
     | '/_auth/pipelines/$pipelineId'
     | '/_auth/customers/'
+    | '/_auth/fleet/'
     | '/_auth/pipelines/'
   fileRoutesById: FileRoutesById
 }
@@ -141,6 +165,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthPipelinesIndexRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_auth/fleet/': {
+      id: '/_auth/fleet/'
+      path: '/fleet'
+      fullPath: '/fleet/'
+      preLoaderRoute: typeof AuthFleetIndexRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/_auth/customers/': {
       id: '/_auth/customers/'
       path: '/customers'
@@ -153,6 +184,13 @@ declare module '@tanstack/react-router' {
       path: '/pipelines/$pipelineId'
       fullPath: '/pipelines/$pipelineId'
       preLoaderRoute: typeof AuthPipelinesPipelineIdRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/fleet/$agentId': {
+      id: '/_auth/fleet/$agentId'
+      path: '/fleet/$agentId'
+      fullPath: '/fleet/$agentId'
+      preLoaderRoute: typeof AuthFleetAgentIdRouteImport
       parentRoute: typeof AuthRoute
     }
     '/_auth/customers/$customerId': {
@@ -168,16 +206,20 @@ declare module '@tanstack/react-router' {
 interface AuthRouteChildren {
   AuthIndexRoute: typeof AuthIndexRoute
   AuthCustomersCustomerIdRoute: typeof AuthCustomersCustomerIdRoute
+  AuthFleetAgentIdRoute: typeof AuthFleetAgentIdRoute
   AuthPipelinesPipelineIdRoute: typeof AuthPipelinesPipelineIdRoute
   AuthCustomersIndexRoute: typeof AuthCustomersIndexRoute
+  AuthFleetIndexRoute: typeof AuthFleetIndexRoute
   AuthPipelinesIndexRoute: typeof AuthPipelinesIndexRoute
 }
 
 const AuthRouteChildren: AuthRouteChildren = {
   AuthIndexRoute: AuthIndexRoute,
   AuthCustomersCustomerIdRoute: AuthCustomersCustomerIdRoute,
+  AuthFleetAgentIdRoute: AuthFleetAgentIdRoute,
   AuthPipelinesPipelineIdRoute: AuthPipelinesPipelineIdRoute,
   AuthCustomersIndexRoute: AuthCustomersIndexRoute,
+  AuthFleetIndexRoute: AuthFleetIndexRoute,
   AuthPipelinesIndexRoute: AuthPipelinesIndexRoute,
 }
 

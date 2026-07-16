@@ -57,11 +57,11 @@ function AuthLayout() {
 const NAV_ITEMS: { to: string; label: string; icon: ComponentType<{ className?: string }> }[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/customers', label: 'Customers', icon: Building2 },
+  { to: '/pipelines', label: 'Pipelines', icon: Network },
+  { to: '/fleet', label: 'Fleet', icon: Ship },
 ]
 
 const SOON_ITEMS: { label: string; icon: ComponentType<{ className?: string }> }[] = [
-  { label: 'Pipelines', icon: Network },
-  { label: 'Fleet', icon: Ship },
   { label: 'Settings', icon: Settings },
 ]
 

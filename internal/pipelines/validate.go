@@ -145,24 +145,32 @@ func schemaIssues(base string, verr *jsonschema.ValidationError) []Issue {
 }
 
 // Validate runs both stages for a candidate pipeline: structural checks, then
-// an authoritative `otelcol validate` over the full forwarding config with
-// the candidate included (replacing its currently active version, if any).
+// an authoritative `otelcol validate` over the full config of the candidate's
+// target class — the forwarding config for forwarding pipelines, the
+// customer's merged edge config for edge pipelines — with the candidate
+// included (replacing its currently active version, if any). activeOthers
+// must already be filtered to the same class (and, for edge, customer).
 // A missing collector binary downgrades stage two to a warning issue — CI and
 // fresh checkouts have no distro binary.
-func (v *Validator) Validate(ctx context.Context, candidate RenderPipeline, activeOthers []RenderPipeline) Result {
+func (v *Validator) Validate(ctx context.Context, targetClass string, candidate RenderPipeline, activeOthers []RenderPipeline) Result {
 	issues := ValidateStructural(candidate.Graph)
 	if len(issues) > 0 {
 		return Result{Valid: false, Issues: issues}
 	}
 
-	fragment, err := RenderFragment(candidate)
+	renderFragment, renderFull := RenderFragment, RenderForwardingConfig
+	if targetClass == ClassEdge {
+		renderFragment, renderFull = RenderEdgeFragment, RenderEdgeConfig
+	}
+
+	fragment, err := renderFragment(candidate)
 	if err != nil {
 		return Result{Valid: false, Issues: []Issue{{Message: "render: " + err.Error()}}}
 	}
 
-	full, err := RenderForwardingConfig(append(append([]RenderPipeline{}, activeOthers...), candidate))
+	full, err := renderFull(append(append([]RenderPipeline{}, activeOthers...), candidate))
 	if err != nil {
-		return Result{Valid: false, Issues: []Issue{{Message: "render forwarding config: " + err.Error()}}, RenderedYAML: &fragment}
+		return Result{Valid: false, Issues: []Issue{{Message: "render " + targetClass + " config: " + err.Error()}}, RenderedYAML: &fragment}
 	}
 
 	if _, statErr := os.Stat(v.BinPath); statErr != nil {

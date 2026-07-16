@@ -165,9 +165,10 @@ export type Pipeline = {
     customerName?: string | null;
     name: string;
     /**
-     * More classes (gateway
+     * forwarding = runs on the central forwarding tier (tenant-routed); edge = rendered as standalone config pushed to the customer's edge agents via OpAMP.
+     *
      */
-    targetClass: 'forwarding';
+    targetClass: 'forwarding' | 'edge';
     activeVersion?: number | null;
     latestVersion?: number | null;
     createdAt: string;
@@ -226,6 +227,93 @@ export type RolloutStatus = {
      */
     state: 'applied' | 'pending_restart';
     detail?: string | null;
+};
+
+export type AgentClass = 'gateway' | 'edge';
+
+export type RemoteConfigStatus = 'unset' | 'applying' | 'applied' | 'failed';
+
+export type Agent = {
+    id: string;
+    /**
+     * OpAMP instance UID (hex)
+     */
+    instanceUid: string;
+    class: AgentClass;
+    customerId?: string | null;
+    customerName?: string | null;
+    /**
+     * From AgentDescription (host.name / service.name)
+     */
+    name?: string | null;
+    agentVersion?: string | null;
+    connected: boolean;
+    /**
+     * Last reported ComponentHealth; null when never reported
+     */
+    healthy?: boolean | null;
+    lastSeenAt?: string | null;
+    remoteConfigStatus: RemoteConfigStatus;
+    remoteConfigError?: string | null;
+    /**
+     * SHA-256 hex of the desired config
+     */
+    assignedConfigHash?: string | null;
+    /**
+     * Hash the agent says it runs
+     */
+    reportedConfigHash?: string | null;
+    /**
+     * assigned == reported; null when either side is unknown.
+     */
+    configInSync?: boolean | null;
+    createdAt: string;
+};
+
+export type AgentDetail = Agent & {
+    /**
+     * Full OpAMP AgentDescription attributes.
+     */
+    description?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Last ComponentHealth tree as reported.
+     */
+    health?: {
+        [key: string]: unknown;
+    } | null;
+};
+
+export type AgentEvent = {
+    id: number;
+    eventType: 'connected' | 'disconnected' | 'config_applied' | 'config_failed' | 'healthy' | 'unhealthy' | 'enrolled';
+    detail?: {
+        [key: string]: unknown;
+    } | null;
+    createdAt: string;
+};
+
+export type BootstrapToken = {
+    id: string;
+    customerId: string;
+    name: string;
+    tokenPrefix: string;
+    /**
+     * 0 = unlimited
+     */
+    maxUses: number;
+    usedCount: number;
+    createdAt: string;
+    expiresAt: string;
+    revokedAt?: string | null;
+};
+
+export type BootstrapTokenCreated = BootstrapToken & {
+    /**
+     * Full enrollment token. Shown exactly once; only a hash is stored.
+     */
+    secret: string;
 };
 
 /**
@@ -755,6 +843,7 @@ export type ListPipelinesResponse = ListPipelinesResponses[keyof ListPipelinesRe
 
 export type ValidatePipelineData = {
     body: {
+        targetClass?: 'forwarding' | 'edge';
         graph: PipelineGraph;
     };
     path?: never;
@@ -816,6 +905,7 @@ export type ListCustomerPipelinesResponse = ListCustomerPipelinesResponses[keyof
 export type CreatePipelineData = {
     body: {
         name: string;
+        targetClass?: 'forwarding' | 'edge';
         graph: PipelineGraph;
     };
     path: {
@@ -1067,3 +1157,293 @@ export type GetPipelineStageStatsResponses = {
 };
 
 export type GetPipelineStageStatsResponse = GetPipelineStageStatsResponses[keyof GetPipelineStageStatsResponses];
+
+export type ListAgentsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        class?: 'gateway' | 'edge';
+        customerId?: string;
+        connected?: boolean;
+    };
+    url: '/api/v1/agents';
+};
+
+export type ListAgentsErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+};
+
+export type ListAgentsError = ListAgentsErrors[keyof ListAgentsErrors];
+
+export type ListAgentsResponses = {
+    /**
+     * Agents
+     */
+    200: {
+        agents: Array<Agent>;
+    };
+};
+
+export type ListAgentsResponse = ListAgentsResponses[keyof ListAgentsResponses];
+
+export type DeleteAgentData = {
+    body?: never;
+    path: {
+        agentId: string;
+    };
+    query?: never;
+    url: '/api/v1/agents/{agentId}';
+};
+
+export type DeleteAgentErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+    /**
+     * Conflict
+     */
+    409: Error;
+};
+
+export type DeleteAgentError = DeleteAgentErrors[keyof DeleteAgentErrors];
+
+export type DeleteAgentResponses = {
+    /**
+     * Deleted
+     */
+    204: void;
+};
+
+export type DeleteAgentResponse = DeleteAgentResponses[keyof DeleteAgentResponses];
+
+export type GetAgentData = {
+    body?: never;
+    path: {
+        agentId: string;
+    };
+    query?: never;
+    url: '/api/v1/agents/{agentId}';
+};
+
+export type GetAgentErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+};
+
+export type GetAgentError = GetAgentErrors[keyof GetAgentErrors];
+
+export type GetAgentResponses = {
+    /**
+     * Agent detail
+     */
+    200: AgentDetail;
+};
+
+export type GetAgentResponse = GetAgentResponses[keyof GetAgentResponses];
+
+export type GetAgentConfigData = {
+    body?: never;
+    path: {
+        agentId: string;
+    };
+    query?: never;
+    url: '/api/v1/agents/{agentId}/config';
+};
+
+export type GetAgentConfigErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+};
+
+export type GetAgentConfigError = GetAgentConfigErrors[keyof GetAgentConfigErrors];
+
+export type GetAgentConfigResponses = {
+    /**
+     * Config pair
+     */
+    200: {
+        /**
+         * What the control plane wants the agent to run ("" for gateway-class agents managed outside OpAMP).
+         */
+        assignedYaml: string;
+        /**
+         * Last effective config the agent reported ("" when unknown).
+         */
+        reportedYaml: string;
+    };
+};
+
+export type GetAgentConfigResponse = GetAgentConfigResponses[keyof GetAgentConfigResponses];
+
+export type ListAgentEventsData = {
+    body?: never;
+    path: {
+        agentId: string;
+    };
+    query?: {
+        limit?: number;
+    };
+    url: '/api/v1/agents/{agentId}/events';
+};
+
+export type ListAgentEventsErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+};
+
+export type ListAgentEventsError = ListAgentEventsErrors[keyof ListAgentEventsErrors];
+
+export type ListAgentEventsResponses = {
+    /**
+     * Events
+     */
+    200: {
+        events: Array<AgentEvent>;
+    };
+};
+
+export type ListAgentEventsResponse = ListAgentEventsResponses[keyof ListAgentEventsResponses];
+
+export type ListBootstrapTokensData = {
+    body?: never;
+    path: {
+        customerId: string;
+    };
+    query?: never;
+    url: '/api/v1/customers/{customerId}/bootstrap-tokens';
+};
+
+export type ListBootstrapTokensErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+};
+
+export type ListBootstrapTokensError = ListBootstrapTokensErrors[keyof ListBootstrapTokensErrors];
+
+export type ListBootstrapTokensResponses = {
+    /**
+     * Tokens
+     */
+    200: {
+        tokens: Array<BootstrapToken>;
+    };
+};
+
+export type ListBootstrapTokensResponse = ListBootstrapTokensResponses[keyof ListBootstrapTokensResponses];
+
+export type CreateBootstrapTokenData = {
+    body: {
+        name: string;
+        /**
+         * Defaults to 30 days
+         */
+        expiresAt?: string | null;
+        /**
+         * 0 = unlimited
+         */
+        maxUses?: number;
+    };
+    path: {
+        customerId: string;
+    };
+    query?: never;
+    url: '/api/v1/customers/{customerId}/bootstrap-tokens';
+};
+
+export type CreateBootstrapTokenErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+};
+
+export type CreateBootstrapTokenError = CreateBootstrapTokenErrors[keyof CreateBootstrapTokenErrors];
+
+export type CreateBootstrapTokenResponses = {
+    /**
+     * Token including the one-time secret
+     */
+    201: BootstrapTokenCreated;
+};
+
+export type CreateBootstrapTokenResponse = CreateBootstrapTokenResponses[keyof CreateBootstrapTokenResponses];
+
+export type RevokeBootstrapTokenData = {
+    body?: never;
+    path: {
+        customerId: string;
+        tokenId: string;
+    };
+    query?: never;
+    url: '/api/v1/customers/{customerId}/bootstrap-tokens/{tokenId}';
+};
+
+export type RevokeBootstrapTokenErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+};
+
+export type RevokeBootstrapTokenError = RevokeBootstrapTokenErrors[keyof RevokeBootstrapTokenErrors];
+
+export type RevokeBootstrapTokenResponses = {
+    /**
+     * Revoked
+     */
+    204: void;
+};
+
+export type RevokeBootstrapTokenResponse = RevokeBootstrapTokenResponses[keyof RevokeBootstrapTokenResponses];

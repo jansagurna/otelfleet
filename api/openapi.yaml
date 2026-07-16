@@ -325,6 +325,10 @@ paths:
               type: object
               required: [graph]
               properties:
+                targetClass:
+                  type: string
+                  enum: [forwarding, edge]
+                  default: forwarding
                 graph: { $ref: "#/components/schemas/PipelineGraph" }
       responses:
         "200":
@@ -368,6 +372,10 @@ paths:
               required: [name, graph]
               properties:
                 name: { type: string, minLength: 1, maxLength: 200 }
+                targetClass:
+                  type: string
+                  enum: [forwarding, edge]
+                  default: forwarding
                 graph: { $ref: "#/components/schemas/PipelineGraph" }
       responses:
         "201":
@@ -489,6 +497,164 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/PipelineStageStats" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/agents:
+    get:
+      tags: [fleet]
+      operationId: listAgents
+      summary: List collector agents (gateway replicas and edge agents)
+      parameters:
+        - { name: class, in: query, schema: { type: string, enum: [gateway, edge] } }
+        - { name: customerId, in: query, schema: { type: string, format: uuid } }
+        - { name: connected, in: query, schema: { type: boolean } }
+      responses:
+        "200":
+          description: Agents
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [agents]
+                properties:
+                  agents:
+                    type: array
+                    items: { $ref: "#/components/schemas/Agent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/agents/{agentId}:
+    parameters:
+      - { name: agentId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [fleet]
+      operationId: getAgent
+      summary: Get one agent including its health tree
+      responses:
+        "200":
+          description: Agent detail
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AgentDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [fleet]
+      operationId: deleteAgent
+      summary: Forget a stale agent (a reconnecting agent re-registers itself)
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { description: Agent is currently connected, $ref: "#/components/responses/Conflict" }
+
+  /api/v1/agents/{agentId}/config:
+    parameters:
+      - { name: agentId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [fleet]
+      operationId: getAgentConfig
+      summary: Assigned (desired) and reported (effective) config for the diff view
+      responses:
+        "200":
+          description: Config pair
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [assignedYaml, reportedYaml]
+                properties:
+                  assignedYaml:
+                    type: string
+                    description: What the control plane wants the agent to run ("" for gateway-class agents managed outside OpAMP).
+                  reportedYaml:
+                    type: string
+                    description: Last effective config the agent reported ("" when unknown).
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/agents/{agentId}/events:
+    parameters:
+      - { name: agentId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [fleet]
+      operationId: listAgentEvents
+      summary: Status transitions of one agent, newest first
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, default: 50, maximum: 500 } }
+      responses:
+        "200":
+          description: Events
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [events]
+                properties:
+                  events:
+                    type: array
+                    items: { $ref: "#/components/schemas/AgentEvent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/customers/{customerId}/bootstrap-tokens:
+    parameters:
+      - { name: customerId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [fleet]
+      operationId: listBootstrapTokens
+      summary: List edge-agent enrollment tokens (never includes secrets)
+      responses:
+        "200":
+          description: Tokens
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tokens]
+                properties:
+                  tokens:
+                    type: array
+                    items: { $ref: "#/components/schemas/BootstrapToken" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [fleet]
+      operationId: createBootstrapToken
+      summary: Create an enrollment token (secret returned exactly once)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 200 }
+                expiresAt: { type: string, format: date-time, nullable: true, description: Defaults to 30 days }
+                maxUses: { type: integer, default: 0, description: 0 = unlimited }
+      responses:
+        "201":
+          description: Token including the one-time secret
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BootstrapTokenCreated" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/customers/{customerId}/bootstrap-tokens/{tokenId}:
+    parameters:
+      - { name: customerId, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: tokenId, in: path, required: true, schema: { type: string, format: uuid } }
+    delete:
+      tags: [fleet]
+      operationId: revokeBootstrapToken
+      summary: Revoke an enrollment token (existing agents stay connected)
+      responses:
+        "204": { description: Revoked }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
 components:
@@ -715,7 +881,13 @@ components:
         customerId: { type: string, format: uuid }
         customerName: { type: string, nullable: true }
         name: { type: string }
-        targetClass: { type: string, enum: [forwarding], description: More classes (gateway, edge) follow in later phases. }
+        targetClass:
+          type: string
+          enum: [forwarding, edge]
+          description: >
+            forwarding = runs on the central forwarding tier (tenant-routed);
+            edge = rendered as standalone config pushed to the customer's
+            edge agents via OpAMP.
         activeVersion: { type: integer, nullable: true }
         latestVersion: { type: integer, nullable: true }
         createdAt: { type: string, format: date-time }
@@ -786,6 +958,92 @@ components:
             applied = distributor confirmed rollout (Kubernetes operator);
             pending_restart = config published, forwarding collector restart required (compose dev).
         detail: { type: string, nullable: true }
+
+    AgentClass:
+      type: string
+      enum: [gateway, edge]
+
+    RemoteConfigStatus:
+      type: string
+      enum: [unset, applying, applied, failed]
+
+    Agent:
+      type: object
+      required: [id, instanceUid, class, connected, remoteConfigStatus, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        instanceUid: { type: string, description: OpAMP instance UID (hex) }
+        class: { $ref: "#/components/schemas/AgentClass" }
+        customerId: { type: string, format: uuid, nullable: true }
+        customerName: { type: string, nullable: true }
+        name: { type: string, nullable: true, description: "From AgentDescription (host.name / service.name)" }
+        agentVersion: { type: string, nullable: true }
+        connected: { type: boolean }
+        healthy: { type: boolean, nullable: true, description: Last reported ComponentHealth; null when never reported }
+        lastSeenAt: { type: string, format: date-time, nullable: true }
+        remoteConfigStatus: { $ref: "#/components/schemas/RemoteConfigStatus" }
+        remoteConfigError: { type: string, nullable: true }
+        assignedConfigHash: { type: string, nullable: true, description: SHA-256 hex of the desired config }
+        reportedConfigHash: { type: string, nullable: true, description: Hash the agent says it runs }
+        configInSync:
+          type: boolean
+          nullable: true
+          description: assigned == reported; null when either side is unknown.
+        createdAt: { type: string, format: date-time }
+
+    AgentDetail:
+      allOf:
+        - $ref: "#/components/schemas/Agent"
+        - type: object
+          properties:
+            description:
+              type: object
+              additionalProperties: true
+              nullable: true
+              description: Full OpAMP AgentDescription attributes.
+            health:
+              type: object
+              additionalProperties: true
+              nullable: true
+              description: Last ComponentHealth tree as reported.
+
+    AgentEvent:
+      type: object
+      required: [id, eventType, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        eventType:
+          type: string
+          enum: [connected, disconnected, config_applied, config_failed, healthy, unhealthy, enrolled]
+        detail:
+          type: object
+          additionalProperties: true
+          nullable: true
+        createdAt: { type: string, format: date-time }
+
+    BootstrapToken:
+      type: object
+      required: [id, customerId, name, tokenPrefix, maxUses, usedCount, createdAt, expiresAt]
+      properties:
+        id: { type: string, format: uuid }
+        customerId: { type: string, format: uuid }
+        name: { type: string }
+        tokenPrefix: { type: string, example: otm_bt_a1b2c3d4 }
+        maxUses: { type: integer, description: 0 = unlimited }
+        usedCount: { type: integer }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        revokedAt: { type: string, format: date-time, nullable: true }
+
+    BootstrapTokenCreated:
+      allOf:
+        - $ref: "#/components/schemas/BootstrapToken"
+        - type: object
+          required: [secret]
+          properties:
+            secret:
+              type: string
+              description: Full enrollment token. Shown exactly once; only a hash is stored.
 
     PipelineStageStats:
       type: object

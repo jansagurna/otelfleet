@@ -113,6 +113,37 @@ const (
 	ValidationInvalid = "invalid"
 )
 
+// Pipeline target classes.
+const (
+	ClassForwarding = "forwarding"
+	ClassEdge       = "edge"
+)
+
+// Agent classes.
+const (
+	AgentClassGateway = "gateway"
+	AgentClassEdge    = "edge"
+)
+
+// Remote config statuses (agents.remote_config_status).
+const (
+	RemoteConfigUnset    = "unset"
+	RemoteConfigApplying = "applying"
+	RemoteConfigApplied  = "applied"
+	RemoteConfigFailed   = "failed"
+)
+
+// Agent event types (agent_events.event_type).
+const (
+	AgentEventEnrolled      = "enrolled"
+	AgentEventConnected     = "connected"
+	AgentEventDisconnected  = "disconnected"
+	AgentEventConfigApplied = "config_applied"
+	AgentEventConfigFailed  = "config_failed"
+	AgentEventHealthy       = "healthy"
+	AgentEventUnhealthy     = "unhealthy"
+)
+
 // Pipeline is a customer pipeline on the forwarding tier, joined with the
 // customer fields the API and renderer need.
 type Pipeline struct {
@@ -148,9 +179,10 @@ type PipelineVersion struct {
 // NewPipeline is the insert payload for a pipeline. ID must be pre-generated
 // by the caller so audit entries can reference it.
 type NewPipeline struct {
-	ID         uuid.UUID
-	CustomerID uuid.UUID
-	Name       string
+	ID          uuid.UUID
+	CustomerID  uuid.UUID
+	Name        string
+	TargetClass string // ClassForwarding or ClassEdge
 }
 
 // NewPipelineVersion is the insert payload for a pipeline version. The
@@ -170,9 +202,105 @@ type NewPipelineVersion struct {
 type ActivePipeline struct {
 	PipelineID   uuid.UUID
 	PipelineName string
+	CustomerID   uuid.UUID
 	CustomerSlug string
 	ClientID     string
 	Graph        []byte
+}
+
+// BootstrapToken is an edge-agent enrollment token. The secret is never
+// stored, only its SHA-256.
+type BootstrapToken struct {
+	ID          uuid.UUID
+	CustomerID  uuid.UUID
+	Name        string
+	TokenPrefix string
+	TokenHash   []byte
+	MaxUses     int // 0 = unlimited
+	UsedCount   int
+	CreatedBy   *uuid.UUID
+	CreatedAt   time.Time
+	ExpiresAt   time.Time
+	RevokedAt   *time.Time
+}
+
+// NewBootstrapToken is the insert payload for a bootstrap token.
+type NewBootstrapToken struct {
+	ID          uuid.UUID
+	CustomerID  uuid.UUID
+	Name        string
+	TokenPrefix string
+	TokenHash   []byte
+	MaxUses     int
+	CreatedBy   *uuid.UUID
+	ExpiresAt   time.Time
+}
+
+// EnrollToken is what the OpAMP auth path needs to validate a presented
+// bootstrap token (non-revoked tokens only; expiry, use count and customer
+// status are checked by the caller).
+type EnrollToken struct {
+	TokenID        uuid.UUID
+	CustomerID     uuid.UUID
+	TokenHash      []byte
+	MaxUses        int
+	UsedCount      int
+	ExpiresAt      time.Time
+	CustomerStatus string
+}
+
+// Agent is one collector instance (gateway replica or OpAMP-managed edge
+// agent), joined with the customer name the API needs.
+type Agent struct {
+	ID                 uuid.UUID
+	InstanceUID        []byte // OpAMP instance UID (16 bytes)
+	CustomerID         *uuid.UUID
+	CustomerName       *string
+	Class              string
+	Name               *string
+	AgentVersion       *string
+	Description        []byte // JSONB (full AgentDescription attributes)
+	Capabilities       *int64
+	AssignedConfigHash []byte
+	ReportedConfigHash []byte
+	ReportedConfigYAML *string
+	RemoteConfigStatus string
+	RemoteConfigError  *string
+	Health             []byte // JSONB (ComponentHealth tree)
+	Healthy            *bool
+	Connected          bool
+	LastSeenAt         *time.Time
+	EnrolledVia        *uuid.UUID
+	CreatedAt          time.Time
+}
+
+// NewAgent is the insert payload for a freshly enrolled edge agent.
+type NewAgent struct {
+	ID           uuid.UUID
+	InstanceUID  []byte
+	CustomerID   uuid.UUID
+	Class        string
+	Name         *string
+	AgentVersion *string
+	Description  []byte
+	Capabilities int64
+	EnrolledVia  uuid.UUID
+}
+
+// AgentEvent is one status transition of an agent.
+type AgentEvent struct {
+	ID        int64
+	AgentID   uuid.UUID
+	EventType string
+	Detail    []byte // JSONB, may be nil
+	CreatedAt time.Time
+}
+
+// AgentFilter narrows ListAgents; nil fields match everything.
+type AgentFilter struct {
+	Class      *string
+	CustomerID *uuid.UUID
+	Connected  *bool
 }
 
 // Store is the persistence interface used by services and handlers.
@@ -207,5 +335,29 @@ type Store interface {
 	GetPipelineVersion(ctx context.Context, pipelineID uuid.UUID, version int) (PipelineVersion, error)
 	CreatePipelineVersion(ctx context.Context, v NewPipelineVersion, entries []audit.Entry) (PipelineVersion, error)
 	ActivatePipelineVersion(ctx context.Context, pipelineID uuid.UUID, version int, entries []audit.Entry) (Pipeline, PipelineVersion, error)
-	ListActivePipelines(ctx context.Context) ([]ActivePipeline, error)
+	// ListActivePipelines returns the renderer inputs for one target class
+	// (ClassForwarding or ClassEdge), optionally narrowed to one customer.
+	ListActivePipelines(ctx context.Context, targetClass string, customerID *uuid.UUID) ([]ActivePipeline, error)
+
+	// Bootstrap tokens
+	ListBootstrapTokens(ctx context.Context, customerID uuid.UUID) ([]BootstrapToken, error)
+	CreateBootstrapToken(ctx context.Context, t NewBootstrapToken, entries []audit.Entry) (BootstrapToken, error)
+	RevokeBootstrapToken(ctx context.Context, customerID, tokenID uuid.UUID, entries []audit.Entry) error
+	ActiveBootstrapTokensByPrefix(ctx context.Context, prefix string) ([]EnrollToken, error)
+
+	// Agents. Mutations are driven by the OpAMP module; transitions land in
+	// agent_events (same transaction), user actions additionally in audit_log.
+	EnrollAgent(ctx context.Context, a NewAgent) (Agent, error)
+	GetAgent(ctx context.Context, id uuid.UUID) (Agent, error)
+	GetAgentByInstanceUID(ctx context.Context, instanceUID []byte) (Agent, error)
+	ListAgents(ctx context.Context, f AgentFilter) ([]Agent, error)
+	DeleteAgent(ctx context.Context, id uuid.UUID, entries []audit.Entry) error
+	UpdateAgentDescription(ctx context.Context, id uuid.UUID, name, agentVersion *string, description []byte, capabilities *int64) error
+	SetAgentConnected(ctx context.Context, id uuid.UUID, connected bool, at time.Time) error
+	SetAgentAssignedConfig(ctx context.Context, id uuid.UUID, hash []byte) error
+	SetAgentEffectiveConfig(ctx context.Context, id uuid.UUID, yaml string, hash []byte) error
+	SetAgentRemoteConfigStatus(ctx context.Context, id uuid.UUID, status string, errorMessage *string, eventType *string, detail any) error
+	SetAgentHealth(ctx context.Context, id uuid.UUID, health []byte, healthy bool, flipEvent *string) error
+	TouchAgents(ctx context.Context, seen map[uuid.UUID]time.Time) error
+	ListAgentEvents(ctx context.Context, agentID uuid.UUID, limit int) ([]AgentEvent, error)
 }

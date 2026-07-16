@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ActivatePipelineVersionData, ActivatePipelineVersionErrors, ActivatePipelineVersionResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateCustomerData, CreateCustomerErrors, CreateCustomerResponses, CreatePipelineData, CreatePipelineErrors, CreatePipelineResponses, CreatePipelineVersionData, CreatePipelineVersionErrors, CreatePipelineVersionResponses, DeleteCustomerData, DeleteCustomerErrors, DeleteCustomerResponses, DeletePipelineData, DeletePipelineErrors, DeletePipelineResponses, DevLoginData, DevLoginErrors, DevLoginResponses, GetComponentCatalogData, GetComponentCatalogErrors, GetComponentCatalogResponses, GetCustomerData, GetCustomerErrors, GetCustomerResponses, GetCustomerThroughputData, GetCustomerThroughputErrors, GetCustomerThroughputResponses, GetMeData, GetMeErrors, GetMeResponses, GetPipelineData, GetPipelineErrors, GetPipelineResponses, GetPipelineStageStatsData, GetPipelineStageStatsErrors, GetPipelineStageStatsResponses, GetPipelineVersionData, GetPipelineVersionErrors, GetPipelineVersionResponses, GetStatsOverviewData, GetStatsOverviewErrors, GetStatsOverviewResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListAuthProvidersData, ListAuthProvidersResponses, ListCustomerPipelinesData, ListCustomerPipelinesErrors, ListCustomerPipelinesResponses, ListCustomersData, ListCustomersErrors, ListCustomersResponses, ListPipelinesData, ListPipelinesErrors, ListPipelinesResponses, LogoutData, LogoutResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, UpdateCustomerData, UpdateCustomerErrors, UpdateCustomerResponses, ValidatePipelineData, ValidatePipelineErrors, ValidatePipelineResponses } from './types.gen';
+import type { ActivatePipelineVersionData, ActivatePipelineVersionErrors, ActivatePipelineVersionResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateBootstrapTokenData, CreateBootstrapTokenErrors, CreateBootstrapTokenResponses, CreateCustomerData, CreateCustomerErrors, CreateCustomerResponses, CreatePipelineData, CreatePipelineErrors, CreatePipelineResponses, CreatePipelineVersionData, CreatePipelineVersionErrors, CreatePipelineVersionResponses, DeleteAgentData, DeleteAgentErrors, DeleteAgentResponses, DeleteCustomerData, DeleteCustomerErrors, DeleteCustomerResponses, DeletePipelineData, DeletePipelineErrors, DeletePipelineResponses, DevLoginData, DevLoginErrors, DevLoginResponses, GetAgentConfigData, GetAgentConfigErrors, GetAgentConfigResponses, GetAgentData, GetAgentErrors, GetAgentResponses, GetComponentCatalogData, GetComponentCatalogErrors, GetComponentCatalogResponses, GetCustomerData, GetCustomerErrors, GetCustomerResponses, GetCustomerThroughputData, GetCustomerThroughputErrors, GetCustomerThroughputResponses, GetMeData, GetMeErrors, GetMeResponses, GetPipelineData, GetPipelineErrors, GetPipelineResponses, GetPipelineStageStatsData, GetPipelineStageStatsErrors, GetPipelineStageStatsResponses, GetPipelineVersionData, GetPipelineVersionErrors, GetPipelineVersionResponses, GetStatsOverviewData, GetStatsOverviewErrors, GetStatsOverviewResponses, ListAgentEventsData, ListAgentEventsErrors, ListAgentEventsResponses, ListAgentsData, ListAgentsErrors, ListAgentsResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListAuthProvidersData, ListAuthProvidersResponses, ListBootstrapTokensData, ListBootstrapTokensErrors, ListBootstrapTokensResponses, ListCustomerPipelinesData, ListCustomerPipelinesErrors, ListCustomerPipelinesResponses, ListCustomersData, ListCustomersErrors, ListCustomersResponses, ListPipelinesData, ListPipelinesErrors, ListPipelinesResponses, LogoutData, LogoutResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, RevokeBootstrapTokenData, RevokeBootstrapTokenErrors, RevokeBootstrapTokenResponses, UpdateCustomerData, UpdateCustomerErrors, UpdateCustomerResponses, ValidatePipelineData, ValidatePipelineErrors, ValidatePipelineResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -191,3 +191,50 @@ export const activatePipelineVersion = <ThrowOnError extends boolean = false>(op
  * Per-stage flow metrics for a pipeline (received/exported/failed/queued)
  */
 export const getPipelineStageStats = <ThrowOnError extends boolean = false>(options: Options<GetPipelineStageStatsData, ThrowOnError>): RequestResult<GetPipelineStageStatsResponses, GetPipelineStageStatsErrors, ThrowOnError> => (options.client ?? client).get<GetPipelineStageStatsResponses, GetPipelineStageStatsErrors, ThrowOnError>({ url: '/api/v1/pipelines/{pipelineId}/stats/stages', ...options });
+
+/**
+ * List collector agents (gateway replicas and edge agents)
+ */
+export const listAgents = <ThrowOnError extends boolean = false>(options?: Options<ListAgentsData, ThrowOnError>): RequestResult<ListAgentsResponses, ListAgentsErrors, ThrowOnError> => (options?.client ?? client).get<ListAgentsResponses, ListAgentsErrors, ThrowOnError>({ url: '/api/v1/agents', ...options });
+
+/**
+ * Forget a stale agent (a reconnecting agent re-registers itself)
+ */
+export const deleteAgent = <ThrowOnError extends boolean = false>(options: Options<DeleteAgentData, ThrowOnError>): RequestResult<DeleteAgentResponses, DeleteAgentErrors, ThrowOnError> => (options.client ?? client).delete<DeleteAgentResponses, DeleteAgentErrors, ThrowOnError>({ url: '/api/v1/agents/{agentId}', ...options });
+
+/**
+ * Get one agent including its health tree
+ */
+export const getAgent = <ThrowOnError extends boolean = false>(options: Options<GetAgentData, ThrowOnError>): RequestResult<GetAgentResponses, GetAgentErrors, ThrowOnError> => (options.client ?? client).get<GetAgentResponses, GetAgentErrors, ThrowOnError>({ url: '/api/v1/agents/{agentId}', ...options });
+
+/**
+ * Assigned (desired) and reported (effective) config for the diff view
+ */
+export const getAgentConfig = <ThrowOnError extends boolean = false>(options: Options<GetAgentConfigData, ThrowOnError>): RequestResult<GetAgentConfigResponses, GetAgentConfigErrors, ThrowOnError> => (options.client ?? client).get<GetAgentConfigResponses, GetAgentConfigErrors, ThrowOnError>({ url: '/api/v1/agents/{agentId}/config', ...options });
+
+/**
+ * Status transitions of one agent, newest first
+ */
+export const listAgentEvents = <ThrowOnError extends boolean = false>(options: Options<ListAgentEventsData, ThrowOnError>): RequestResult<ListAgentEventsResponses, ListAgentEventsErrors, ThrowOnError> => (options.client ?? client).get<ListAgentEventsResponses, ListAgentEventsErrors, ThrowOnError>({ url: '/api/v1/agents/{agentId}/events', ...options });
+
+/**
+ * List edge-agent enrollment tokens (never includes secrets)
+ */
+export const listBootstrapTokens = <ThrowOnError extends boolean = false>(options: Options<ListBootstrapTokensData, ThrowOnError>): RequestResult<ListBootstrapTokensResponses, ListBootstrapTokensErrors, ThrowOnError> => (options.client ?? client).get<ListBootstrapTokensResponses, ListBootstrapTokensErrors, ThrowOnError>({ url: '/api/v1/customers/{customerId}/bootstrap-tokens', ...options });
+
+/**
+ * Create an enrollment token (secret returned exactly once)
+ */
+export const createBootstrapToken = <ThrowOnError extends boolean = false>(options: Options<CreateBootstrapTokenData, ThrowOnError>): RequestResult<CreateBootstrapTokenResponses, CreateBootstrapTokenErrors, ThrowOnError> => (options.client ?? client).post<CreateBootstrapTokenResponses, CreateBootstrapTokenErrors, ThrowOnError>({
+    url: '/api/v1/customers/{customerId}/bootstrap-tokens',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Revoke an enrollment token (existing agents stay connected)
+ */
+export const revokeBootstrapToken = <ThrowOnError extends boolean = false>(options: Options<RevokeBootstrapTokenData, ThrowOnError>): RequestResult<RevokeBootstrapTokenResponses, RevokeBootstrapTokenErrors, ThrowOnError> => (options.client ?? client).delete<RevokeBootstrapTokenResponses, RevokeBootstrapTokenErrors, ThrowOnError>({ url: '/api/v1/customers/{customerId}/bootstrap-tokens/{tokenId}', ...options });

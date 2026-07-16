@@ -113,8 +113,39 @@ services:
       - "4317" # OTLP gRPC (from the forwarding tier)
       - "8888" # collector self-telemetry, scraped by vmagent
 
+  # P3 edge-agent demo: OpAMP supervisor + otelfleet collector, standing in
+  # for an agent deployed inside a customer network. It dials OUT to the
+  # control plane's OpAMP server on the host (ws://host.docker.internal:4320/
+  # v1/opamp), authenticates with a per-customer bootstrap token, and receives
+  # its full collector config as OpAMP remote config. No published ports —
+  # edge agents only make outbound connections.
+  #
+  # Behind the "edge" profile so a plain `docker compose up -d` does NOT
+  # start it (it needs a real bootstrap token). Start it with:
+  #   OTELFLEET_BOOTSTRAP_TOKEN=otm_bt_<prefix>_<secret> \
+  #     docker compose --profile edge up -d edge-agent
+  # or one-shot (e.g. from the P3 e2e):
+  #   docker compose --profile edge run --rm \
+  #     -e OTELFLEET_BOOTSTRAP_TOKEN=otm_bt_<prefix>_<secret> edge-agent
+  edge-agent:
+    profiles: ["edge"]
+    build:
+      context: ../..
+      dockerfile: Dockerfile.supervisor
+    environment:
+      OTELFLEET_BOOTSTRAP_TOKEN: ${OTELFLEET_BOOTSTRAP_TOKEN:-}
+    restart: unless-stopped
+    volumes:
+      - ./supervisor.yaml:/etc/otelfleet/supervisor.yaml:ro
+      # Last-good config + instance ID; lets the supervisor start the
+      # collector on the persisted config when the control plane is down.
+      - edgestate:/var/lib/otelfleet-supervisor
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
 volumes:
   pgdata:
   chdata:
   vmdata:
   gwqueue:
+  edgestate:

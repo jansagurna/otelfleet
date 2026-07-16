@@ -54,6 +54,39 @@ non-root) and consumed by the `gateway` service in
 `deploy/compose/docker-compose.yaml` with
 `deploy/compose/otelcol-gateway.yaml` as its config.
 
+## Edge agent (OpAMP supervisor)
+
+P3 edge agents run this same collector distribution under the
+[OpAMP supervisor](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/v0.156.0/cmd/opampsupervisor)
+(**opampsupervisor v0.156.0**, matching the collector release train). The
+supervisor dials the control plane's OpAMP server
+(`ws://host.docker.internal:4320/v1/opamp` in dev), authenticates with a
+per-customer bootstrap token (`Authorization: Bearer otm_bt_<prefix>_<secret>`),
+receives the full collector config as OpAMP remote config, runs the collector
+as a child process, reports health / effective config / remote-config status,
+persists the last-good config under `/var/lib/otelfleet-supervisor`, and
+reverts to it locally when a pushed config crash-loops.
+
+- Image: `Dockerfile.supervisor` (repo root). The supervisor binary is copied
+  from the official `opentelemetry-collector-opampsupervisor:0.156.0` release
+  image (`go install` of the module is impossible at v0.156.0 — its go.mod
+  has replace directives); the collector binary is built with OCB exactly
+  like `Dockerfile.collector` (intentional duplication for now).
+- Supervisor config: `deploy/compose/supervisor.yaml`. The supervisor's own
+  config supports confmap `${env:VAR}` expansion, which injects
+  `OTELFLEET_BOOTSTRAP_TOKEN` into the Authorization header.
+- Compose service: `edge-agent` in `deploy/compose/docker-compose.yaml`,
+  behind the `edge` profile (it needs a real token):
+  `OTELFLEET_BOOTSTRAP_TOKEN=otm_bt_... docker compose --profile edge up -d edge-agent`.
+
+NOTE: the supervisor requires the managed collector to include the contrib
+`opamp` extension (it injects an `extensions: opamp:` block into every config
+it hands the collector). `builder-config.yaml` does not list it yet, so
+`Dockerfile.supervisor` patches `opampextension v0.156.0` into the manifest at
+image build time. TODO: add
+`github.com/open-telemetry/opentelemetry-collector-contrib/extension/opampextension v0.156.0`
+to `builder-config.yaml` and drop that patch.
+
 ## Version bumps
 
 When bumping the collector release train, update in lockstep:

@@ -1,0 +1,18 @@
+processors:
+  batch/acme-corp__backup__0:
+    send_batch_size: 512
+exporters:
+  otlp/acme-corp__backup__0:
+    endpoint: acme-backend:4317
+    tls:
+      insecure: true
+service:
+  pipelines:
+    logs/acme-corp__backup:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, batch/acme-corp__backup__0]
+      exporters: [otlp/acme-corp__backup__0]
+    traces/acme-corp__backup:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, batch/acme-corp__backup__0]
+      exporters: [otlp/acme-corp__backup__0]

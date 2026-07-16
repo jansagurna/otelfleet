@@ -1,0 +1,100 @@
+# otelfleet chart values.
+#
+# External stateful services are REQUIRED (bring your own):
+# PostgreSQL (control-plane state), ClickHouse (telemetry) and a
+# Prometheus-compatible store (collector self-telemetry, e.g. VictoriaMetrics).
+
+images:
+  controlPlane:
+    repository: ghcr.io/sag-solutions/otelfleet
+    tag: ""            # defaults to .Chart.AppVersion
+    pullPolicy: IfNotPresent
+  collector:
+    repository: ghcr.io/sag-solutions/otelfleet-collector
+    tag: ""            # defaults to .Chart.AppVersion
+    pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+external:
+  # postgres://user:pass@host:5432/otelfleet — or set existingSecret below.
+  databaseUrl: ""
+  # Name of a Secret with key OTELFLEET_DATABASE_URL; takes precedence.
+  databaseUrlSecret: ""
+  clickhouse:
+    addr: "clickhouse:9000"           # native protocol host:port
+    database: otel
+    user: otelfleet
+    passwordSecret: ""                # Secret with key OTELFLEET_CLICKHOUSE_PASSWORD
+    password: ""                      # inline fallback (dev only)
+    # DSN used by the gateway collector's clickhouse exporter.
+    exporterEndpoint: "tcp://clickhouse:9000?database=otel&username=otelfleet&password=otelfleet"
+  victoriaMetrics:
+    url: "http://victoriametrics:8428"
+    remoteWriteUrl: "http://victoriametrics:8428/api/v1/write"
+
+controlPlane:
+  replicas: 1          # OpAMP WebSockets are process-sticky; keep 1 until the
+                       # multi-replica story (OpAMP gateway) lands.
+  adminEmails: []      # e.g. ["ops@example.com"] — get role admin on first login
+  devLogin: false
+  baseUrl: ""          # external URL, required for OIDC redirects
+  sessionSecure: true
+  oidc:
+    # Generic OIDC provider (P4 brings the multi-provider registry).
+    issuer: ""
+    clientId: ""
+    displayName: SSO
+    clientSecretRef: ""   # Secret with key OTELFLEET_OIDC_CLIENT_SECRET
+  # publish: forwarding pods pull config from the ops endpoint (restart to
+  # apply). k8s: control plane patches the OpenTelemetryCollector CR (requires
+  # the opentelemetry-operator and forwarding.mode=operator).
+  distributor: publish
+  opamp:
+    service:
+      # How edge agents (customer networks!) reach the OpAMP endpoint.
+      type: ClusterIP   # set LoadBalancer or wire an ingress/gateway for production
+      port: 4320
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits: { memory: 512Mi }
+
+ingress:
+  enabled: false
+  className: ""
+  host: ""
+  tls: []
+  annotations: {}
+
+gateway:
+  enabled: true
+  replicas: 2
+  resources:
+    requests: { cpu: 500m, memory: 512Mi }
+    limits: { memory: 1Gi }
+  service:
+    type: ClusterIP     # front with LB/ingress-grpc for customer OTLP in production
+  persistentQueue:
+    enabled: false      # PVC-backed sending queue for the clickhouse exporter
+    size: 5Gi
+    storageClassName: ""
+
+forwarding:
+  enabled: true
+  # deployment: plain Deployment pulling its config from the control plane's
+  # ops endpoint at pod start (kubectl rollout restart to apply changes).
+  # operator: an OpenTelemetryCollector CR managed by the control plane
+  # (set controlPlane.distributor=k8s; requires the opentelemetry-operator).
+  mode: deployment
+  replicas: 1
+  resources:
+    requests: { cpu: 250m, memory: 256Mi }
+    limits: { memory: 512Mi }
+
+serviceAccount:
+  create: true
+  annotations: {}
+
+podLabels: {}
+nodeSelector: {}
+tolerations: []

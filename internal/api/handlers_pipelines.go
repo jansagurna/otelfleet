@@ -190,7 +190,11 @@ func (s *Server) ListCustomerPipelines(ctx context.Context, request apigen.ListC
 }
 
 func (s *Server) CreatePipeline(ctx context.Context, request apigen.CreatePipelineRequestObject) (apigen.CreatePipelineResponseObject, error) {
-	created, res, err := s.pipelines.Create(ctx, actorID(ctx), request.CustomerId, request.Body.Name, fromAPIGraph(request.Body.Graph))
+	targetClass := pipelines.ClassForwarding
+	if request.Body.TargetClass != nil {
+		targetClass = string(*request.Body.TargetClass)
+	}
+	created, res, err := s.pipelines.Create(ctx, actorID(ctx), request.CustomerId, request.Body.Name, targetClass, fromAPIGraph(request.Body.Graph))
 	switch {
 	case errors.Is(err, pipelines.ErrInvalidName):
 		return apigen.CreatePipeline400JSONResponse{BadRequestJSONResponse: apigen.BadRequestJSONResponse{Code: codeBadRequest, Message: err.Error()}}, nil
@@ -253,7 +257,11 @@ func (s *Server) DeletePipeline(ctx context.Context, request apigen.DeletePipeli
 // --- validation & versions ---
 
 func (s *Server) ValidatePipeline(ctx context.Context, request apigen.ValidatePipelineRequestObject) (apigen.ValidatePipelineResponseObject, error) {
-	res := s.pipelines.ValidateDraft(ctx, fromAPIGraph(request.Body.Graph))
+	targetClass := pipelines.ClassForwarding
+	if request.Body.TargetClass != nil {
+		targetClass = string(*request.Body.TargetClass)
+	}
+	res := s.pipelines.ValidateDraft(ctx, targetClass, fromAPIGraph(request.Body.Graph))
 	return apigen.ValidatePipeline200JSONResponse(toValidationResult(res)), nil
 }
 

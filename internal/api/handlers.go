@@ -19,6 +19,12 @@ import (
 	"github.com/sag-solutions/otelfleet/internal/tenants"
 )
 
+// AgentConnections is the OpAMP-server subset the fleet handlers need (live
+// connection check for the delete-agent 409). Implemented by *opamp.Server.
+type AgentConnections interface {
+	IsConnected(instanceUID []byte) bool
+}
+
 // Server implements the OpenAPI strict-server interface.
 type Server struct {
 	cfg       *config.Config
@@ -27,14 +33,15 @@ type Server struct {
 	pipelines *pipelines.Service
 	stats     *stats.Service
 	sessions  *auth.Sessions
+	agents    AgentConnections // nil: no OpAMP server (treated as disconnected)
 	log       *slog.Logger
 }
 
 var _ apigen.StrictServerInterface = (*Server)(nil)
 
 // NewServer wires the REST handlers.
-func NewServer(cfg *config.Config, st store.Store, ten *tenants.Service, pipes *pipelines.Service, sts *stats.Service, sessions *auth.Sessions, log *slog.Logger) *Server {
-	return &Server{cfg: cfg, store: st, tenants: ten, pipelines: pipes, stats: sts, sessions: sessions, log: log}
+func NewServer(cfg *config.Config, st store.Store, ten *tenants.Service, pipes *pipelines.Service, sts *stats.Service, sessions *auth.Sessions, agents AgentConnections, log *slog.Logger) *Server {
+	return &Server{cfg: cfg, store: st, tenants: ten, pipelines: pipes, stats: sts, sessions: sessions, agents: agents, log: log}
 }
 
 func actorID(ctx context.Context) *openapi_types.UUID {

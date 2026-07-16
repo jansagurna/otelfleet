@@ -43,9 +43,10 @@ import { ThroughputChartCard, ThroughputChartSkeleton } from '@/components/throu
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { CreateApiKeyDialog } from '@/components/create-api-key-dialog'
 import { SecretDialog } from '@/components/secret-dialog'
+import { CustomerAgentsTab } from '@/features/fleet/customer-agents-tab'
 import type { ApiKey, ApiKeyCreated, Customer, ThroughputPoint } from '@/api/generated'
 
-const TABS = ['overview', 'api-keys'] as const
+const TABS = ['overview', 'api-keys', 'agents'] as const
 type Tab = (typeof TABS)[number]
 
 interface CustomerSearch {
@@ -55,8 +56,7 @@ interface CustomerSearch {
 
 export const Route = createFileRoute('/_auth/customers/$customerId')({
   validateSearch: (search: Record<string, unknown>): CustomerSearch => ({
-    tab:
-      search.tab === 'api-keys' ? 'api-keys' : search.tab === 'overview' ? 'overview' : undefined,
+    tab: TABS.includes(search.tab as Tab) ? (search.tab as Tab) : undefined,
     range: isTimeRange(search.range) ? search.range : undefined,
   }),
   component: CustomerDetailPage,
@@ -85,11 +85,9 @@ function CustomerDetailPage() {
     <div className="flex flex-col gap-5">
       <CustomerHeader customer={customer} />
       <TabBar customerId={customerId} active={tab} />
-      {tab === 'overview' ? (
-        <OverviewTab customerId={customerId} />
-      ) : (
-        <ApiKeysTab customerId={customerId} />
-      )}
+      {tab === 'overview' && <OverviewTab customerId={customerId} />}
+      {tab === 'api-keys' && <ApiKeysTab customerId={customerId} />}
+      {tab === 'agents' && <CustomerAgentsTab customerId={customerId} />}
     </div>
   )
 }
@@ -183,7 +181,11 @@ function CustomerHeader({ customer }: { customer: Customer }) {
 }
 
 function TabBar({ customerId, active }: { customerId: string; active: Tab }) {
-  const labels: Record<Tab, string> = { overview: 'Overview', 'api-keys': 'API keys' }
+  const labels: Record<Tab, string> = {
+    overview: 'Overview',
+    'api-keys': 'API keys',
+    agents: 'Agents',
+  }
   return (
     <nav aria-label="Customer sections" className="flex gap-1 border-b border-line">
       {TABS.map((tab) => (

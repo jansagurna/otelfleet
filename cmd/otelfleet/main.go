@@ -1,6 +1,7 @@
 // Command otelfleet runs the otelfleet control plane: the REST API (:8080),
-// the internal gRPC AuthService for gateway collectors (:9443) and the ops
-// listener with metrics and health endpoints (:9090).
+// the internal gRPC AuthService for gateway collectors (:9443), the ops
+// listener with metrics and health endpoints (:9090) and the OpAMP server
+// for edge agents (:4320, /v1/opamp).
 package main
 
 import (
@@ -27,6 +28,7 @@ import (
 	"github.com/sag-solutions/otelfleet/internal/config"
 	"github.com/sag-solutions/otelfleet/internal/ingestauth"
 	"github.com/sag-solutions/otelfleet/internal/ingestauth/authv1"
+	"github.com/sag-solutions/otelfleet/internal/opamp"
 	"github.com/sag-solutions/otelfleet/internal/pipelines"
 	"github.com/sag-solutions/otelfleet/internal/stats"
 	"github.com/sag-solutions/otelfleet/internal/store"
@@ -108,6 +110,12 @@ func run(log *slog.Logger) error {
 	}
 	pipelinesSvc := pipelines.NewService(st, validator, distributor, log)
 
+	// OpAMP server (edge-agent fleet management on :4320). The pipeline
+	// service pushes edge-config changes through it; the OpAMP server renders
+	// desired configs through the pipeline service.
+	opampSrv := opamp.NewServer(st, pipelinesSvc, cfg.OpAMPAddr, log)
+	pipelinesSvc.SetEdgeNotifier(opampSrv)
+
 	// OIDC handlers.
 	var oidcHandlers []*auth.OIDCHandler
 	for _, p := range cfg.OIDCProviders {
@@ -115,7 +123,7 @@ func run(log *slog.Logger) error {
 	}
 
 	// REST API server.
-	server := api.NewServer(cfg, st, tenantsSvc, pipelinesSvc, statsSvc, sessions, log)
+	server := api.NewServer(cfg, st, tenantsSvc, pipelinesSvc, statsSvc, sessions, opampSrv, log)
 	httpSrv := &http.Server{
 		Addr: cfg.HTTPAddr,
 		Handler: api.NewRouter(api.RouterDeps{
@@ -171,6 +179,14 @@ func run(log *slog.Logger) error {
 		return nil
 	})
 	g.Go(func() error {
+		log.Info("opamp server listening", "addr", cfg.OpAMPAddr, "path", opamp.Path)
+		if err := opampSrv.Start(); err != nil {
+			return err
+		}
+		opampSrv.Run(gctx) // flushes write-behind heartbeat state; final flush on cancel
+		return nil
+	})
+	g.Go(func() error {
 		<-gctx.Done()
 		log.Info("shutting down")
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -180,6 +196,9 @@ func run(log *slog.Logger) error {
 		}
 		if err := opsSrv.Shutdown(shutdownCtx); err != nil {
 			log.Warn("ops shutdown", "err", err)
+		}
+		if err := opampSrv.Stop(shutdownCtx); err != nil {
+			log.Warn("opamp shutdown", "err", err)
 		}
 		grpcSrv.GracefulStop()
 		return nil

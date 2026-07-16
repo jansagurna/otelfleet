@@ -3,7 +3,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router'
 import { vi } from 'vitest'
 import { routeTree } from '@/routeTree.gen'
-import type { ApiKey, Customer, Me, StatsOverview } from '@/api/generated'
+import type {
+  AgentDetail,
+  AgentEvent,
+  ApiKey,
+  BootstrapToken,
+  Customer,
+  Me,
+  StatsOverview,
+} from '@/api/generated'
 
 export const testMe: Me = {
   id: '4f2c7a1e-0000-4000-8000-000000000001',
@@ -31,6 +39,46 @@ export const testApiKey: ApiKey = {
   expiresAt: null,
   revokedAt: null,
   lastUsedAt: '2026-07-15T08:00:00Z',
+}
+
+export const testAgent: AgentDetail = {
+  id: '4f2c7a1e-0000-4000-8000-000000000010',
+  instanceUid: '019078abcdef40008000aabbccddeeff',
+  class: 'edge',
+  customerId: testCustomer.id,
+  customerName: testCustomer.name,
+  name: 'edge-agent-01',
+  agentVersion: '0.104.0',
+  connected: true,
+  healthy: true,
+  lastSeenAt: '2026-07-15T08:00:00Z',
+  remoteConfigStatus: 'applied',
+  remoteConfigError: null,
+  assignedConfigHash: 'abc123def4567890',
+  reportedConfigHash: 'abc123def4567890',
+  configInSync: true,
+  createdAt: '2026-07-10T09:00:00Z',
+  description: { 'host.name': 'edge-host-01', 'service.name': 'otelcol' },
+  health: { healthy: true, status: 'StatusOK' },
+}
+
+export const testAgentEvent: AgentEvent = {
+  id: 1,
+  eventType: 'connected',
+  detail: { remoteAddr: '10.0.0.5' },
+  createdAt: '2026-07-15T07:59:00Z',
+}
+
+export const testBootstrapToken: BootstrapToken = {
+  id: '4f2c7a1e-0000-4000-8000-000000000011',
+  customerId: testCustomer.id,
+  name: 'factory-floor',
+  tokenPrefix: 'obt_9x8y7z',
+  maxUses: 0,
+  usedCount: 3,
+  createdAt: '2026-07-10T09:00:00Z',
+  expiresAt: '2027-08-09T09:00:00Z',
+  revokedAt: null,
 }
 
 export const testOverview: StatsOverview = {
@@ -70,6 +118,16 @@ export function stubApi(): void {
           return json(testCustomer)
         case `/api/v1/customers/${testCustomer.id}/api-keys`:
           return json({ apiKeys: [testApiKey] })
+        case '/api/v1/agents':
+          return json({ agents: [testAgent] })
+        case `/api/v1/agents/${testAgent.id}`:
+          return json(testAgent)
+        case `/api/v1/agents/${testAgent.id}/config`:
+          return json({ assignedYaml: 'receivers: {}\n', reportedYaml: 'receivers: {}\n' })
+        case `/api/v1/agents/${testAgent.id}/events`:
+          return json({ events: [testAgentEvent] })
+        case `/api/v1/customers/${testCustomer.id}/bootstrap-tokens`:
+          return json({ tokens: [testBootstrapToken] })
         default:
           return new Response(JSON.stringify({ code: 'not_found', message: 'not found' }), {
             status: 404,

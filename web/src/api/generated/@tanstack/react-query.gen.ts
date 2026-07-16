@@ -3,8 +3,8 @@
 import { type DefaultError, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { activatePipelineVersion, createApiKey, createCustomer, createPipeline, createPipelineVersion, deleteCustomer, deletePipeline, devLogin, getComponentCatalog, getCustomer, getCustomerThroughput, getMe, getPipeline, getPipelineStageStats, getPipelineVersion, getStatsOverview, listApiKeys, listAuthProviders, listCustomerPipelines, listCustomers, listPipelines, logout, type Options, revokeApiKey, updateCustomer, validatePipeline } from '../sdk.gen';
-import type { ActivatePipelineVersionData, ActivatePipelineVersionError, ActivatePipelineVersionResponse, CreateApiKeyData, CreateApiKeyError, CreateApiKeyResponse, CreateCustomerData, CreateCustomerError, CreateCustomerResponse, CreatePipelineData, CreatePipelineError, CreatePipelineResponse, CreatePipelineVersionData, CreatePipelineVersionError, CreatePipelineVersionResponse, DeleteCustomerData, DeleteCustomerError, DeleteCustomerResponse, DeletePipelineData, DeletePipelineError, DeletePipelineResponse, DevLoginData, DevLoginError, DevLoginResponse, GetComponentCatalogData, GetComponentCatalogError, GetComponentCatalogResponse, GetCustomerData, GetCustomerError, GetCustomerResponse, GetCustomerThroughputData, GetCustomerThroughputError, GetCustomerThroughputResponse, GetMeData, GetMeError, GetMeResponse, GetPipelineData, GetPipelineError, GetPipelineResponse, GetPipelineStageStatsData, GetPipelineStageStatsError, GetPipelineStageStatsResponse, GetPipelineVersionData, GetPipelineVersionError, GetPipelineVersionResponse, GetStatsOverviewData, GetStatsOverviewError, GetStatsOverviewResponse, ListApiKeysData, ListApiKeysError, ListApiKeysResponse, ListAuthProvidersData, ListAuthProvidersResponse, ListCustomerPipelinesData, ListCustomerPipelinesError, ListCustomerPipelinesResponse, ListCustomersData, ListCustomersError, ListCustomersResponse, ListPipelinesData, ListPipelinesError, ListPipelinesResponse, LogoutData, LogoutResponse, RevokeApiKeyData, RevokeApiKeyError, RevokeApiKeyResponse, UpdateCustomerData, UpdateCustomerError, UpdateCustomerResponse, ValidatePipelineData, ValidatePipelineError, ValidatePipelineResponse } from '../types.gen';
+import { activatePipelineVersion, createApiKey, createBootstrapToken, createCustomer, createPipeline, createPipelineVersion, deleteAgent, deleteCustomer, deletePipeline, devLogin, getAgent, getAgentConfig, getComponentCatalog, getCustomer, getCustomerThroughput, getMe, getPipeline, getPipelineStageStats, getPipelineVersion, getStatsOverview, listAgentEvents, listAgents, listApiKeys, listAuthProviders, listBootstrapTokens, listCustomerPipelines, listCustomers, listPipelines, logout, type Options, revokeApiKey, revokeBootstrapToken, updateCustomer, validatePipeline } from '../sdk.gen';
+import type { ActivatePipelineVersionData, ActivatePipelineVersionError, ActivatePipelineVersionResponse, CreateApiKeyData, CreateApiKeyError, CreateApiKeyResponse, CreateBootstrapTokenData, CreateBootstrapTokenError, CreateBootstrapTokenResponse, CreateCustomerData, CreateCustomerError, CreateCustomerResponse, CreatePipelineData, CreatePipelineError, CreatePipelineResponse, CreatePipelineVersionData, CreatePipelineVersionError, CreatePipelineVersionResponse, DeleteAgentData, DeleteAgentError, DeleteAgentResponse, DeleteCustomerData, DeleteCustomerError, DeleteCustomerResponse, DeletePipelineData, DeletePipelineError, DeletePipelineResponse, DevLoginData, DevLoginError, DevLoginResponse, GetAgentConfigData, GetAgentConfigError, GetAgentConfigResponse, GetAgentData, GetAgentError, GetAgentResponse, GetComponentCatalogData, GetComponentCatalogError, GetComponentCatalogResponse, GetCustomerData, GetCustomerError, GetCustomerResponse, GetCustomerThroughputData, GetCustomerThroughputError, GetCustomerThroughputResponse, GetMeData, GetMeError, GetMeResponse, GetPipelineData, GetPipelineError, GetPipelineResponse, GetPipelineStageStatsData, GetPipelineStageStatsError, GetPipelineStageStatsResponse, GetPipelineVersionData, GetPipelineVersionError, GetPipelineVersionResponse, GetStatsOverviewData, GetStatsOverviewError, GetStatsOverviewResponse, ListAgentEventsData, ListAgentEventsError, ListAgentEventsResponse, ListAgentsData, ListAgentsError, ListAgentsResponse, ListApiKeysData, ListApiKeysError, ListApiKeysResponse, ListAuthProvidersData, ListAuthProvidersResponse, ListBootstrapTokensData, ListBootstrapTokensError, ListBootstrapTokensResponse, ListCustomerPipelinesData, ListCustomerPipelinesError, ListCustomerPipelinesResponse, ListCustomersData, ListCustomersError, ListCustomersResponse, ListPipelinesData, ListPipelinesError, ListPipelinesResponse, LogoutData, LogoutResponse, RevokeApiKeyData, RevokeApiKeyError, RevokeApiKeyResponse, RevokeBootstrapTokenData, RevokeBootstrapTokenError, RevokeBootstrapTokenResponse, UpdateCustomerData, UpdateCustomerError, UpdateCustomerResponse, ValidatePipelineData, ValidatePipelineError, ValidatePipelineResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -476,3 +476,144 @@ export const getPipelineStageStatsOptions = (options: Options<GetPipelineStageSt
     },
     queryKey: getPipelineStageStatsQueryKey(options)
 });
+
+export const listAgentsQueryKey = (options?: Options<ListAgentsData>) => createQueryKey('listAgents', options);
+
+/**
+ * List collector agents (gateway replicas and edge agents)
+ */
+export const listAgentsOptions = (options?: Options<ListAgentsData>) => queryOptions<ListAgentsResponse, ListAgentsError, ListAgentsResponse, ReturnType<typeof listAgentsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listAgents({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listAgentsQueryKey(options)
+});
+
+/**
+ * Forget a stale agent (a reconnecting agent re-registers itself)
+ */
+export const deleteAgentMutation = (options?: Partial<Options<DeleteAgentData>>): UseMutationOptions<DeleteAgentResponse, DeleteAgentError, Options<DeleteAgentData>> => {
+    const mutationOptions: UseMutationOptions<DeleteAgentResponse, DeleteAgentError, Options<DeleteAgentData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteAgent({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getAgentQueryKey = (options: Options<GetAgentData>) => createQueryKey('getAgent', options);
+
+/**
+ * Get one agent including its health tree
+ */
+export const getAgentOptions = (options: Options<GetAgentData>) => queryOptions<GetAgentResponse, GetAgentError, GetAgentResponse, ReturnType<typeof getAgentQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getAgent({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getAgentQueryKey(options)
+});
+
+export const getAgentConfigQueryKey = (options: Options<GetAgentConfigData>) => createQueryKey('getAgentConfig', options);
+
+/**
+ * Assigned (desired) and reported (effective) config for the diff view
+ */
+export const getAgentConfigOptions = (options: Options<GetAgentConfigData>) => queryOptions<GetAgentConfigResponse, GetAgentConfigError, GetAgentConfigResponse, ReturnType<typeof getAgentConfigQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getAgentConfig({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getAgentConfigQueryKey(options)
+});
+
+export const listAgentEventsQueryKey = (options: Options<ListAgentEventsData>) => createQueryKey('listAgentEvents', options);
+
+/**
+ * Status transitions of one agent, newest first
+ */
+export const listAgentEventsOptions = (options: Options<ListAgentEventsData>) => queryOptions<ListAgentEventsResponse, ListAgentEventsError, ListAgentEventsResponse, ReturnType<typeof listAgentEventsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listAgentEvents({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listAgentEventsQueryKey(options)
+});
+
+export const listBootstrapTokensQueryKey = (options: Options<ListBootstrapTokensData>) => createQueryKey('listBootstrapTokens', options);
+
+/**
+ * List edge-agent enrollment tokens (never includes secrets)
+ */
+export const listBootstrapTokensOptions = (options: Options<ListBootstrapTokensData>) => queryOptions<ListBootstrapTokensResponse, ListBootstrapTokensError, ListBootstrapTokensResponse, ReturnType<typeof listBootstrapTokensQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listBootstrapTokens({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listBootstrapTokensQueryKey(options)
+});
+
+/**
+ * Create an enrollment token (secret returned exactly once)
+ */
+export const createBootstrapTokenMutation = (options?: Partial<Options<CreateBootstrapTokenData>>): UseMutationOptions<CreateBootstrapTokenResponse, CreateBootstrapTokenError, Options<CreateBootstrapTokenData>> => {
+    const mutationOptions: UseMutationOptions<CreateBootstrapTokenResponse, CreateBootstrapTokenError, Options<CreateBootstrapTokenData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createBootstrapToken({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Revoke an enrollment token (existing agents stay connected)
+ */
+export const revokeBootstrapTokenMutation = (options?: Partial<Options<RevokeBootstrapTokenData>>): UseMutationOptions<RevokeBootstrapTokenResponse, RevokeBootstrapTokenError, Options<RevokeBootstrapTokenData>> => {
+    const mutationOptions: UseMutationOptions<RevokeBootstrapTokenResponse, RevokeBootstrapTokenError, Options<RevokeBootstrapTokenData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await revokeBootstrapToken({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
