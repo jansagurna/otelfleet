@@ -12,6 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as AuthIndexRouteImport } from './routes/_auth/index'
+import { Route as AuthSettingsRouteImport } from './routes/_auth/settings'
+import { Route as AuthMetricsRouteImport } from './routes/_auth/metrics'
+import { Route as AuthAuditRouteImport } from './routes/_auth/audit'
 import { Route as AuthPipelinesIndexRouteImport } from './routes/_auth/pipelines.index'
 import { Route as AuthFleetIndexRouteImport } from './routes/_auth/fleet.index'
 import { Route as AuthCustomersIndexRouteImport } from './routes/_auth/customers.index'
@@ -31,6 +34,21 @@ const AuthRoute = AuthRouteImport.update({
 const AuthIndexRoute = AuthIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthSettingsRoute = AuthSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthMetricsRoute = AuthMetricsRouteImport.update({
+  id: '/metrics',
+  path: '/metrics',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthAuditRoute = AuthAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
   getParentRoute: () => AuthRoute,
 } as any)
 const AuthPipelinesIndexRoute = AuthPipelinesIndexRouteImport.update({
@@ -67,6 +85,9 @@ const AuthCustomersCustomerIdRoute = AuthCustomersCustomerIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof AuthIndexRoute
   '/login': typeof LoginRoute
+  '/audit': typeof AuthAuditRoute
+  '/metrics': typeof AuthMetricsRoute
+  '/settings': typeof AuthSettingsRoute
   '/customers/$customerId': typeof AuthCustomersCustomerIdRoute
   '/fleet/$agentId': typeof AuthFleetAgentIdRoute
   '/pipelines/$pipelineId': typeof AuthPipelinesPipelineIdRoute
@@ -76,6 +97,9 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
+  '/audit': typeof AuthAuditRoute
+  '/metrics': typeof AuthMetricsRoute
+  '/settings': typeof AuthSettingsRoute
   '/': typeof AuthIndexRoute
   '/customers/$customerId': typeof AuthCustomersCustomerIdRoute
   '/fleet/$agentId': typeof AuthFleetAgentIdRoute
@@ -88,6 +112,9 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_auth': typeof AuthRouteWithChildren
   '/login': typeof LoginRoute
+  '/_auth/audit': typeof AuthAuditRoute
+  '/_auth/metrics': typeof AuthMetricsRoute
+  '/_auth/settings': typeof AuthSettingsRoute
   '/_auth/': typeof AuthIndexRoute
   '/_auth/customers/$customerId': typeof AuthCustomersCustomerIdRoute
   '/_auth/fleet/$agentId': typeof AuthFleetAgentIdRoute
@@ -101,6 +128,9 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/audit'
+    | '/metrics'
+    | '/settings'
     | '/customers/$customerId'
     | '/fleet/$agentId'
     | '/pipelines/$pipelineId'
@@ -110,6 +140,9 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
+    | '/audit'
+    | '/metrics'
+    | '/settings'
     | '/'
     | '/customers/$customerId'
     | '/fleet/$agentId'
@@ -121,6 +154,9 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_auth'
     | '/login'
+    | '/_auth/audit'
+    | '/_auth/metrics'
+    | '/_auth/settings'
     | '/_auth/'
     | '/_auth/customers/$customerId'
     | '/_auth/fleet/$agentId'
@@ -156,6 +192,27 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AuthIndexRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/settings': {
+      id: '/_auth/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthSettingsRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/metrics': {
+      id: '/_auth/metrics'
+      path: '/metrics'
+      fullPath: '/metrics'
+      preLoaderRoute: typeof AuthMetricsRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/audit': {
+      id: '/_auth/audit'
+      path: '/audit'
+      fullPath: '/audit'
+      preLoaderRoute: typeof AuthAuditRouteImport
       parentRoute: typeof AuthRoute
     }
     '/_auth/pipelines/': {
@@ -204,6 +261,9 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthRouteChildren {
+  AuthAuditRoute: typeof AuthAuditRoute
+  AuthMetricsRoute: typeof AuthMetricsRoute
+  AuthSettingsRoute: typeof AuthSettingsRoute
   AuthIndexRoute: typeof AuthIndexRoute
   AuthCustomersCustomerIdRoute: typeof AuthCustomersCustomerIdRoute
   AuthFleetAgentIdRoute: typeof AuthFleetAgentIdRoute
@@ -214,6 +274,9 @@ interface AuthRouteChildren {
 }
 
 const AuthRouteChildren: AuthRouteChildren = {
+  AuthAuditRoute: AuthAuditRoute,
+  AuthMetricsRoute: AuthMetricsRoute,
+  AuthSettingsRoute: AuthSettingsRoute,
   AuthIndexRoute: AuthIndexRoute,
   AuthCustomersCustomerIdRoute: AuthCustomersCustomerIdRoute,
   AuthFleetAgentIdRoute: AuthFleetAgentIdRoute,

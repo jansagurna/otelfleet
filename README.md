@@ -1,50 +1,96 @@
 # otelfleet
 
-Self-hosted, multi-tenant OpenTelemetry collector fleet management: receive logs, traces
-and metrics from multiple customers via OTLP, attribute every datapoint to a tenant,
-store it in ClickHouse and/or forward it to external backends — managed through a web UI.
+[![CI](https://github.com/sag-solutions/otelfleet/actions/workflows/ci.yaml/badge.svg)](https://github.com/sag-solutions/otelfleet/actions/workflows/ci.yaml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-sag--solutions.github.io%2Fotelfleet-8A2BE2)](https://sag-solutions.github.io/otelfleet/)
 
-> Status: pre-release (Phase 1 — core loop MVP). Not yet ready for production use.
+**Self-hosted, multi-tenant OpenTelemetry collector fleet management.** Receive
+logs, traces and metrics from multiple customers via OTLP, attribute every
+datapoint to a tenant, store it in ClickHouse and/or forward it to each
+customer's own backends — managed through a web UI.
 
-## What it does
+> **Status: pre-1.0.** Under active development, not yet production-ready:
+> single control-plane replica (OpAMP is process-sticky), plaintext internal
+> listeners, and possible breaking changes between minors. The
+> [docs](https://sag-solutions.github.io/otelfleet/) are honest about the
+> limitations.
 
-- **Multi-tenant ingest** — create a customer in the UI and get an API key + client ID;
-  the gateway collector authenticates every OTLP request and stamps `tenant.id` on the data.
-- **Fleet management** — central gateway collectors on Kubernetes plus edge agents at
-  customer sites managed via OpAMP (Phase 3).
-- **Pipelines from the UI** — receivers → processors → exporters, versioned configs,
-  validated with the real collector binary before rollout (Phase 2).
-- **Accurate throughput metrics** — per customer and per pipeline stage
-  (accepted / refused / dropped / queued / exported).
-- **SSO** — Google, Microsoft, GitHub, generic OIDC. RBAC: admin / operator / viewer.
+## Features
 
-## Architecture (short version)
+- **Multi-tenant ingest** — per-customer API keys (show-once secrets); the
+  gateway collector validates every OTLP request against the control plane and
+  stamps `tenant.id` on every resource, overwriting anything the client sent.
+  Key revocation reaches the gateways within the 30s auth cache.
+- **Pipelines from the UI** — versioned processor/exporter graphs built with
+  schema-driven forms, validated with the **real collector binary**
+  (`otelcol validate`) before rollout, one-click rollback.
+- **Two-tier gateway** — a static ingest tier that must never break, and a
+  control-plane-rendered forwarding tier routing per signal by `tenant.id` to
+  customer backends.
+- **Edge agents via OpAMP** — collectors at customer sites (OpAMP supervisor +
+  the same distro) dial out, enroll with show-once bootstrap tokens, receive
+  full configs remotely, and revert locally if a pushed config crash-loops.
+- **Accurate throughput metrics** — ground-truth ingest counters per tenant plus
+  per-pipeline-stage sent/failed/queued from collector self-telemetry.
+- **SSO, RBAC, audit** — Google, Microsoft Entra ID, GitHub, generic OIDC;
+  roles admin/operator/viewer; user invites; queryable audit log. Secrets
+  (SSO client secrets, pipeline credentials) AES-256-GCM-encrypted at rest.
 
-One Go binary (`otelfleet`) serves the REST API + embedded React SPA, the OpAMP server
-and an internal gRPC service used by the gateway collectors to validate API keys.
-Telemetry is stored in ClickHouse (tenant-keyed schema), collector self-telemetry in
-VictoriaMetrics, control-plane state in PostgreSQL. The gateway is a custom collector
-distribution (OCB) with two small components: `tenantauth` (API-key authenticator) and
-`tenantstamp` (tenant attribution processor).
+## Architecture
 
-See [`docs/`](docs/) for the full architecture.
+```mermaid
+flowchart LR
+    apps["Customer apps"] -- "OTLP + API key" --> gw["Gateway collector<br/>tenantauth · tenantstamp"]
+    edge["Edge agents<br/>(OpAMP supervisor)"] -- "outbound ws :4320" --> cp
+    gw -- "validate key (gRPC :9443)" --> cp["Control plane<br/>REST + UI :8080 · ops :9090"]
+    gw --> ch[("ClickHouse")]
+    gw -- copy --> fwd["Forwarding collector<br/>routing by tenant.id"]
+    fwd --> ext["Customer backends"]
+    fwd -- "rendered config" --> cp
+    cp --- pg[("PostgreSQL")]
+    gw & fwd -.->|self-telemetry| vm[("VictoriaMetrics")]
+```
 
-## Development quickstart
+One Go binary serves the REST API + embedded React SPA, the internal gRPC
+API-key service, an ops listener (metrics + rendered collector configs) and the
+OpAMP server. The collectors are a custom OCB distribution with two local
+components, `tenantauth` and `tenantstamp`. Full story:
+[architecture docs](https://sag-solutions.github.io/otelfleet/architecture/).
 
-Requirements: Go 1.26+, Node 24+ with pnpm, Docker + Compose.
+## Quickstart
+
+**Demo (everything in containers):**
 
 ```sh
-make dev-up      # postgres, clickhouse, victoriametrics, gateway collector
-make run         # control plane on :8080 (serves API; SPA via `pnpm dev` proxy)
+docker compose -f deploy/compose/docker-compose.demo.yaml up -d --build
+open http://localhost:8080    # dev login: any email
+```
+
+Create a customer + API key in the UI (shown once!), then generate traffic:
+
+```sh
+OTELFLEET_API_KEY=otm_... docker compose \
+  -f deploy/compose/docker-compose.demo.yaml --profile loadgen up loadgen
+```
+
+**Kubernetes (Helm, bring your own PostgreSQL/ClickHouse/VictoriaMetrics):**
+
+```sh
+helm install otelfleet oci://ghcr.io/sag-solutions/charts/otelfleet \
+  --namespace otelfleet --create-namespace --values my-values.yaml
+```
+
+**Hacking on otelfleet** (Go 1.26+, Node 24+ with pnpm, Docker):
+
+```sh
+make dev-up
+OTELFLEET_DEV_LOGIN=true OTELFLEET_MASTER_KEY=$(openssl rand -base64 32) make run
 cd web && pnpm install && pnpm dev
 ```
 
-Send test data against your API key:
-
-```sh
-telemetrygen logs --otlp-insecure --otlp-endpoint localhost:4317 \
-  --otlp-header 'authorization="Bearer <api-key>"'
-```
+Full walkthroughs: [quickstart](https://sag-solutions.github.io/otelfleet/quickstart/) ·
+[Helm install](https://sag-solutions.github.io/otelfleet/installation/helm/) ·
+[configuration reference](https://sag-solutions.github.io/otelfleet/installation/configuration/).
 
 ## Repository layout
 
@@ -53,10 +99,23 @@ api/openapi.yaml     REST contract (source of truth for Go + TS codegen)
 cmd/otelfleet        control-plane binary
 internal/            backend packages
 proto/               internal gRPC contract (API-key validation)
-collector/           custom collector distro (OCB manifest + custom components)
+collector/           custom collector distro (OCB manifest + tenantauth/tenantstamp)
 web/                 React SPA
-deploy/              compose dev env, Helm charts, ClickHouse DDL
+deploy/              compose dev+demo envs, Helm chart, ClickHouse DDL
+docs/                documentation site (MkDocs Material)
 ```
+
+## Community
+
+- **Contributing:** [CONTRIBUTING.md](CONTRIBUTING.md) — dev setup,
+  conventional commits, DCO, the codegen-drift rule.
+- **Bugs & ideas:** [GitHub issues](https://github.com/sag-solutions/otelfleet/issues)
+  (templates provided).
+- **Security:** privately to security@sag-solutions.com — see
+  [SECURITY.md](SECURITY.md).
+- **Code of conduct:** [Contributor Covenant 2.1](CODE_OF_CONDUCT.md).
+- **Releases:** tagged `v*`, images + chart on GHCR, cosign-signed — see
+  [RELEASING.md](RELEASING.md).
 
 ## License
 

@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 COMPOSE := docker compose -f deploy/compose/docker-compose.yaml
 
-.PHONY: dev-up dev-down run build test lint gen gen-go gen-web migrate clean
+.PHONY: dev-up dev-down run build test lint gen gen-go gen-web clean
 
 dev-up:
 	$(COMPOSE) up -d --build
@@ -35,3 +35,13 @@ gen-web:
 
 clean:
 	rm -rf bin collector/dist web/dist
+
+# --- docs (MkDocs Material) ---------------------------------------------------
+# Requires uv (https://docs.astral.sh/uv/); uvx runs mkdocs in an ephemeral env.
+.PHONY: docs-serve docs-build
+
+docs-serve:
+	uvx --with mkdocs-material mkdocs serve
+
+docs-build:
+	uvx --with mkdocs-material mkdocs build --strict

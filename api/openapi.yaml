@@ -657,6 +657,214 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/v1/users:
+    get:
+      tags: [admin]
+      operationId: listUsers
+      summary: List UI users (admin only)
+      responses:
+        "200":
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [users]
+                properties:
+                  users:
+                    type: array
+                    items: { $ref: "#/components/schemas/UserAccount" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [admin]
+      operationId: inviteUser
+      summary: Invite a user by email; the role applies on their first SSO login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, role]
+              properties:
+                email: { type: string, format: email }
+                role: { $ref: "#/components/schemas/Role" }
+      responses:
+        "201":
+          description: Invited user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserAccount" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { description: Email already exists, $ref: "#/components/responses/Conflict" }
+
+  /api/v1/users/{userId}:
+    parameters:
+      - { name: userId, in: path, required: true, schema: { type: string, format: uuid } }
+    patch:
+      tags: [admin]
+      operationId: updateUser
+      summary: Change role or disable/enable (admin only; self-demotion and disabling the last admin are rejected)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role: { $ref: "#/components/schemas/Role" }
+                disabled: { type: boolean }
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserAccount" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { description: Would remove the last active admin, $ref: "#/components/responses/Conflict" }
+    delete:
+      tags: [admin]
+      operationId: deleteUser
+      summary: Delete a user (admin only, not self, not the last admin)
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { description: Cannot delete yourself or the last admin, $ref: "#/components/responses/Conflict" }
+
+  /api/v1/settings/auth-providers:
+    get:
+      tags: [admin]
+      operationId: listAuthProviderConfigs
+      summary: Configured SSO providers incl. env-defined ones (admin only, no secrets)
+      responses:
+        "200":
+          description: Providers
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [providers]
+                properties:
+                  providers:
+                    type: array
+                    items: { $ref: "#/components/schemas/AuthProviderConfig" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [admin]
+      operationId: createAuthProviderConfig
+      summary: Add an SSO provider (client secret is encrypted at rest)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AuthProviderConfigCreate" }
+      responses:
+        "201":
+          description: Created provider
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthProviderConfig" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { description: Provider name already exists, $ref: "#/components/responses/Conflict" }
+
+  /api/v1/settings/auth-providers/{providerId}:
+    parameters:
+      - { name: providerId, in: path, required: true, schema: { type: string, format: uuid } }
+    patch:
+      tags: [admin]
+      operationId: updateAuthProviderConfig
+      summary: Update a provider; omit clientSecret to keep the stored one
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AuthProviderConfigUpdate" }
+      responses:
+        "200":
+          description: Updated provider
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthProviderConfig" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [admin]
+      operationId: deleteAuthProviderConfig
+      summary: Remove a provider (existing sessions stay valid)
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/settings/auth-providers/{providerId}/test:
+    parameters:
+      - { name: providerId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [admin]
+      operationId: testAuthProviderConfig
+      summary: Connectivity test (OIDC discovery / GitHub API reachability)
+      responses:
+        "200":
+          description: Test result (ok=false carries the reason)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, message]
+                properties:
+                  ok: { type: boolean }
+                  message: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/audit:
+    get:
+      tags: [admin]
+      operationId: listAuditLog
+      summary: Query the audit log (newest first, cursor-paged)
+      parameters:
+        - { name: action, in: query, schema: { type: string } }
+        - { name: entityType, in: query, schema: { type: string } }
+        - { name: customerId, in: query, schema: { type: string, format: uuid } }
+        - { name: actorUserId, in: query, schema: { type: string, format: uuid } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: limit, in: query, schema: { type: integer, default: 50, maximum: 200 } }
+        - { name: beforeId, in: query, schema: { type: integer, format: int64 }, description: Cursor from the previous page }
+      responses:
+        "200":
+          description: Audit entries
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [entries]
+                properties:
+                  entries:
+                    type: array
+                    items: { $ref: "#/components/schemas/AuditEntry" }
+                  nextBeforeId:
+                    type: integer
+                    format: int64
+                    nullable: true
+                    description: Pass as beforeId to fetch the next page; null when exhausted.
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
 components:
   responses:
     Unauthorized:
@@ -958,6 +1166,99 @@ components:
             applied = distributor confirmed rollout (Kubernetes operator);
             pending_restart = config published, forwarding collector restart required (compose dev).
         detail: { type: string, nullable: true }
+
+    UserAccount:
+      type: object
+      required: [id, email, role, disabled, invited, identities, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        displayName: { type: string, nullable: true }
+        role: { $ref: "#/components/schemas/Role" }
+        disabled: { type: boolean }
+        invited:
+          type: boolean
+          description: True until the user logs in for the first time (no linked identity yet).
+        identities:
+          type: array
+          description: Linked login identities (provider names).
+          items: { type: string }
+        lastLoginAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+
+    AuthProviderType:
+      type: string
+      enum: [google, microsoft, github, oidc]
+
+    AuthProviderConfig:
+      type: object
+      required: [id, type, name, displayName, clientId, enabled, source, redirectUri, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type: { $ref: "#/components/schemas/AuthProviderType" }
+        name: { type: string, description: "URL-safe slug used in /auth/{name}/start" }
+        displayName: { type: string }
+        clientId: { type: string }
+        issuer: { type: string, nullable: true, description: Only for type oidc }
+        enabled: { type: boolean }
+        source:
+          type: string
+          enum: [database, environment]
+          description: environment = defined via OTELFLEET_OIDC_* env vars (read-only here).
+        redirectUri:
+          type: string
+          description: Callback URL to register at the identity provider.
+        createdAt: { type: string, format: date-time }
+
+    AuthProviderConfigCreate:
+      type: object
+      required: [type, name, displayName, clientId, clientSecret]
+      properties:
+        type: { $ref: "#/components/schemas/AuthProviderType" }
+        name:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9-]{1,30}$"
+          description: Unique slug; becomes /auth/{name}/start.
+        displayName: { type: string, minLength: 1, maxLength: 100 }
+        clientId: { type: string, minLength: 1 }
+        clientSecret: { type: string, minLength: 1 }
+        issuer:
+          type: string
+          nullable: true
+          description: Required for type oidc; ignored for google/microsoft/github.
+        enabled: { type: boolean, default: true }
+
+    AuthProviderConfigUpdate:
+      type: object
+      properties:
+        displayName: { type: string, minLength: 1, maxLength: 100 }
+        clientId: { type: string, minLength: 1 }
+        clientSecret:
+          type: string
+          description: Omit to keep the stored secret.
+        issuer: { type: string, nullable: true }
+        enabled: { type: boolean }
+
+    AuditEntry:
+      type: object
+      required: [id, actorType, action, entityType, entityId, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        actorType: { type: string, enum: [user, system, agent] }
+        actorUserId: { type: string, format: uuid, nullable: true }
+        actorEmail: { type: string, nullable: true }
+        action: { type: string, example: pipeline_version.activate }
+        entityType: { type: string }
+        entityId: { type: string }
+        customerId: { type: string, format: uuid, nullable: true }
+        customerName: { type: string, nullable: true }
+        payload:
+          type: object
+          additionalProperties: true
+          nullable: true
+        createdAt: { type: string, format: date-time }
 
     AgentClass:
       type: string

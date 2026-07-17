@@ -54,7 +54,7 @@ func activePipeline(t *testing.T, name, slug string) store.ActivePipeline {
 // the forwarding renderer must only ever see target_class='forwarding'.
 func TestRenderCurrentFiltersForwardingClass(t *testing.T) {
 	f := &classFilterStore{pipelines: []store.ActivePipeline{activePipeline(t, "fwd", "acme")}}
-	svc := NewService(f, NewValidator("/nonexistent", slog.Default()), NewPublishDistributor(), slog.Default())
+	svc := NewService(f, NewValidator("/nonexistent", slog.Default()), NewPublishDistributor(), nil, slog.Default())
 
 	if _, err := svc.RenderCurrent(context.Background()); err != nil {
 		t.Fatal(err)
@@ -71,7 +71,7 @@ func TestRenderCurrentFiltersForwardingClass(t *testing.T) {
 // this customer's edge pipelines feed its agents' config.
 func TestRenderEdgeCurrentFiltersEdgeClassAndCustomer(t *testing.T) {
 	f := &classFilterStore{}
-	svc := NewService(f, NewValidator("/nonexistent", slog.Default()), NewPublishDistributor(), slog.Default())
+	svc := NewService(f, NewValidator("/nonexistent", slog.Default()), NewPublishDistributor(), nil, slog.Default())
 	customerID := uuid.New()
 
 	cfg, err := svc.RenderEdgeCurrent(context.Background(), customerID)
@@ -98,7 +98,7 @@ func TestRenderEdgeCurrentFiltersEdgeClassAndCustomer(t *testing.T) {
 // customer, no persisted peers).
 func TestValidateDraftClassScoping(t *testing.T) {
 	f := &classFilterStore{}
-	svc := NewService(f, NewValidator("/nonexistent", slog.Default()), NewPublishDistributor(), slog.Default())
+	svc := NewService(f, NewValidator("/nonexistent", slog.Default()), NewPublishDistributor(), nil, slog.Default())
 	g := Graph{Signals: []string{"logs"}, Exporters: []Node{{Type: "debug", Config: map[string]any{}}}}
 
 	res := svc.ValidateDraft(context.Background(), ClassForwarding, g)

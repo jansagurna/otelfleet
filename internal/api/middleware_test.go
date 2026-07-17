@@ -204,6 +204,42 @@ func TestGuardRBACMatrix(t *testing.T) {
 	}
 }
 
+// TestGuardAdminOnlyPaths: user management, SSO settings and the audit log
+// are admin-only for every method, including GET.
+func TestGuardAdminOnlyPaths(t *testing.T) {
+	srv, client, ids := guardEnv(t)
+
+	cases := []struct {
+		role       string
+		method     string
+		path       string
+		wantStatus int
+	}{
+		{"viewer", http.MethodGet, "/api/v1/users", http.StatusForbidden},
+		{"viewer", http.MethodGet, "/api/v1/audit", http.StatusForbidden},
+		{"viewer", http.MethodGet, "/api/v1/settings/auth-providers", http.StatusForbidden},
+		{"operator", http.MethodGet, "/api/v1/users", http.StatusForbidden},
+		{"operator", http.MethodPost, "/api/v1/users", http.StatusForbidden},
+		{"operator", http.MethodGet, "/api/v1/audit", http.StatusForbidden},
+		{"operator", http.MethodPatch, "/api/v1/settings/auth-providers/xyz", http.StatusForbidden},
+		{"operator", http.MethodPost, "/api/v1/settings/auth-providers/xyz/test", http.StatusForbidden},
+		{"admin", http.MethodGet, "/api/v1/users", http.StatusOK},
+		{"admin", http.MethodPost, "/api/v1/users", http.StatusOK},
+		{"admin", http.MethodGet, "/api/v1/audit", http.StatusOK},
+		{"admin", http.MethodGet, "/api/v1/settings/auth-providers", http.StatusOK},
+		{"admin", http.MethodDelete, "/api/v1/settings/auth-providers/xyz", http.StatusOK},
+		// Similar-looking non-admin paths stay operator-accessible.
+		{"operator", http.MethodGet, "/api/v1/auditors", http.StatusOK},
+	}
+	for _, c := range cases {
+		csrf := login(t, client, srv, ids[c.role])
+		resp := doReq(t, client, c.method, srv.URL+c.path, csrf)
+		if resp.StatusCode != c.wantStatus {
+			t.Errorf("%s %s %s = %d, want %d", c.role, c.method, c.path, resp.StatusCode, c.wantStatus)
+		}
+	}
+}
+
 func TestGuardErrorShape(t *testing.T) {
 	srv, _, _ := guardEnv(t)
 	resp, err := http.Get(srv.URL + "/api/v1/customers")

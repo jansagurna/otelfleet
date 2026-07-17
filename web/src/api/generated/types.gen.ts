@@ -229,6 +229,94 @@ export type RolloutStatus = {
     detail?: string | null;
 };
 
+export type UserAccount = {
+    id: string;
+    email: string;
+    displayName?: string | null;
+    role: Role;
+    disabled: boolean;
+    /**
+     * True until the user logs in for the first time (no linked identity yet).
+     */
+    invited: boolean;
+    /**
+     * Linked login identities (provider names).
+     */
+    identities: Array<string>;
+    lastLoginAt?: string | null;
+    createdAt: string;
+};
+
+export type AuthProviderType = 'google' | 'microsoft' | 'github' | 'oidc';
+
+export type AuthProviderConfig = {
+    id: string;
+    type: AuthProviderType;
+    /**
+     * URL-safe slug used in /auth/{name}/start
+     */
+    name: string;
+    displayName: string;
+    clientId: string;
+    /**
+     * Only for type oidc
+     */
+    issuer?: string | null;
+    enabled: boolean;
+    /**
+     * environment = defined via OTELFLEET_OIDC_* env vars (read-only here).
+     */
+    source: 'database' | 'environment';
+    /**
+     * Callback URL to register at the identity provider.
+     */
+    redirectUri: string;
+    createdAt: string;
+};
+
+export type AuthProviderConfigCreate = {
+    type: AuthProviderType;
+    /**
+     * Unique slug; becomes /auth/{name}/start.
+     */
+    name: string;
+    displayName: string;
+    clientId: string;
+    clientSecret: string;
+    /**
+     * Required for type oidc; ignored for google/microsoft/github.
+     */
+    issuer?: string | null;
+    enabled?: boolean;
+};
+
+export type AuthProviderConfigUpdate = {
+    displayName?: string;
+    clientId?: string;
+    /**
+     * Omit to keep the stored secret.
+     */
+    clientSecret?: string;
+    issuer?: string | null;
+    enabled?: boolean;
+};
+
+export type AuditEntry = {
+    id: number;
+    actorType: 'user' | 'system' | 'agent';
+    actorUserId?: string | null;
+    actorEmail?: string | null;
+    action: string;
+    entityType: string;
+    entityId: string;
+    customerId?: string | null;
+    customerName?: string | null;
+    payload?: {
+        [key: string]: unknown;
+    } | null;
+    createdAt: string;
+};
+
 export type AgentClass = 'gateway' | 'edge';
 
 export type RemoteConfigStatus = 'unset' | 'applying' | 'applied' | 'failed';
@@ -1447,3 +1535,382 @@ export type RevokeBootstrapTokenResponses = {
 };
 
 export type RevokeBootstrapTokenResponse = RevokeBootstrapTokenResponses[keyof RevokeBootstrapTokenResponses];
+
+export type ListUsersData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/users';
+};
+
+export type ListUsersErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+};
+
+export type ListUsersError = ListUsersErrors[keyof ListUsersErrors];
+
+export type ListUsersResponses = {
+    /**
+     * Users
+     */
+    200: {
+        users: Array<UserAccount>;
+    };
+};
+
+export type ListUsersResponse = ListUsersResponses[keyof ListUsersResponses];
+
+export type InviteUserData = {
+    body: {
+        email: string;
+        role: Role;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/users';
+};
+
+export type InviteUserErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+    /**
+     * Conflict
+     */
+    409: Error;
+};
+
+export type InviteUserError = InviteUserErrors[keyof InviteUserErrors];
+
+export type InviteUserResponses = {
+    /**
+     * Invited user
+     */
+    201: UserAccount;
+};
+
+export type InviteUserResponse = InviteUserResponses[keyof InviteUserResponses];
+
+export type DeleteUserData = {
+    body?: never;
+    path: {
+        userId: string;
+    };
+    query?: never;
+    url: '/api/v1/users/{userId}';
+};
+
+export type DeleteUserErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+    /**
+     * Conflict
+     */
+    409: Error;
+};
+
+export type DeleteUserError = DeleteUserErrors[keyof DeleteUserErrors];
+
+export type DeleteUserResponses = {
+    /**
+     * Deleted
+     */
+    204: void;
+};
+
+export type DeleteUserResponse = DeleteUserResponses[keyof DeleteUserResponses];
+
+export type UpdateUserData = {
+    body: {
+        role?: Role;
+        disabled?: boolean;
+    };
+    path: {
+        userId: string;
+    };
+    query?: never;
+    url: '/api/v1/users/{userId}';
+};
+
+export type UpdateUserErrors = {
+    /**
+     * Validation error
+     */
+    400: Error;
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+    /**
+     * Conflict
+     */
+    409: Error;
+};
+
+export type UpdateUserError = UpdateUserErrors[keyof UpdateUserErrors];
+
+export type UpdateUserResponses = {
+    /**
+     * Updated user
+     */
+    200: UserAccount;
+};
+
+export type UpdateUserResponse = UpdateUserResponses[keyof UpdateUserResponses];
+
+export type ListAuthProviderConfigsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/settings/auth-providers';
+};
+
+export type ListAuthProviderConfigsErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+};
+
+export type ListAuthProviderConfigsError = ListAuthProviderConfigsErrors[keyof ListAuthProviderConfigsErrors];
+
+export type ListAuthProviderConfigsResponses = {
+    /**
+     * Providers
+     */
+    200: {
+        providers: Array<AuthProviderConfig>;
+    };
+};
+
+export type ListAuthProviderConfigsResponse = ListAuthProviderConfigsResponses[keyof ListAuthProviderConfigsResponses];
+
+export type CreateAuthProviderConfigData = {
+    body: AuthProviderConfigCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/settings/auth-providers';
+};
+
+export type CreateAuthProviderConfigErrors = {
+    /**
+     * Validation error
+     */
+    400: Error;
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+    /**
+     * Conflict
+     */
+    409: Error;
+};
+
+export type CreateAuthProviderConfigError = CreateAuthProviderConfigErrors[keyof CreateAuthProviderConfigErrors];
+
+export type CreateAuthProviderConfigResponses = {
+    /**
+     * Created provider
+     */
+    201: AuthProviderConfig;
+};
+
+export type CreateAuthProviderConfigResponse = CreateAuthProviderConfigResponses[keyof CreateAuthProviderConfigResponses];
+
+export type DeleteAuthProviderConfigData = {
+    body?: never;
+    path: {
+        providerId: string;
+    };
+    query?: never;
+    url: '/api/v1/settings/auth-providers/{providerId}';
+};
+
+export type DeleteAuthProviderConfigErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+};
+
+export type DeleteAuthProviderConfigError = DeleteAuthProviderConfigErrors[keyof DeleteAuthProviderConfigErrors];
+
+export type DeleteAuthProviderConfigResponses = {
+    /**
+     * Deleted
+     */
+    204: void;
+};
+
+export type DeleteAuthProviderConfigResponse = DeleteAuthProviderConfigResponses[keyof DeleteAuthProviderConfigResponses];
+
+export type UpdateAuthProviderConfigData = {
+    body: AuthProviderConfigUpdate;
+    path: {
+        providerId: string;
+    };
+    query?: never;
+    url: '/api/v1/settings/auth-providers/{providerId}';
+};
+
+export type UpdateAuthProviderConfigErrors = {
+    /**
+     * Validation error
+     */
+    400: Error;
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+};
+
+export type UpdateAuthProviderConfigError = UpdateAuthProviderConfigErrors[keyof UpdateAuthProviderConfigErrors];
+
+export type UpdateAuthProviderConfigResponses = {
+    /**
+     * Updated provider
+     */
+    200: AuthProviderConfig;
+};
+
+export type UpdateAuthProviderConfigResponse = UpdateAuthProviderConfigResponses[keyof UpdateAuthProviderConfigResponses];
+
+export type TestAuthProviderConfigData = {
+    body?: never;
+    path: {
+        providerId: string;
+    };
+    query?: never;
+    url: '/api/v1/settings/auth-providers/{providerId}/test';
+};
+
+export type TestAuthProviderConfigErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+};
+
+export type TestAuthProviderConfigError = TestAuthProviderConfigErrors[keyof TestAuthProviderConfigErrors];
+
+export type TestAuthProviderConfigResponses = {
+    /**
+     * Test result (ok=false carries the reason)
+     */
+    200: {
+        ok: boolean;
+        message: string;
+    };
+};
+
+export type TestAuthProviderConfigResponse = TestAuthProviderConfigResponses[keyof TestAuthProviderConfigResponses];
+
+export type ListAuditLogData = {
+    body?: never;
+    path?: never;
+    query?: {
+        action?: string;
+        entityType?: string;
+        customerId?: string;
+        actorUserId?: string;
+        from?: string;
+        to?: string;
+        limit?: number;
+        /**
+         * Cursor from the previous page
+         */
+        beforeId?: number;
+    };
+    url: '/api/v1/audit';
+};
+
+export type ListAuditLogErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+};
+
+export type ListAuditLogError = ListAuditLogErrors[keyof ListAuditLogErrors];
+
+export type ListAuditLogResponses = {
+    /**
+     * Audit entries
+     */
+    200: {
+        entries: Array<AuditEntry>;
+        /**
+         * Pass as beforeId to fetch the next page; null when exhausted.
+         */
+        nextBeforeId?: number | null;
+    };
+};
+
+export type ListAuditLogResponse = ListAuditLogResponses[keyof ListAuditLogResponses];

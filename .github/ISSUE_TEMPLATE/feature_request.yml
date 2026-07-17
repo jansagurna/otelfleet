@@ -1,0 +1,35 @@
+name: Feature request
+description: Suggest an idea or improvement
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: The use case matters more than the proposed solution.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How do you imagine it working? UI, API, config, ...
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you use today, other tools, why they fall short.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Multi-tenancy / ingest
+        - Pipelines / forwarding
+        - Edge agents / OpAMP
+        - SSO / RBAC / audit
+        - Observability of the fleet (metrics, UI)
+        - Deployment (Helm, compose, images)
+        - Other

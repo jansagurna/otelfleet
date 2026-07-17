@@ -8,9 +8,12 @@ import { cn } from '@/lib/utils'
 export function TimeRangePicker({
   value,
   onChange,
+  ranges = TIME_RANGES,
 }: {
   value: TimeRange
   onChange: (range: TimeRange) => void
+  /** Preset set to offer — the metrics explorer passes EXTENDED_TIME_RANGES. */
+  ranges?: readonly TimeRange[]
 }) {
   return (
     <div
@@ -18,7 +21,7 @@ export function TimeRangePicker({
       aria-label="Time range"
       className="inline-flex h-8 items-center gap-0.5 rounded-md border border-line bg-surface p-0.5"
     >
-      {TIME_RANGES.map((range) => (
+      {ranges.map((range) => (
         <button
           key={range}
           type="button"

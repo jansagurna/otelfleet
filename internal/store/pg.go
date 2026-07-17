@@ -307,12 +307,16 @@ func (s *PG) TouchAPIKeys(ctx context.Context, usages map[uuid.UUID]time.Time) e
 	return s.pool.SendBatch(ctx, batch).Close()
 }
 
+const userCols = `id, email, display_name, role, disabled_at, last_login_at, created_at`
+
+func scanUserRow(row pgx.Row, u *User) error {
+	return row.Scan(&u.ID, &u.Email, &u.DisplayName, &u.Role, &u.DisabledAt, &u.LastLoginAt, &u.CreatedAt)
+}
+
 func (s *PG) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
 	var u User
-	err := s.pool.QueryRow(ctx, `
-		SELECT id, email, display_name, role, disabled_at, created_at
-		FROM users WHERE id = $1`, id).
-		Scan(&u.ID, &u.Email, &u.DisplayName, &u.Role, &u.DisabledAt, &u.CreatedAt)
+	err := scanUserRow(s.pool.QueryRow(ctx, `
+		SELECT `+userCols+` FROM users WHERE id = $1`, id), &u)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, ErrNotFound
 	}
@@ -321,46 +325,52 @@ func (s *PG) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
 
 // UpsertUserByIdentity resolves (provider, subject) to a user, creating the
 // identity and — if the email is unknown — the user (with roleIfNew) on first
-// login.
+// login. Existing users keep their assigned role (an invited user's role
+// survives their first login), with one exception: roleIfNew == "admin" means
+// the email is in OTELFLEET_ADMIN_EMAILS, which always forces admin.
+// Every call stamps last_login_at.
 func (s *PG) UpsertUserByIdentity(ctx context.Context, provider, subject, email string, displayName *string, roleIfNew string) (User, error) {
 	var u User
 	err := s.inTx(ctx, func(tx pgx.Tx) error {
-		scanUser := func(row pgx.Row) error {
-			return row.Scan(&u.ID, &u.Email, &u.DisplayName, &u.Role, &u.DisabledAt, &u.CreatedAt)
-		}
-
-		err := scanUser(tx.QueryRow(ctx, `
-			SELECT u.id, u.email, u.display_name, u.role, u.disabled_at, u.created_at
+		err := scanUserRow(tx.QueryRow(ctx, `
+			SELECT u.id, u.email, u.display_name, u.role, u.disabled_at, u.last_login_at, u.created_at
 			FROM users u JOIN user_identities i ON i.user_id = u.id
-			WHERE i.provider = $1 AND i.subject = $2`, provider, subject))
-		if err == nil {
-			return nil
-		}
-		if !errors.Is(err, pgx.ErrNoRows) {
+			WHERE i.provider = $1 AND i.subject = $2`, provider, subject), &u)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
-
-		// No identity yet: attach to an existing user with this email, or
-		// create a new user.
-		err = scanUser(tx.QueryRow(ctx, `
-			SELECT id, email, display_name, role, disabled_at, created_at
-			FROM users WHERE email = $1`, email))
 		if errors.Is(err, pgx.ErrNoRows) {
-			if err := scanUser(tx.QueryRow(ctx, `
-				INSERT INTO users (email, display_name, role)
-				VALUES ($1, $2, $3)
-				RETURNING id, email, display_name, role, disabled_at, created_at`,
-				email, displayName, roleIfNew)); err != nil {
-				return fmt.Errorf("insert user: %w", err)
+			// No identity yet: attach to an existing user with this email
+			// (invite flow), or create a new user.
+			err = scanUserRow(tx.QueryRow(ctx, `
+				SELECT `+userCols+` FROM users WHERE email = $1`, email), &u)
+			if errors.Is(err, pgx.ErrNoRows) {
+				if err := scanUserRow(tx.QueryRow(ctx, `
+					INSERT INTO users (email, display_name, role)
+					VALUES ($1, $2, $3)
+					RETURNING `+userCols,
+					email, displayName, roleIfNew), &u); err != nil {
+					return fmt.Errorf("insert user: %w", err)
+				}
+			} else if err != nil {
+				return err
 			}
-		} else if err != nil {
-			return err
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO user_identities (user_id, provider, subject) VALUES ($1, $2, $3)`,
+				u.ID, provider, subject); err != nil {
+				return fmt.Errorf("insert identity: %w", err)
+			}
 		}
 
-		if _, err := tx.Exec(ctx, `
-			INSERT INTO user_identities (user_id, provider, subject) VALUES ($1, $2, $3)`,
-			u.ID, provider, subject); err != nil {
-			return fmt.Errorf("insert identity: %w", err)
+		role := u.Role
+		if roleIfNew == "admin" { // OTELFLEET_ADMIN_EMAILS forces admin
+			role = "admin"
+		}
+		if err := scanUserRow(tx.QueryRow(ctx, `
+			UPDATE users SET role = $2, last_login_at = now()
+			WHERE id = $1
+			RETURNING `+userCols, u.ID, role), &u); err != nil {
+			return fmt.Errorf("stamp login: %w", err)
 		}
 		return nil
 	})

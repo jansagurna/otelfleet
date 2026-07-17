@@ -15,3 +15,8 @@ export function useMe(): Me | undefined {
 export function canMutate(me: Me | undefined): boolean {
   return me !== undefined && me.role !== 'viewer'
 }
+
+/** Settings and the audit log are admin-only surfaces. */
+export function isAdmin(me: Me | undefined): boolean {
+  return me !== undefined && me.role === 'admin'
+}

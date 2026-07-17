@@ -21,13 +21,14 @@ type RouterDeps struct {
 	Store    store.Store
 	Sessions *auth.Sessions
 	Server   *Server
-	OIDC     []*auth.OIDCHandler
+	Auth     *auth.Registry
 	Log      *slog.Logger
 }
 
 // NewRouter assembles the public HTTP surface: the REST API under /api/v1
-// (session-guarded), the OIDC browser flows under /auth/{name}/..., and the
-// SPA fallback.
+// (session-guarded), the SSO browser flows under /auth/{name}/... (providers
+// resolved at request time from the database + environment), and the SPA
+// fallback.
 func NewRouter(d RouterDeps) http.Handler {
 	r := chi.NewRouter()
 	r.Use(chimw.RealIP)
@@ -35,10 +36,8 @@ func NewRouter(d RouterDeps) http.Handler {
 	r.Use(chimw.Recoverer)
 	r.Use(d.Sessions.Manager.LoadAndSave)
 
-	for _, h := range d.OIDC {
-		r.Get("/auth/"+h.Name()+"/start", h.Start)
-		r.Get("/auth/"+h.Name()+"/callback", h.Callback)
-	}
+	r.Get("/auth/{provider}/start", d.Auth.Start)
+	r.Get("/auth/{provider}/callback", d.Auth.Callback)
 
 	strict := apigen.NewStrictHandlerWithOptions(d.Server, nil, apigen.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {

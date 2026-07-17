@@ -3,8 +3,8 @@
 import { type DefaultError, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { activatePipelineVersion, createApiKey, createBootstrapToken, createCustomer, createPipeline, createPipelineVersion, deleteAgent, deleteCustomer, deletePipeline, devLogin, getAgent, getAgentConfig, getComponentCatalog, getCustomer, getCustomerThroughput, getMe, getPipeline, getPipelineStageStats, getPipelineVersion, getStatsOverview, listAgentEvents, listAgents, listApiKeys, listAuthProviders, listBootstrapTokens, listCustomerPipelines, listCustomers, listPipelines, logout, type Options, revokeApiKey, revokeBootstrapToken, updateCustomer, validatePipeline } from '../sdk.gen';
-import type { ActivatePipelineVersionData, ActivatePipelineVersionError, ActivatePipelineVersionResponse, CreateApiKeyData, CreateApiKeyError, CreateApiKeyResponse, CreateBootstrapTokenData, CreateBootstrapTokenError, CreateBootstrapTokenResponse, CreateCustomerData, CreateCustomerError, CreateCustomerResponse, CreatePipelineData, CreatePipelineError, CreatePipelineResponse, CreatePipelineVersionData, CreatePipelineVersionError, CreatePipelineVersionResponse, DeleteAgentData, DeleteAgentError, DeleteAgentResponse, DeleteCustomerData, DeleteCustomerError, DeleteCustomerResponse, DeletePipelineData, DeletePipelineError, DeletePipelineResponse, DevLoginData, DevLoginError, DevLoginResponse, GetAgentConfigData, GetAgentConfigError, GetAgentConfigResponse, GetAgentData, GetAgentError, GetAgentResponse, GetComponentCatalogData, GetComponentCatalogError, GetComponentCatalogResponse, GetCustomerData, GetCustomerError, GetCustomerResponse, GetCustomerThroughputData, GetCustomerThroughputError, GetCustomerThroughputResponse, GetMeData, GetMeError, GetMeResponse, GetPipelineData, GetPipelineError, GetPipelineResponse, GetPipelineStageStatsData, GetPipelineStageStatsError, GetPipelineStageStatsResponse, GetPipelineVersionData, GetPipelineVersionError, GetPipelineVersionResponse, GetStatsOverviewData, GetStatsOverviewError, GetStatsOverviewResponse, ListAgentEventsData, ListAgentEventsError, ListAgentEventsResponse, ListAgentsData, ListAgentsError, ListAgentsResponse, ListApiKeysData, ListApiKeysError, ListApiKeysResponse, ListAuthProvidersData, ListAuthProvidersResponse, ListBootstrapTokensData, ListBootstrapTokensError, ListBootstrapTokensResponse, ListCustomerPipelinesData, ListCustomerPipelinesError, ListCustomerPipelinesResponse, ListCustomersData, ListCustomersError, ListCustomersResponse, ListPipelinesData, ListPipelinesError, ListPipelinesResponse, LogoutData, LogoutResponse, RevokeApiKeyData, RevokeApiKeyError, RevokeApiKeyResponse, RevokeBootstrapTokenData, RevokeBootstrapTokenError, RevokeBootstrapTokenResponse, UpdateCustomerData, UpdateCustomerError, UpdateCustomerResponse, ValidatePipelineData, ValidatePipelineError, ValidatePipelineResponse } from '../types.gen';
+import { activatePipelineVersion, createApiKey, createAuthProviderConfig, createBootstrapToken, createCustomer, createPipeline, createPipelineVersion, deleteAgent, deleteAuthProviderConfig, deleteCustomer, deletePipeline, deleteUser, devLogin, getAgent, getAgentConfig, getComponentCatalog, getCustomer, getCustomerThroughput, getMe, getPipeline, getPipelineStageStats, getPipelineVersion, getStatsOverview, inviteUser, listAgentEvents, listAgents, listApiKeys, listAuditLog, listAuthProviderConfigs, listAuthProviders, listBootstrapTokens, listCustomerPipelines, listCustomers, listPipelines, listUsers, logout, type Options, revokeApiKey, revokeBootstrapToken, testAuthProviderConfig, updateAuthProviderConfig, updateCustomer, updateUser, validatePipeline } from '../sdk.gen';
+import type { ActivatePipelineVersionData, ActivatePipelineVersionError, ActivatePipelineVersionResponse, CreateApiKeyData, CreateApiKeyError, CreateApiKeyResponse, CreateAuthProviderConfigData, CreateAuthProviderConfigError, CreateAuthProviderConfigResponse, CreateBootstrapTokenData, CreateBootstrapTokenError, CreateBootstrapTokenResponse, CreateCustomerData, CreateCustomerError, CreateCustomerResponse, CreatePipelineData, CreatePipelineError, CreatePipelineResponse, CreatePipelineVersionData, CreatePipelineVersionError, CreatePipelineVersionResponse, DeleteAgentData, DeleteAgentError, DeleteAgentResponse, DeleteAuthProviderConfigData, DeleteAuthProviderConfigError, DeleteAuthProviderConfigResponse, DeleteCustomerData, DeleteCustomerError, DeleteCustomerResponse, DeletePipelineData, DeletePipelineError, DeletePipelineResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, DevLoginData, DevLoginError, DevLoginResponse, GetAgentConfigData, GetAgentConfigError, GetAgentConfigResponse, GetAgentData, GetAgentError, GetAgentResponse, GetComponentCatalogData, GetComponentCatalogError, GetComponentCatalogResponse, GetCustomerData, GetCustomerError, GetCustomerResponse, GetCustomerThroughputData, GetCustomerThroughputError, GetCustomerThroughputResponse, GetMeData, GetMeError, GetMeResponse, GetPipelineData, GetPipelineError, GetPipelineResponse, GetPipelineStageStatsData, GetPipelineStageStatsError, GetPipelineStageStatsResponse, GetPipelineVersionData, GetPipelineVersionError, GetPipelineVersionResponse, GetStatsOverviewData, GetStatsOverviewError, GetStatsOverviewResponse, InviteUserData, InviteUserError, InviteUserResponse, ListAgentEventsData, ListAgentEventsError, ListAgentEventsResponse, ListAgentsData, ListAgentsError, ListAgentsResponse, ListApiKeysData, ListApiKeysError, ListApiKeysResponse, ListAuditLogData, ListAuditLogError, ListAuditLogResponse, ListAuthProviderConfigsData, ListAuthProviderConfigsError, ListAuthProviderConfigsResponse, ListAuthProvidersData, ListAuthProvidersResponse, ListBootstrapTokensData, ListBootstrapTokensError, ListBootstrapTokensResponse, ListCustomerPipelinesData, ListCustomerPipelinesError, ListCustomerPipelinesResponse, ListCustomersData, ListCustomersError, ListCustomersResponse, ListPipelinesData, ListPipelinesError, ListPipelinesResponse, ListUsersData, ListUsersError, ListUsersResponse, LogoutData, LogoutResponse, RevokeApiKeyData, RevokeApiKeyError, RevokeApiKeyResponse, RevokeBootstrapTokenData, RevokeBootstrapTokenError, RevokeBootstrapTokenResponse, TestAuthProviderConfigData, TestAuthProviderConfigError, TestAuthProviderConfigResponse, UpdateAuthProviderConfigData, UpdateAuthProviderConfigError, UpdateAuthProviderConfigResponse, UpdateCustomerData, UpdateCustomerError, UpdateCustomerResponse, UpdateUserData, UpdateUserError, UpdateUserResponse, ValidatePipelineData, ValidatePipelineError, ValidatePipelineResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -617,3 +617,176 @@ export const revokeBootstrapTokenMutation = (options?: Partial<Options<RevokeBoo
     };
     return mutationOptions;
 };
+
+export const listUsersQueryKey = (options?: Options<ListUsersData>) => createQueryKey('listUsers', options);
+
+/**
+ * List UI users (admin only)
+ */
+export const listUsersOptions = (options?: Options<ListUsersData>) => queryOptions<ListUsersResponse, ListUsersError, ListUsersResponse, ReturnType<typeof listUsersQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listUsers({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listUsersQueryKey(options)
+});
+
+/**
+ * Invite a user by email; the role applies on their first SSO login
+ */
+export const inviteUserMutation = (options?: Partial<Options<InviteUserData>>): UseMutationOptions<InviteUserResponse, InviteUserError, Options<InviteUserData>> => {
+    const mutationOptions: UseMutationOptions<InviteUserResponse, InviteUserError, Options<InviteUserData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await inviteUser({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete a user (admin only, not self, not the last admin)
+ */
+export const deleteUserMutation = (options?: Partial<Options<DeleteUserData>>): UseMutationOptions<DeleteUserResponse, DeleteUserError, Options<DeleteUserData>> => {
+    const mutationOptions: UseMutationOptions<DeleteUserResponse, DeleteUserError, Options<DeleteUserData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteUser({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Change role or disable/enable (admin only; self-demotion and disabling the last admin are rejected)
+ */
+export const updateUserMutation = (options?: Partial<Options<UpdateUserData>>): UseMutationOptions<UpdateUserResponse, UpdateUserError, Options<UpdateUserData>> => {
+    const mutationOptions: UseMutationOptions<UpdateUserResponse, UpdateUserError, Options<UpdateUserData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateUser({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listAuthProviderConfigsQueryKey = (options?: Options<ListAuthProviderConfigsData>) => createQueryKey('listAuthProviderConfigs', options);
+
+/**
+ * Configured SSO providers incl. env-defined ones (admin only, no secrets)
+ */
+export const listAuthProviderConfigsOptions = (options?: Options<ListAuthProviderConfigsData>) => queryOptions<ListAuthProviderConfigsResponse, ListAuthProviderConfigsError, ListAuthProviderConfigsResponse, ReturnType<typeof listAuthProviderConfigsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listAuthProviderConfigs({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listAuthProviderConfigsQueryKey(options)
+});
+
+/**
+ * Add an SSO provider (client secret is encrypted at rest)
+ */
+export const createAuthProviderConfigMutation = (options?: Partial<Options<CreateAuthProviderConfigData>>): UseMutationOptions<CreateAuthProviderConfigResponse, CreateAuthProviderConfigError, Options<CreateAuthProviderConfigData>> => {
+    const mutationOptions: UseMutationOptions<CreateAuthProviderConfigResponse, CreateAuthProviderConfigError, Options<CreateAuthProviderConfigData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createAuthProviderConfig({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Remove a provider (existing sessions stay valid)
+ */
+export const deleteAuthProviderConfigMutation = (options?: Partial<Options<DeleteAuthProviderConfigData>>): UseMutationOptions<DeleteAuthProviderConfigResponse, DeleteAuthProviderConfigError, Options<DeleteAuthProviderConfigData>> => {
+    const mutationOptions: UseMutationOptions<DeleteAuthProviderConfigResponse, DeleteAuthProviderConfigError, Options<DeleteAuthProviderConfigData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteAuthProviderConfig({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Update a provider; omit clientSecret to keep the stored one
+ */
+export const updateAuthProviderConfigMutation = (options?: Partial<Options<UpdateAuthProviderConfigData>>): UseMutationOptions<UpdateAuthProviderConfigResponse, UpdateAuthProviderConfigError, Options<UpdateAuthProviderConfigData>> => {
+    const mutationOptions: UseMutationOptions<UpdateAuthProviderConfigResponse, UpdateAuthProviderConfigError, Options<UpdateAuthProviderConfigData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateAuthProviderConfig({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Connectivity test (OIDC discovery / GitHub API reachability)
+ */
+export const testAuthProviderConfigMutation = (options?: Partial<Options<TestAuthProviderConfigData>>): UseMutationOptions<TestAuthProviderConfigResponse, TestAuthProviderConfigError, Options<TestAuthProviderConfigData>> => {
+    const mutationOptions: UseMutationOptions<TestAuthProviderConfigResponse, TestAuthProviderConfigError, Options<TestAuthProviderConfigData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await testAuthProviderConfig({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listAuditLogQueryKey = (options?: Options<ListAuditLogData>) => createQueryKey('listAuditLog', options);
+
+/**
+ * Query the audit log (newest first, cursor-paged)
+ */
+export const listAuditLogOptions = (options?: Options<ListAuditLogData>) => queryOptions<ListAuditLogResponse, ListAuditLogError, ListAuditLogResponse, ReturnType<typeof listAuditLogQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listAuditLog({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listAuditLogQueryKey(options)
+});

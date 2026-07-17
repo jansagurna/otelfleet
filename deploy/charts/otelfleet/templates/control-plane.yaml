@@ -60,6 +60,14 @@ spec:
             {{- with .Values.controlPlane.baseUrl }}
             - { name: OTELFLEET_BASE_URL, value: {{ . | quote }} }
             {{- end }}
+            {{- with .Values.controlPlane.masterKeySecret }}
+            - name: OTELFLEET_MASTER_KEY
+              valueFrom:
+                secretKeyRef: { name: {{ . | quote }}, key: OTELFLEET_MASTER_KEY }
+            {{- end }}
+            {{- with .Values.controlPlane.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
             {{- if .Values.controlPlane.oidc.issuer }}
             - { name: OTELFLEET_OIDC_ISSUER, value: {{ .Values.controlPlane.oidc.issuer | quote }} }
             - { name: OTELFLEET_OIDC_CLIENT_ID, value: {{ .Values.controlPlane.oidc.clientId | quote }} }

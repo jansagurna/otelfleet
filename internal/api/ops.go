@@ -15,9 +15,9 @@ import (
 // config. forwardingConfig re-renders from database state on every request;
 // nil disables the endpoint.
 //
-// TODO(security): the config endpoint may carry customer exporter credentials.
-// The ops listener must stay cluster-internal; authenticating this endpoint is
-// part of the later secrets work.
+// Security note: the config endpoint carries customer exporter credentials in
+// plaintext (the forwarding collector needs them; stored copies are encrypted
+// at rest). The ops listener must stay cluster-internal.
 func NewOpsHandler(reg *prometheus.Registry, ready func(ctx context.Context) error, forwardingConfig func(ctx context.Context) (string, error)) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))

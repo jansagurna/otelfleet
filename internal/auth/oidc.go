@@ -5,49 +5,58 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"sync"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
 
-	"github.com/sag-solutions/otelfleet/internal/authz"
-	"github.com/sag-solutions/otelfleet/internal/config"
 	"github.com/sag-solutions/otelfleet/internal/store"
 )
 
-// Session keys used during the OIDC dance.
+// Session keys used during the OAuth/OIDC dance (shared by all providers; a
+// session runs one login flow at a time).
 const (
 	sessOIDCState    = "oidc_state"
 	sessOIDCVerifier = "oidc_verifier"
 )
 
-// UserUpserter is the subset of the store the OIDC handler needs.
+// UserUpserter is the subset of the store the login handlers need.
 type UserUpserter interface {
 	UpsertUserByIdentity(ctx context.Context, provider, subject, email string, displayName *string, roleIfNew string) (store.User, error)
 }
 
+// microsoftIssuerPattern matches the tenant-specific issuers Entra ID puts in
+// ID tokens obtained via the multi-tenant (common) endpoint.
+var microsoftIssuerPattern = regexp.MustCompile(`^https://login\.microsoftonline\.com/[0-9a-fA-F-]+/v2\.0$`)
+
 // OIDCHandler serves /auth/{name}/start and /auth/{name}/callback for one
-// configured provider. The upstream provider metadata is discovered lazily so
-// the control plane starts even when the IdP is briefly unreachable.
+// resolved OIDC provider (types oidc, google, microsoft). The upstream
+// provider metadata is discovered lazily so the control plane starts even
+// when the IdP is briefly unreachable.
+//
+// Microsoft note: the multi-tenant endpoint's discovery document advertises
+// the literal "{tenantid}" issuer template and ID tokens carry per-tenant
+// issuers, so go-oidc's strict issuer checks are relaxed for TypeMicrosoft
+// (InsecureIssuerURLContext + SkipIssuerCheck) and the token issuer is
+// verified against microsoftIssuerPattern instead.
 type OIDCHandler struct {
-	cfg      config.OIDCProvider
-	baseURL  string
-	sessions *Sessions
-	store    UserUpserter
-	isAdmin  func(email string) bool
-	log      *slog.Logger
+	info    ProviderInfo
+	baseURL string
+	finish  loginFinisher
+	log     *slog.Logger
 
 	mu       sync.Mutex
 	provider *oidc.Provider
 }
 
-// NewOIDCHandler wires an OIDC login flow for the given provider config.
-func NewOIDCHandler(cfg config.OIDCProvider, baseURL string, sessions *Sessions, st UserUpserter, isAdmin func(string) bool, log *slog.Logger) *OIDCHandler {
-	return &OIDCHandler{cfg: cfg, baseURL: baseURL, sessions: sessions, store: st, isAdmin: isAdmin, log: log}
+// NewOIDCHandler wires an OIDC login flow for the given resolved provider.
+func NewOIDCHandler(info ProviderInfo, baseURL string, finisher loginFinisher) *OIDCHandler {
+	return &OIDCHandler{info: info, baseURL: baseURL, finish: finisher, log: finisher.log}
 }
 
 // Name returns the provider's URL-safe name.
-func (h *OIDCHandler) Name() string { return h.cfg.Name }
+func (h *OIDCHandler) Name() string { return h.info.Name }
 
 func (h *OIDCHandler) getProvider(ctx context.Context) (*oidc.Provider, error) {
 	h.mu.Lock()
@@ -55,9 +64,14 @@ func (h *OIDCHandler) getProvider(ctx context.Context) (*oidc.Provider, error) {
 	if h.provider != nil {
 		return h.provider, nil
 	}
-	p, err := oidc.NewProvider(ctx, h.cfg.Issuer)
+	if h.info.Type == TypeMicrosoft {
+		// The discovery document's issuer is the "{tenantid}" template, which
+		// never equals the configured URL; skip that check.
+		ctx = oidc.InsecureIssuerURLContext(ctx, h.info.Issuer)
+	}
+	p, err := oidc.NewProvider(ctx, h.info.Issuer)
 	if err != nil {
-		return nil, fmt.Errorf("oidc discovery for %s: %w", h.cfg.Issuer, err)
+		return nil, fmt.Errorf("oidc discovery for %s: %w", h.info.Issuer, err)
 	}
 	h.provider = p
 	return p, nil
@@ -65,10 +79,10 @@ func (h *OIDCHandler) getProvider(ctx context.Context) (*oidc.Provider, error) {
 
 func (h *OIDCHandler) oauthConfig(p *oidc.Provider) *oauth2.Config {
 	return &oauth2.Config{
-		ClientID:     h.cfg.ClientID,
-		ClientSecret: h.cfg.ClientSecret,
+		ClientID:     h.info.ClientID,
+		ClientSecret: h.info.ClientSecret,
 		Endpoint:     p.Endpoint(),
-		RedirectURL:  h.baseURL + "/auth/" + h.cfg.Name + "/callback",
+		RedirectURL:  h.baseURL + "/auth/" + h.info.Name + "/callback",
 		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
 	}
 }
@@ -79,14 +93,14 @@ func (h *OIDCHandler) Start(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	p, err := h.getProvider(ctx)
 	if err != nil {
-		h.log.Error("oidc start: discovery failed", "provider", h.cfg.Name, "err", err)
+		h.log.Error("oidc start: discovery failed", "provider", h.info.Name, "err", err)
 		http.Error(w, "identity provider unavailable", http.StatusBadGateway)
 		return
 	}
 	state := newToken()
 	verifier := oauth2.GenerateVerifier()
-	h.sessions.Manager.Put(ctx, sessOIDCState, state)
-	h.sessions.Manager.Put(ctx, sessOIDCVerifier, verifier)
+	h.finish.sessions.Manager.Put(ctx, sessOIDCState, state)
+	h.finish.sessions.Manager.Put(ctx, sessOIDCVerifier, verifier)
 
 	url := h.oauthConfig(p).AuthCodeURL(state, oauth2.S256ChallengeOption(verifier))
 	http.Redirect(w, r, url, http.StatusFound)
@@ -97,14 +111,14 @@ func (h *OIDCHandler) Start(w http.ResponseWriter, r *http.Request) {
 func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	wantState := h.sessions.Manager.PopString(ctx, sessOIDCState)
-	verifier := h.sessions.Manager.PopString(ctx, sessOIDCVerifier)
+	wantState := h.finish.sessions.Manager.PopString(ctx, sessOIDCState)
+	verifier := h.finish.sessions.Manager.PopString(ctx, sessOIDCVerifier)
 	if wantState == "" || r.URL.Query().Get("state") != wantState {
 		http.Error(w, "invalid OIDC state", http.StatusBadRequest)
 		return
 	}
 	if errCode := r.URL.Query().Get("error"); errCode != "" {
-		h.log.Warn("oidc callback: provider returned error", "provider", h.cfg.Name, "error", errCode)
+		h.log.Warn("oidc callback: provider returned error", "provider", h.info.Name, "error", errCode)
 		http.Error(w, "login failed: "+errCode, http.StatusBadRequest)
 		return
 	}
@@ -116,13 +130,13 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 
 	p, err := h.getProvider(ctx)
 	if err != nil {
-		h.log.Error("oidc callback: discovery failed", "provider", h.cfg.Name, "err", err)
+		h.log.Error("oidc callback: discovery failed", "provider", h.info.Name, "err", err)
 		http.Error(w, "identity provider unavailable", http.StatusBadGateway)
 		return
 	}
 	token, err := h.oauthConfig(p).Exchange(ctx, code, oauth2.VerifierOption(verifier))
 	if err != nil {
-		h.log.Warn("oidc callback: code exchange failed", "provider", h.cfg.Name, "err", err)
+		h.log.Warn("oidc callback: code exchange failed", "provider", h.info.Name, "err", err)
 		http.Error(w, "code exchange failed", http.StatusBadGateway)
 		return
 	}
@@ -131,10 +145,19 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "no id_token in token response", http.StatusBadGateway)
 		return
 	}
-	idToken, err := p.Verifier(&oidc.Config{ClientID: h.cfg.ClientID}).Verify(ctx, rawIDToken)
+	verifierCfg := &oidc.Config{ClientID: h.info.ClientID}
+	if h.info.Type == TypeMicrosoft {
+		verifierCfg.SkipIssuerCheck = true // tenant-specific issuer, checked below
+	}
+	idToken, err := p.Verifier(verifierCfg).Verify(ctx, rawIDToken)
 	if err != nil {
-		h.log.Warn("oidc callback: id token verification failed", "provider", h.cfg.Name, "err", err)
+		h.log.Warn("oidc callback: id token verification failed", "provider", h.info.Name, "err", err)
 		http.Error(w, "invalid id_token", http.StatusBadRequest)
+		return
+	}
+	if h.info.Type == TypeMicrosoft && !microsoftIssuerPattern.MatchString(idToken.Issuer) {
+		h.log.Warn("oidc callback: unexpected microsoft issuer", "provider", h.info.Name, "issuer", idToken.Issuer)
+		http.Error(w, "invalid id_token issuer", http.StatusBadRequest)
 		return
 	}
 
@@ -156,28 +179,9 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	role := authz.RoleViewer
-	if h.isAdmin(claims.Email) {
-		role = authz.RoleAdmin
-	}
 	var displayName *string
 	if claims.Name != "" {
 		displayName = &claims.Name
 	}
-	user, err := h.store.UpsertUserByIdentity(ctx, "oidc:"+h.cfg.Name, idToken.Subject, claims.Email, displayName, role)
-	if err != nil {
-		h.log.Error("oidc callback: user upsert failed", "err", err)
-		http.Error(w, "login failed", http.StatusInternalServerError)
-		return
-	}
-	if user.DisabledAt != nil {
-		http.Error(w, "account disabled", http.StatusForbidden)
-		return
-	}
-	if err := h.sessions.Login(ctx, user.ID); err != nil {
-		h.log.Error("oidc callback: session login failed", "err", err)
-		http.Error(w, "login failed", http.StatusInternalServerError)
-		return
-	}
-	http.Redirect(w, r, "/", http.StatusFound)
+	h.finish.finish(w, r, h.info.IdentityKey(), idToken.Subject, claims.Email, displayName)
 }

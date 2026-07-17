@@ -1,0 +1,193 @@
+# otelfleet demo environment — everything in containers, including the
+# control plane (unlike docker-compose.yaml, where the control plane runs on
+# the host via `make run`).
+#
+#   docker compose -f deploy/compose/docker-compose.demo.yaml up -d --build
+#   open http://localhost:8080   (dev login is enabled — any email works)
+#
+# Generate load against an API key you created in the UI:
+#
+#   OTELFLEET_API_KEY=otm_... docker compose \
+#     -f deploy/compose/docker-compose.demo.yaml --profile loadgen up loadgen
+#
+# NOTE: uses the same host ports as the dev environment (8080, 4317/4318,
+# 4320, 5432, 8123/9000, 8428) — stop `make dev-up` / `make run` first.
+#
+# The OTELFLEET_MASTER_KEY below is a published sample for demos only.
+# Generate your own for anything real: openssl rand -base64 32
+name: otelfleet-demo
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: otelfleet
+      POSTGRES_USER: otelfleet
+      POSTGRES_PASSWORD: otelfleet
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U otelfleet"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.5-alpine
+    environment:
+      CLICKHOUSE_USER: otelfleet
+      CLICKHOUSE_PASSWORD: otelfleet
+    ports:
+      - "8123:8123" # HTTP
+      - "9000:9000" # native
+    volumes:
+      - chdata:/var/lib/clickhouse
+      - ../clickhouse/schema:/docker-entrypoint-initdb.d:ro
+    ulimits:
+      nofile: { soft: 262144, hard: 262144 }
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --user otelfleet --password otelfleet --query 'SELECT 1'"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:v1.115.0
+    command:
+      - -storageDataPath=/storage
+      - -retentionPeriod=30d
+      - -httpListenAddr=:8428
+    ports:
+      - "8428:8428"
+    volumes:
+      - vmdata:/storage
+
+  vmagent:
+    image: victoriametrics/vmagent:v1.115.0
+    command:
+      - -promscrape.config=/etc/vmagent/scrape.yaml
+      - -remoteWrite.url=http://victoriametrics:8428/api/v1/write
+    configs:
+      - source: vmagent-scrape
+        target: /etc/vmagent/scrape.yaml
+    depends_on:
+      - victoriametrics
+
+  # Control plane as a container (REST API + web UI :8080, internal gRPC
+  # :9443, ops :9090, OpAMP :4320). WEB_DIR and OTELCOL_BIN are baked into
+  # the image (embedded SPA + bundled collector binary for validation).
+  control-plane:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    environment:
+      OTELFLEET_DEV_LOGIN: "true" # demo: password-less login with any email
+      OTELFLEET_DATABASE_URL: postgres://otelfleet:otelfleet@postgres:5432/otelfleet?sslmode=disable
+      OTELFLEET_CLICKHOUSE_ADDR: clickhouse:9000
+      OTELFLEET_CLICKHOUSE_DATABASE: otel
+      OTELFLEET_CLICKHOUSE_USER: otelfleet
+      OTELFLEET_CLICKHOUSE_PASSWORD: otelfleet
+      OTELFLEET_VICTORIAMETRICS_URL: http://victoriametrics:8428
+      OTELFLEET_BASE_URL: http://localhost:8080
+      # DEMO ONLY — base64("otelfleet-demo-only-master-key32").
+      # Real deployments: openssl rand -base64 32
+      OTELFLEET_MASTER_KEY: b3RlbGZsZWV0LWRlbW8tb25seS1tYXN0ZXIta2V5MzI=
+    ports:
+      - "8080:8080" # REST API + web UI
+      - "4320:4320" # OpAMP (edge agents dial in here)
+    expose:
+      - "9443" # internal gRPC (gateway API-key validation)
+      - "9090" # ops: /metrics, /healthz, /readyz, forwarding config
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+
+  # Ingest-tier gateway: authenticates every OTLP request against the control
+  # plane and stamps tenant.id before export.
+  gateway:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.collector
+    command: ["--config=/etc/otelcol/config.yaml"]
+    environment:
+      OTELFLEET_AUTH_ENDPOINT: control-plane:9443
+      CLICKHOUSE_ENDPOINT: tcp://clickhouse:9000?database=otel&username=otelfleet&password=otelfleet
+    ports:
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+    expose:
+      - "8888" # collector self-telemetry, scraped by vmagent
+    volumes:
+      - ./otelcol-gateway.yaml:/etc/otelcol/config.yaml:ro
+      - gwqueue:/var/lib/otelcol
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      control-plane:
+        condition: service_started
+
+  # Forwarding tier: its entire config is rendered by the control plane and
+  # loaded through the collector's HTTP config provider. Restart the container
+  # to apply pipeline activations. Crash-loops harmlessly until the control
+  # plane serves the endpoint.
+  forwarding:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.collector
+    command: ["--config=http://control-plane:9090/internal/v1/collector-config/forwarding"]
+    restart: unless-stopped
+    expose:
+      - "8888" # collector self-telemetry, scraped by vmagent
+    depends_on:
+      control-plane:
+        condition: service_started
+
+  # Load generator (profile "loadgen"): sends OTLP logs through the gateway
+  # with a real API key. Create a customer + API key in the UI first, then:
+  #   OTELFLEET_API_KEY=otm_... docker compose -f ... --profile loadgen up loadgen
+  loadgen:
+    profiles: ["loadgen"]
+    image: ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:v0.156.0
+    command:
+      - logs
+      - --otlp-insecure
+      - --otlp-endpoint
+      - gateway:4317
+      - --otlp-header
+      - authorization="Bearer ${OTELFLEET_API_KEY:-missing-api-key}"
+      - --rate
+      - "10"
+      - --duration
+      - 1h
+    depends_on:
+      - gateway
+
+configs:
+  vmagent-scrape:
+    content: |
+      global:
+        scrape_interval: 15s
+      scrape_configs:
+        - job_name: otelcol-gateway
+          static_configs:
+            - targets: ["gateway:8888"]
+              labels:
+                collector_class: gateway
+        - job_name: otelcol-forwarding
+          static_configs:
+            - targets: ["forwarding:8888"]
+              labels:
+                collector_class: forwarding
+        - job_name: otelfleet-control-plane
+          static_configs:
+            - targets: ["control-plane:9090"]
+
+volumes:
+  pgdata:
+  chdata:
+  vmdata:
+  gwqueue:

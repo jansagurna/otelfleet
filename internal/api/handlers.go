@@ -13,6 +13,7 @@ import (
 	"github.com/sag-solutions/otelfleet/internal/auth"
 	"github.com/sag-solutions/otelfleet/internal/authz"
 	"github.com/sag-solutions/otelfleet/internal/config"
+	"github.com/sag-solutions/otelfleet/internal/crypto"
 	"github.com/sag-solutions/otelfleet/internal/pipelines"
 	"github.com/sag-solutions/otelfleet/internal/stats"
 	"github.com/sag-solutions/otelfleet/internal/store"
@@ -33,6 +34,8 @@ type Server struct {
 	pipelines *pipelines.Service
 	stats     *stats.Service
 	sessions  *auth.Sessions
+	authReg   *auth.Registry
+	cipher    *crypto.Cipher   // nil: master key not configured
 	agents    AgentConnections // nil: no OpAMP server (treated as disconnected)
 	log       *slog.Logger
 }
@@ -40,8 +43,8 @@ type Server struct {
 var _ apigen.StrictServerInterface = (*Server)(nil)
 
 // NewServer wires the REST handlers.
-func NewServer(cfg *config.Config, st store.Store, ten *tenants.Service, pipes *pipelines.Service, sts *stats.Service, sessions *auth.Sessions, agents AgentConnections, log *slog.Logger) *Server {
-	return &Server{cfg: cfg, store: st, tenants: ten, pipelines: pipes, stats: sts, sessions: sessions, agents: agents, log: log}
+func NewServer(cfg *config.Config, st store.Store, ten *tenants.Service, pipes *pipelines.Service, sts *stats.Service, sessions *auth.Sessions, authReg *auth.Registry, cipher *crypto.Cipher, agents AgentConnections, log *slog.Logger) *Server {
+	return &Server{cfg: cfg, store: st, tenants: ten, pipelines: pipes, stats: sts, sessions: sessions, authReg: authReg, cipher: cipher, agents: agents, log: log}
 }
 
 func actorID(ctx context.Context) *openapi_types.UUID {
@@ -108,9 +111,14 @@ func (s *Server) GetMe(ctx context.Context, _ apigen.GetMeRequestObject) (apigen
 }
 
 // ListAuthProviders is public: the login page needs it before any session.
+// It offers the enabled database providers plus the environment provider.
 func (s *Server) ListAuthProviders(ctx context.Context, _ apigen.ListAuthProvidersRequestObject) (apigen.ListAuthProvidersResponseObject, error) {
+	list, err := s.authReg.LoginProviders(ctx)
+	if err != nil {
+		return nil, err
+	}
 	providers := []apigen.AuthProvider{}
-	for _, p := range s.cfg.OIDCProviders {
+	for _, p := range list {
 		providers = append(providers, apigen.AuthProvider{
 			Name:        p.Name,
 			DisplayName: p.DisplayName,

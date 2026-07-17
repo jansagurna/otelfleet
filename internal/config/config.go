@@ -9,8 +9,10 @@ import (
 	"strings"
 )
 
-// OIDCProvider describes one configured OIDC login provider. Phase 1 supports
-// a single generic provider; later phases turn this into a registry.
+// OIDCProvider describes the env-defined fallback OIDC provider. Additional
+// providers are managed in the database (Settings -> SSO) via internal/auth's
+// registry; this one keeps single-provider deployments configurable without
+// touching the UI.
 type OIDCProvider struct {
 	// Name is the URL-safe provider identifier (used in /auth/{name}/start).
 	Name string
@@ -43,6 +45,13 @@ type Config struct {
 	DevLogin      bool
 	AdminEmails   []string
 	SessionSecure bool
+
+	// MasterKeyBase64 is OTELFLEET_MASTER_KEY: the base64-encoded 32-byte key
+	// for envelope encryption of secrets at rest (auth-provider client
+	// secrets, pipeline exporter credentials). Empty = not configured; the
+	// server boots, but features that need it fail with a clear error.
+	// Validity (base64, length) is checked by crypto.New at wiring time.
+	MasterKeyBase64 string
 
 	// OtelcolBin is the collector distro binary used for `otelcol validate`;
 	// when missing, pipeline validation degrades to structural checks.
@@ -78,6 +87,7 @@ func Load() (*Config, error) {
 		Distributor:        env("DISTRIBUTOR", "publish"),
 		K8sCRName:          env("K8S_CR_NAME", "otelfleet-forwarding"),
 		K8sCRNamespace:     env("K8S_CR_NAMESPACE", "otelfleet"),
+		MasterKeyBase64:    env("MASTER_KEY", ""),
 	}
 	if cfg.Distributor != "publish" && cfg.Distributor != "k8s" {
 		return nil, fmt.Errorf("OTELFLEET_DISTRIBUTOR must be 'publish' or 'k8s', got %q", cfg.Distributor)

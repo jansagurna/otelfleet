@@ -1,0 +1,75 @@
+# GoReleaser config for the otelfleet control-plane binary.
+# Container images (control plane, collector, supervisor) and the Helm chart
+# are NOT built here — see .github/workflows/release.yaml.
+#
+# Note: the bare binary serves the API only. The web UI (OTELFLEET_WEB_DIR)
+# and the collector binary for pipeline validation (OTELFLEET_OTELCOL_BIN)
+# are provided externally; the container image bundles both.
+version: 2
+
+project_name: otelfleet
+
+builds:
+  - id: otelfleet
+    main: ./cmd/otelfleet
+    binary: otelfleet
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+
+archives:
+  - id: otelfleet
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  use: github
+  groups:
+    - title: Features
+      regexp: '^feat(\(.+\))?!?:'
+      order: 0
+    - title: Bug fixes
+      regexp: '^fix(\(.+\))?!?:'
+      order: 1
+    - title: Performance
+      regexp: '^perf(\(.+\))?!?:'
+      order: 2
+    - title: Documentation
+      regexp: '^docs(\(.+\))?!?:'
+      order: 3
+    - title: Other
+      order: 999
+  filters:
+    exclude:
+      - '^chore(\(.+\))?!?:'
+      - '^test(\(.+\))?!?:'
+      - '^ci(\(.+\))?!?:'
+
+release:
+  draft: false
+  prerelease: auto
+  footer: |
+    ---
+
+    **Container images** (multi-arch, cosign-signed):
+
+    - `ghcr.io/sag-solutions/otelfleet:{{ .Version }}` — control plane (binary + web UI + collector for validation)
+    - `ghcr.io/sag-solutions/otelfleet-collector:{{ .Version }}` — gateway/forwarding collector distro
+    - `ghcr.io/sag-solutions/otelfleet-supervisor:{{ .Version }}` — edge agent (OpAMP supervisor + collector)
+
+    **Helm chart**: `helm install otelfleet oci://ghcr.io/sag-solutions/charts/otelfleet --version {{ .Version }}`

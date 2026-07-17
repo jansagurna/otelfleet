@@ -7,10 +7,13 @@ import type {
   AgentDetail,
   AgentEvent,
   ApiKey,
+  AuditEntry,
+  AuthProviderConfig,
   BootstrapToken,
   Customer,
   Me,
   StatsOverview,
+  UserAccount,
 } from '@/api/generated'
 
 export const testMe: Me = {
@@ -81,6 +84,105 @@ export const testBootstrapToken: BootstrapToken = {
   revokedAt: null,
 }
 
+export const testViewerMe: Me = {
+  id: '4f2c7a1e-0000-4000-8000-000000000021',
+  email: 'viewer@example.com',
+  displayName: 'Read Only',
+  role: 'viewer',
+  csrfToken: 'csrf-test-token',
+}
+
+export const testUsers: UserAccount[] = [
+  {
+    id: testMe.id,
+    email: testMe.email,
+    displayName: testMe.displayName,
+    role: 'admin',
+    disabled: false,
+    invited: false,
+    identities: ['google'],
+    lastLoginAt: '2026-07-15T08:00:00Z',
+    createdAt: '2026-06-01T09:00:00Z',
+  },
+  {
+    id: '4f2c7a1e-0000-4000-8000-000000000022',
+    email: 'newbie@example.com',
+    displayName: null,
+    role: 'operator',
+    disabled: false,
+    invited: true,
+    identities: [],
+    lastLoginAt: null,
+    createdAt: '2026-07-14T09:00:00Z',
+  },
+]
+
+export const testProviders: AuthProviderConfig[] = [
+  {
+    id: '4f2c7a1e-0000-4000-8000-000000000031',
+    type: 'google',
+    name: 'google',
+    displayName: 'Google Workspace',
+    clientId: '1234567890-abc.apps.googleusercontent.com',
+    issuer: null,
+    enabled: true,
+    source: 'database',
+    redirectUri: 'https://otelfleet.example.com/auth/google/callback',
+    createdAt: '2026-07-01T09:00:00Z',
+  },
+  {
+    id: '4f2c7a1e-0000-4000-8000-000000000032',
+    type: 'oidc',
+    name: 'corp',
+    displayName: 'Corp Login',
+    clientId: 'otelfleet-console',
+    issuer: 'https://login.corp.example.com',
+    enabled: true,
+    source: 'environment',
+    redirectUri: 'https://otelfleet.example.com/auth/corp/callback',
+    createdAt: '2026-07-01T09:00:00Z',
+  },
+]
+
+export const testAuditEntries: AuditEntry[] = [
+  {
+    id: 42,
+    actorType: 'user',
+    actorUserId: testMe.id,
+    actorEmail: testMe.email,
+    action: 'create_pipeline',
+    entityType: 'pipeline',
+    entityId: '4f2c7a1e-0000-4000-8000-000000000041',
+    customerId: testCustomer.id,
+    customerName: testCustomer.name,
+    payload: { name: 'edge-default' },
+    createdAt: '2026-07-15T08:00:00Z',
+  },
+  {
+    id: 41,
+    actorType: 'system',
+    actorUserId: null,
+    actorEmail: null,
+    action: 'delete_api_key',
+    entityType: 'api_key',
+    entityId: '4f2c7a1e-0000-4000-8000-000000000042',
+    customerId: testCustomer.id,
+    customerName: testCustomer.name,
+    payload: null,
+    createdAt: '2026-07-14T08:00:00Z',
+  },
+]
+
+const testThroughput = {
+  series: (['logs', 'traces', 'metrics'] as const).map((signal) => ({
+    signal,
+    points: [
+      { ts: '2026-07-15T07:00:00Z', value: 10 },
+      { ts: '2026-07-15T07:15:00Z', value: 12 },
+    ],
+  })),
+}
+
 export const testOverview: StatsOverview = {
   activeCustomers: 3,
   totals: { logs: 864_000, traces: 432_000, metrics: 216_000 },
@@ -96,7 +198,8 @@ function json(data: unknown): Response {
 }
 
 /** Route-matching fetch stub for the endpoints the pages use. */
-export function stubApi(): void {
+export function stubApi(overrides: { me?: Me } = {}): void {
+  const me = overrides.me ?? testMe
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
@@ -104,7 +207,7 @@ export function stubApi(): void {
       const path = new URL(request.url, 'http://localhost').pathname
       switch (path) {
         case '/api/v1/me':
-          return json(testMe)
+          return json(me)
         case '/api/v1/auth/providers':
           return json({
             providers: [{ name: 'google', displayName: 'Google', loginUrl: '/auth/google/start' }],
@@ -128,6 +231,14 @@ export function stubApi(): void {
           return json({ events: [testAgentEvent] })
         case `/api/v1/customers/${testCustomer.id}/bootstrap-tokens`:
           return json({ tokens: [testBootstrapToken] })
+        case `/api/v1/customers/${testCustomer.id}/stats/throughput`:
+          return json(testThroughput)
+        case '/api/v1/users':
+          return json({ users: testUsers })
+        case '/api/v1/settings/auth-providers':
+          return json({ providers: testProviders })
+        case '/api/v1/audit':
+          return json({ entries: testAuditEntries, nextBeforeId: null })
         default:
           return new Response(JSON.stringify({ code: 'not_found', message: 'not found' }), {
             status: 404,

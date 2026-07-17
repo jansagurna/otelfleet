@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ActivatePipelineVersionData, ActivatePipelineVersionErrors, ActivatePipelineVersionResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateBootstrapTokenData, CreateBootstrapTokenErrors, CreateBootstrapTokenResponses, CreateCustomerData, CreateCustomerErrors, CreateCustomerResponses, CreatePipelineData, CreatePipelineErrors, CreatePipelineResponses, CreatePipelineVersionData, CreatePipelineVersionErrors, CreatePipelineVersionResponses, DeleteAgentData, DeleteAgentErrors, DeleteAgentResponses, DeleteCustomerData, DeleteCustomerErrors, DeleteCustomerResponses, DeletePipelineData, DeletePipelineErrors, DeletePipelineResponses, DevLoginData, DevLoginErrors, DevLoginResponses, GetAgentConfigData, GetAgentConfigErrors, GetAgentConfigResponses, GetAgentData, GetAgentErrors, GetAgentResponses, GetComponentCatalogData, GetComponentCatalogErrors, GetComponentCatalogResponses, GetCustomerData, GetCustomerErrors, GetCustomerResponses, GetCustomerThroughputData, GetCustomerThroughputErrors, GetCustomerThroughputResponses, GetMeData, GetMeErrors, GetMeResponses, GetPipelineData, GetPipelineErrors, GetPipelineResponses, GetPipelineStageStatsData, GetPipelineStageStatsErrors, GetPipelineStageStatsResponses, GetPipelineVersionData, GetPipelineVersionErrors, GetPipelineVersionResponses, GetStatsOverviewData, GetStatsOverviewErrors, GetStatsOverviewResponses, ListAgentEventsData, ListAgentEventsErrors, ListAgentEventsResponses, ListAgentsData, ListAgentsErrors, ListAgentsResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListAuthProvidersData, ListAuthProvidersResponses, ListBootstrapTokensData, ListBootstrapTokensErrors, ListBootstrapTokensResponses, ListCustomerPipelinesData, ListCustomerPipelinesErrors, ListCustomerPipelinesResponses, ListCustomersData, ListCustomersErrors, ListCustomersResponses, ListPipelinesData, ListPipelinesErrors, ListPipelinesResponses, LogoutData, LogoutResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, RevokeBootstrapTokenData, RevokeBootstrapTokenErrors, RevokeBootstrapTokenResponses, UpdateCustomerData, UpdateCustomerErrors, UpdateCustomerResponses, ValidatePipelineData, ValidatePipelineErrors, ValidatePipelineResponses } from './types.gen';
+import type { ActivatePipelineVersionData, ActivatePipelineVersionErrors, ActivatePipelineVersionResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateAuthProviderConfigData, CreateAuthProviderConfigErrors, CreateAuthProviderConfigResponses, CreateBootstrapTokenData, CreateBootstrapTokenErrors, CreateBootstrapTokenResponses, CreateCustomerData, CreateCustomerErrors, CreateCustomerResponses, CreatePipelineData, CreatePipelineErrors, CreatePipelineResponses, CreatePipelineVersionData, CreatePipelineVersionErrors, CreatePipelineVersionResponses, DeleteAgentData, DeleteAgentErrors, DeleteAgentResponses, DeleteAuthProviderConfigData, DeleteAuthProviderConfigErrors, DeleteAuthProviderConfigResponses, DeleteCustomerData, DeleteCustomerErrors, DeleteCustomerResponses, DeletePipelineData, DeletePipelineErrors, DeletePipelineResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DevLoginData, DevLoginErrors, DevLoginResponses, GetAgentConfigData, GetAgentConfigErrors, GetAgentConfigResponses, GetAgentData, GetAgentErrors, GetAgentResponses, GetComponentCatalogData, GetComponentCatalogErrors, GetComponentCatalogResponses, GetCustomerData, GetCustomerErrors, GetCustomerResponses, GetCustomerThroughputData, GetCustomerThroughputErrors, GetCustomerThroughputResponses, GetMeData, GetMeErrors, GetMeResponses, GetPipelineData, GetPipelineErrors, GetPipelineResponses, GetPipelineStageStatsData, GetPipelineStageStatsErrors, GetPipelineStageStatsResponses, GetPipelineVersionData, GetPipelineVersionErrors, GetPipelineVersionResponses, GetStatsOverviewData, GetStatsOverviewErrors, GetStatsOverviewResponses, InviteUserData, InviteUserErrors, InviteUserResponses, ListAgentEventsData, ListAgentEventsErrors, ListAgentEventsResponses, ListAgentsData, ListAgentsErrors, ListAgentsResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListAuditLogData, ListAuditLogErrors, ListAuditLogResponses, ListAuthProviderConfigsData, ListAuthProviderConfigsErrors, ListAuthProviderConfigsResponses, ListAuthProvidersData, ListAuthProvidersResponses, ListBootstrapTokensData, ListBootstrapTokensErrors, ListBootstrapTokensResponses, ListCustomerPipelinesData, ListCustomerPipelinesErrors, ListCustomerPipelinesResponses, ListCustomersData, ListCustomersErrors, ListCustomersResponses, ListPipelinesData, ListPipelinesErrors, ListPipelinesResponses, ListUsersData, ListUsersErrors, ListUsersResponses, LogoutData, LogoutResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, RevokeBootstrapTokenData, RevokeBootstrapTokenErrors, RevokeBootstrapTokenResponses, TestAuthProviderConfigData, TestAuthProviderConfigErrors, TestAuthProviderConfigResponses, UpdateAuthProviderConfigData, UpdateAuthProviderConfigErrors, UpdateAuthProviderConfigResponses, UpdateCustomerData, UpdateCustomerErrors, UpdateCustomerResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, ValidatePipelineData, ValidatePipelineErrors, ValidatePipelineResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -238,3 +238,81 @@ export const createBootstrapToken = <ThrowOnError extends boolean = false>(optio
  * Revoke an enrollment token (existing agents stay connected)
  */
 export const revokeBootstrapToken = <ThrowOnError extends boolean = false>(options: Options<RevokeBootstrapTokenData, ThrowOnError>): RequestResult<RevokeBootstrapTokenResponses, RevokeBootstrapTokenErrors, ThrowOnError> => (options.client ?? client).delete<RevokeBootstrapTokenResponses, RevokeBootstrapTokenErrors, ThrowOnError>({ url: '/api/v1/customers/{customerId}/bootstrap-tokens/{tokenId}', ...options });
+
+/**
+ * List UI users (admin only)
+ */
+export const listUsers = <ThrowOnError extends boolean = false>(options?: Options<ListUsersData, ThrowOnError>): RequestResult<ListUsersResponses, ListUsersErrors, ThrowOnError> => (options?.client ?? client).get<ListUsersResponses, ListUsersErrors, ThrowOnError>({ url: '/api/v1/users', ...options });
+
+/**
+ * Invite a user by email; the role applies on their first SSO login
+ */
+export const inviteUser = <ThrowOnError extends boolean = false>(options: Options<InviteUserData, ThrowOnError>): RequestResult<InviteUserResponses, InviteUserErrors, ThrowOnError> => (options.client ?? client).post<InviteUserResponses, InviteUserErrors, ThrowOnError>({
+    url: '/api/v1/users',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete a user (admin only, not self, not the last admin)
+ */
+export const deleteUser = <ThrowOnError extends boolean = false>(options: Options<DeleteUserData, ThrowOnError>): RequestResult<DeleteUserResponses, DeleteUserErrors, ThrowOnError> => (options.client ?? client).delete<DeleteUserResponses, DeleteUserErrors, ThrowOnError>({ url: '/api/v1/users/{userId}', ...options });
+
+/**
+ * Change role or disable/enable (admin only; self-demotion and disabling the last admin are rejected)
+ */
+export const updateUser = <ThrowOnError extends boolean = false>(options: Options<UpdateUserData, ThrowOnError>): RequestResult<UpdateUserResponses, UpdateUserErrors, ThrowOnError> => (options.client ?? client).patch<UpdateUserResponses, UpdateUserErrors, ThrowOnError>({
+    url: '/api/v1/users/{userId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Configured SSO providers incl. env-defined ones (admin only, no secrets)
+ */
+export const listAuthProviderConfigs = <ThrowOnError extends boolean = false>(options?: Options<ListAuthProviderConfigsData, ThrowOnError>): RequestResult<ListAuthProviderConfigsResponses, ListAuthProviderConfigsErrors, ThrowOnError> => (options?.client ?? client).get<ListAuthProviderConfigsResponses, ListAuthProviderConfigsErrors, ThrowOnError>({ url: '/api/v1/settings/auth-providers', ...options });
+
+/**
+ * Add an SSO provider (client secret is encrypted at rest)
+ */
+export const createAuthProviderConfig = <ThrowOnError extends boolean = false>(options: Options<CreateAuthProviderConfigData, ThrowOnError>): RequestResult<CreateAuthProviderConfigResponses, CreateAuthProviderConfigErrors, ThrowOnError> => (options.client ?? client).post<CreateAuthProviderConfigResponses, CreateAuthProviderConfigErrors, ThrowOnError>({
+    url: '/api/v1/settings/auth-providers',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Remove a provider (existing sessions stay valid)
+ */
+export const deleteAuthProviderConfig = <ThrowOnError extends boolean = false>(options: Options<DeleteAuthProviderConfigData, ThrowOnError>): RequestResult<DeleteAuthProviderConfigResponses, DeleteAuthProviderConfigErrors, ThrowOnError> => (options.client ?? client).delete<DeleteAuthProviderConfigResponses, DeleteAuthProviderConfigErrors, ThrowOnError>({ url: '/api/v1/settings/auth-providers/{providerId}', ...options });
+
+/**
+ * Update a provider; omit clientSecret to keep the stored one
+ */
+export const updateAuthProviderConfig = <ThrowOnError extends boolean = false>(options: Options<UpdateAuthProviderConfigData, ThrowOnError>): RequestResult<UpdateAuthProviderConfigResponses, UpdateAuthProviderConfigErrors, ThrowOnError> => (options.client ?? client).patch<UpdateAuthProviderConfigResponses, UpdateAuthProviderConfigErrors, ThrowOnError>({
+    url: '/api/v1/settings/auth-providers/{providerId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Connectivity test (OIDC discovery / GitHub API reachability)
+ */
+export const testAuthProviderConfig = <ThrowOnError extends boolean = false>(options: Options<TestAuthProviderConfigData, ThrowOnError>): RequestResult<TestAuthProviderConfigResponses, TestAuthProviderConfigErrors, ThrowOnError> => (options.client ?? client).post<TestAuthProviderConfigResponses, TestAuthProviderConfigErrors, ThrowOnError>({ url: '/api/v1/settings/auth-providers/{providerId}/test', ...options });
+
+/**
+ * Query the audit log (newest first, cursor-paged)
+ */
+export const listAuditLog = <ThrowOnError extends boolean = false>(options?: Options<ListAuditLogData, ThrowOnError>): RequestResult<ListAuditLogResponses, ListAuditLogErrors, ThrowOnError> => (options?.client ?? client).get<ListAuditLogResponses, ListAuditLogErrors, ThrowOnError>({ url: '/api/v1/audit', ...options });

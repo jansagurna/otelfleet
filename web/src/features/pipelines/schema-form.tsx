@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, RotateCcw, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { REDACTED_SENTINEL } from '@/lib/secrets'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
-import { X } from 'lucide-react'
 
 /**
  * Small, recursive JSON-Schema-driven form for collector component configs.
@@ -340,12 +340,20 @@ function PrimitiveField({
         />
       )
     case 'password':
+      return (
+        <PasswordField
+          id={id}
+          label={label}
+          value={value}
+          onChange={onChange}
+          readOnly={readOnly}
+        />
+      )
     case 'string':
       return (
         <Input
           id={id}
-          type={kind === 'password' ? 'password' : 'text'}
-          autoComplete={kind === 'password' ? 'off' : undefined}
+          type="text"
           spellCheck={false}
           className="font-mono"
           placeholder={schema.default !== undefined ? String(schema.default) : undefined}
@@ -355,6 +363,86 @@ function PrimitiveField({
         />
       )
   }
+}
+
+/**
+ * Password input with stored-secret handling. The API redacts secrets to
+ * REDACTED_SENTINEL on read; sending the sentinel back keeps the stored
+ * value, any other string rotates it. While the value is the sentinel we
+ * show a "stored" placeholder with a replace affordance; once replaced, a
+ * reset icon restores the sentinel (i.e. keeps the stored secret).
+ */
+function PasswordField({
+  id,
+  label,
+  value,
+  onChange,
+  readOnly,
+}: {
+  id: string
+  label: string
+  value: unknown
+  onChange: (next: unknown) => void
+  readOnly: boolean
+}) {
+  // Whether this field held a stored secret when it mounted — controls the
+  // reset affordance after the user opts to replace it.
+  const [hadStoredSecret, setHadStoredSecret] = useState(() => value === REDACTED_SENTINEL)
+  if (value === REDACTED_SENTINEL && !hadStoredSecret) setHadStoredSecret(true)
+
+  if (value === REDACTED_SENTINEL) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <Input
+          id={id}
+          type="text"
+          readOnly
+          className="font-mono text-ink-3"
+          value=""
+          placeholder="•••••• (stored)"
+          aria-label={`${label} (stored secret)`}
+        />
+        {!readOnly && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="shrink-0"
+            onClick={() => onChange(undefined)}
+            aria-label={`Replace ${label}`}
+          >
+            Replace
+          </Button>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <Input
+        id={id}
+        type="password"
+        autoComplete="off"
+        spellCheck={false}
+        className="font-mono"
+        value={value === undefined || value === null ? '' : String(value)}
+        disabled={readOnly}
+        onChange={(e) => onChange(e.target.value === '' ? undefined : e.target.value)}
+      />
+      {!readOnly && hadStoredSecret && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 shrink-0"
+          onClick={() => onChange(REDACTED_SENTINEL)}
+          aria-label={`Keep stored ${label}`}
+          title="Keep the stored secret"
+        >
+          <RotateCcw />
+        </Button>
+      )}
+    </div>
+  )
 }
 
 function NestedObject({

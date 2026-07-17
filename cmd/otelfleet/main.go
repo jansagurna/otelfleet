@@ -26,6 +26,7 @@ import (
 	"github.com/sag-solutions/otelfleet/internal/api"
 	"github.com/sag-solutions/otelfleet/internal/auth"
 	"github.com/sag-solutions/otelfleet/internal/config"
+	"github.com/sag-solutions/otelfleet/internal/crypto"
 	"github.com/sag-solutions/otelfleet/internal/ingestauth"
 	"github.com/sag-solutions/otelfleet/internal/ingestauth/authv1"
 	"github.com/sag-solutions/otelfleet/internal/opamp"
@@ -76,6 +77,18 @@ func run(log *slog.Logger) error {
 	sessions := auth.NewSessions(cfg.SessionSecure)
 	sessions.UsePostgres(pool)
 
+	// Master key for secrets at rest. Unset is fine: the server runs, but
+	// SSO-provider management and pipeline secret fields are unavailable.
+	var cipher *crypto.Cipher
+	if cfg.MasterKeyBase64 != "" {
+		if cipher, err = crypto.New(cfg.MasterKeyBase64); err != nil {
+			return fmt.Errorf("OTELFLEET_MASTER_KEY: %w", err)
+		}
+		log.Info("master key configured, secret encryption enabled")
+	} else {
+		log.Warn("OTELFLEET_MASTER_KEY not set: SSO provider management and pipeline secret fields are disabled")
+	}
+
 	// ClickHouse (lazy; stats endpoints degrade to 503 when unreachable).
 	chConn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{cfg.ClickHouseAddr},
@@ -108,7 +121,7 @@ func run(log *slog.Logger) error {
 	} else {
 		distributor = pipelines.NewPublishDistributor()
 	}
-	pipelinesSvc := pipelines.NewService(st, validator, distributor, log)
+	pipelinesSvc := pipelines.NewService(st, validator, distributor, cipher, log)
 
 	// OpAMP server (edge-agent fleet management on :4320). The pipeline
 	// service pushes edge-config changes through it; the OpAMP server renders
@@ -116,14 +129,12 @@ func run(log *slog.Logger) error {
 	opampSrv := opamp.NewServer(st, pipelinesSvc, cfg.OpAMPAddr, log)
 	pipelinesSvc.SetEdgeNotifier(opampSrv)
 
-	// OIDC handlers.
-	var oidcHandlers []*auth.OIDCHandler
-	for _, p := range cfg.OIDCProviders {
-		oidcHandlers = append(oidcHandlers, auth.NewOIDCHandler(p, cfg.BaseURL, sessions, st, cfg.IsAdminEmail, log))
-	}
+	// Login provider registry: database providers + the OTELFLEET_OIDC_* env
+	// provider, resolved per request under /auth/{name}/...
+	authRegistry := auth.NewRegistry(cfg, st, cipher, sessions, log)
 
 	// REST API server.
-	server := api.NewServer(cfg, st, tenantsSvc, pipelinesSvc, statsSvc, sessions, opampSrv, log)
+	server := api.NewServer(cfg, st, tenantsSvc, pipelinesSvc, statsSvc, sessions, authRegistry, cipher, opampSrv, log)
 	httpSrv := &http.Server{
 		Addr: cfg.HTTPAddr,
 		Handler: api.NewRouter(api.RouterDeps{
@@ -131,7 +142,7 @@ func run(log *slog.Logger) error {
 			Store:    st,
 			Sessions: sessions,
 			Server:   server,
-			OIDC:     oidcHandlers,
+			Auth:     authRegistry,
 			Log:      log,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,

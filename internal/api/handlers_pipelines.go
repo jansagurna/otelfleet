@@ -44,6 +44,9 @@ func toVersion(v store.PipelineVersion) (apigen.PipelineVersion, error) {
 	if err != nil {
 		return apigen.PipelineVersion{}, err
 	}
+	// Graphs leaving the backend never carry secrets: password fields become
+	// the redaction sentinel (the stored rendered_yaml is redacted already).
+	g = pipelines.RedactGraphSecrets(g)
 	return apigen.PipelineVersion{
 		Version:          v.Version,
 		ValidationStatus: apigen.PipelineVersionValidationStatus(v.ValidationStatus),

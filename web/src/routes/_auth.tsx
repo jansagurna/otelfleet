@@ -2,11 +2,13 @@ import { createFileRoute, Link, Outlet, redirect, useNavigate } from '@tanstack/
 import { useMutation } from '@tanstack/react-query'
 import {
   Building2,
+  ChartLine,
   ChevronsUpDown,
   LayoutDashboard,
   LogOut,
   Moon,
   Network,
+  ScrollText,
   Settings,
   Ship,
   Sun,
@@ -15,10 +17,9 @@ import { getMeOptions } from '@/api/generated/@tanstack/react-query.gen'
 import { logoutMutation } from '@/api/generated/@tanstack/react-query.gen'
 import { setCsrfToken } from '@/lib/api-client'
 import { useTheme } from '@/lib/theme'
-import { useMe } from '@/hooks/use-me'
+import { useMe, isAdmin } from '@/hooks/use-me'
 import { cn } from '@/lib/utils'
 import { Wordmark } from '@/components/wordmark'
-import { Badge } from '@/components/ui/badge'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,18 +55,24 @@ function AuthLayout() {
   )
 }
 
-const NAV_ITEMS: { to: string; label: string; icon: ComponentType<{ className?: string }> }[] = [
+const NAV_ITEMS: {
+  to: string
+  label: string
+  icon: ComponentType<{ className?: string }>
+  adminOnly?: boolean
+}[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/customers', label: 'Customers', icon: Building2 },
   { to: '/pipelines', label: 'Pipelines', icon: Network },
   { to: '/fleet', label: 'Fleet', icon: Ship },
-]
-
-const SOON_ITEMS: { label: string; icon: ComponentType<{ className?: string }> }[] = [
-  { label: 'Settings', icon: Settings },
+  { to: '/metrics', label: 'Metrics', icon: ChartLine },
+  { to: '/audit', label: 'Audit', icon: ScrollText, adminOnly: true },
+  { to: '/settings', label: 'Settings', icon: Settings, adminOnly: true },
 ]
 
 function Sidebar() {
+  const me = useMe()
+  const items = NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin(me))
   return (
     <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col border-r border-line bg-surface">
       <div className="flex h-14 items-center border-b border-line px-4">
@@ -77,7 +84,7 @@ function Sidebar() {
         </Link>
       </div>
       <nav aria-label="Main" className="flex flex-1 flex-col gap-0.5 p-2">
-        {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+        {items.map(({ to, label, icon: Icon }) => (
           <Link
             key={to}
             to={to}
@@ -98,21 +105,6 @@ function Sidebar() {
               </>
             )}
           </Link>
-        ))}
-        <div className="mt-4 px-2.5 text-[11px] font-semibold tracking-wider text-ink-3 uppercase">
-          Coming soon
-        </div>
-        {SOON_ITEMS.map(({ label, icon: Icon }) => (
-          <div
-            key={label}
-            aria-disabled
-            className="flex cursor-not-allowed items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] text-ink-3 opacity-60"
-          >
-            <span aria-hidden className="h-4 w-0.5" />
-            <Icon className="size-4 shrink-0" />
-            {label}
-            <Badge className="ml-auto">soon</Badge>
-          </div>
         ))}
       </nav>
       <UserMenu />

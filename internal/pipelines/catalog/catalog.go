@@ -148,10 +148,9 @@ func All() []*Component { return all }
 // Common schema fragments.
 const (
 	durationSchema = `{"type": "string", "pattern": "^[0-9]+(ns|us|ms|s|m|h)$", "description": "Go duration, e.g. 5s"}`
-	// headersSchema marks values as secrets ("format": "password") so UIs mask
-	// them. TODO(security): header values (and other exporter credentials) are
-	// currently stored plaintext in pipeline_versions.graph; envelope
-	// encryption lands in a later phase.
+	// headersSchema marks values as secrets ("format": "password"): UIs mask
+	// them, and the pipeline service encrypts them with the master key before
+	// they reach pipeline_versions.graph (see internal/pipelines/secrets.go).
 	headersSchema = `{
 		"type": "object",
 		"description": "Additional headers sent with every request.",

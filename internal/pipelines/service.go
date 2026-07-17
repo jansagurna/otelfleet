@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/sag-solutions/otelfleet/internal/audit"
+	"github.com/sag-solutions/otelfleet/internal/crypto"
 	"github.com/sag-solutions/otelfleet/internal/store"
 )
 
@@ -33,30 +34,40 @@ type EdgeNotifier interface {
 
 // Service orchestrates pipeline management: validation, versioning,
 // activation/rollback and distribution of the rendered configs (forwarding
-// tier via the Distributor, edge agents via the EdgeNotifier).
+// tier via the Distributor, edge agents via the EdgeNotifier). Secret fields
+// (catalog "format": "password") are encrypted with the master key before
+// storage and decrypted only for rendering and validation.
 type Service struct {
 	store     store.Store
 	validator *Validator
 	dist      Distributor
 	edge      EdgeNotifier
+	cipher    *crypto.Cipher // nil = master key not configured
 	log       *slog.Logger
 }
 
 // NewService wires the pipeline service. The EdgeNotifier is attached later
 // via SetEdgeNotifier (the OpAMP module depends on this service, so main.go
-// constructs it afterwards).
-func NewService(st store.Store, v *Validator, dist Distributor, log *slog.Logger) *Service {
-	return &Service{store: st, validator: v, dist: dist, log: log}
+// constructs it afterwards). cipher may be nil (no master key): pipelines
+// without secret fields keep working, graphs containing secrets are rejected.
+func NewService(st store.Store, v *Validator, dist Distributor, cipher *crypto.Cipher, log *slog.Logger) *Service {
+	return &Service{store: st, validator: v, dist: dist, cipher: cipher, log: log}
 }
 
 // SetEdgeNotifier attaches the OpAMP push hook. Must be called during wiring,
 // before the service handles requests.
 func (s *Service) SetEdgeNotifier(n EdgeNotifier) { s.edge = n }
 
-// toRender converts a stored active pipeline into a renderer input.
-func toRender(ap store.ActivePipeline) (RenderPipeline, error) {
+// toRender converts a stored active pipeline into a renderer input,
+// decrypting stored secret fields to plaintext (renderer inputs feed
+// RenderCurrent / RenderEdgeCurrent and `otelcol validate` only; graphs
+// leaving the backend go through RedactGraphSecrets instead).
+func (s *Service) toRender(ap store.ActivePipeline) (RenderPipeline, error) {
 	g, err := ParseGraph(ap.Graph)
 	if err != nil {
+		return RenderPipeline{}, fmt.Errorf("pipeline %s: %w", ap.PipelineID, err)
+	}
+	if g, err = DecryptGraphSecrets(g, s.cipher); err != nil {
 		return RenderPipeline{}, fmt.Errorf("pipeline %s: %w", ap.PipelineID, err)
 	}
 	return RenderPipeline{
@@ -81,7 +92,7 @@ func (s *Service) activeRenderPipelines(ctx context.Context, targetClass string,
 		if exclude != nil && ap.PipelineID == *exclude {
 			continue
 		}
-		rp, err := toRender(ap)
+		rp, err := s.toRender(ap)
 		if err != nil {
 			return nil, err
 		}
@@ -146,13 +157,29 @@ type Created struct {
 
 // prepare validates the name and graph for a customer and builds the version
 // insert payload. Returns a non-nil Result when the graph is invalid.
-func (s *Service) prepare(ctx context.Context, cust store.Customer, name, targetClass string, excludePipeline *uuid.UUID, g Graph, actor *uuid.UUID) (store.NewPipelineVersion, *Result, error) {
+// Secret fields are encrypted before storage (sentinels resolve against prev,
+// the pipeline's latest stored graph); validation runs on the plaintext
+// graph, while the persisted rendered_yaml is re-rendered from the redacted
+// graph so it never contains plaintext secrets.
+func (s *Service) prepare(ctx context.Context, cust store.Customer, name, targetClass string, excludePipeline *uuid.UUID, g Graph, prev *Graph, actor *uuid.UUID) (store.NewPipelineVersion, *Result, error) {
+	stored, secretIssues, err := EncryptGraphSecrets(g, s.cipher, prev)
+	if err != nil {
+		return store.NewPipelineVersion{}, nil, err
+	}
+	if len(secretIssues) > 0 {
+		return store.NewPipelineVersion{}, &Result{Valid: false, Issues: secretIssues}, nil
+	}
+	plain, err := DecryptGraphSecrets(stored, s.cipher)
+	if err != nil {
+		return store.NewPipelineVersion{}, nil, err
+	}
+
 	slug := PipelineSlug(name)
 	candidate := RenderPipeline{
 		CustomerSlug: cust.Slug,
 		ClientID:     cust.ClientID,
 		PipelineSlug: slug,
-		Graph:        g,
+		Graph:        plain,
 	}
 	var customerScope *uuid.UUID
 	if targetClass == ClassEdge {
@@ -168,14 +195,23 @@ func (s *Service) prepare(ctx context.Context, cust store.Customer, name, target
 		return store.NewPipelineVersion{}, &res, nil
 	}
 
-	graphJSON, err := MarshalGraph(g)
+	graphJSON, err := MarshalGraph(stored)
 	if err != nil {
 		return store.NewPipelineVersion{}, nil, err
 	}
-	fragment := ""
-	if res.RenderedYAML != nil {
-		fragment = *res.RenderedYAML
+	// rendered_yaml is persisted and served; store the redacted fragment (the
+	// serve paths re-render with decrypted secrets from the graph instead).
+	redactedCandidate := candidate
+	redactedCandidate.Graph = RedactGraphSecrets(stored)
+	renderFragment := RenderFragment
+	if targetClass == ClassEdge {
+		renderFragment = RenderEdgeFragment
 	}
+	fragment, err := renderFragment(redactedCandidate)
+	if err != nil {
+		return store.NewPipelineVersion{}, nil, err
+	}
+	res.RenderedYAML = &fragment
 	sum := sha256.Sum256([]byte(fragment))
 	var output *string
 	if len(res.Issues) > 0 { // validation warnings (e.g. binary unavailable)
@@ -231,7 +267,7 @@ func (s *Service) Create(ctx context.Context, actor *uuid.UUID, customerID uuid.
 		}
 	}
 
-	nv, res, err := s.prepare(ctx, cust, name, targetClass, nil, g, actor)
+	nv, res, err := s.prepare(ctx, cust, name, targetClass, nil, g, nil, actor)
 	if err != nil {
 		return Created{}, nil, err
 	}
@@ -263,8 +299,21 @@ func (s *Service) CreateVersion(ctx context.Context, actor *uuid.UUID, pipelineI
 	if err != nil {
 		return store.PipelineVersion{}, nil, err
 	}
+	// Sentinel secret values resolve against the latest stored version.
+	var prev *Graph
+	if pipe.LatestVersion != nil {
+		prevVer, err := s.store.GetPipelineVersion(ctx, pipelineID, *pipe.LatestVersion)
+		if err != nil {
+			return store.PipelineVersion{}, nil, err
+		}
+		prevGraph, err := ParseGraph(prevVer.Graph)
+		if err != nil {
+			return store.PipelineVersion{}, nil, err
+		}
+		prev = &prevGraph
+	}
 	cust := store.Customer{ID: pipe.CustomerID, Slug: pipe.CustomerSlug, ClientID: pipe.ClientID, Status: store.CustomerActive}
-	nv, res, err := s.prepare(ctx, cust, pipe.Name, pipe.TargetClass, &pipelineID, g, actor)
+	nv, res, err := s.prepare(ctx, cust, pipe.Name, pipe.TargetClass, &pipelineID, g, prev, actor)
 	if err != nil {
 		return store.PipelineVersion{}, nil, err
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -22,6 +23,23 @@ var publicPaths = map[string]struct{}{
 // every role may end its own session.
 const logoutPath = "/api/v1/auth/logout"
 
+// adminPathPrefixes are admin-only for every method, including GET: user
+// management, SSO provider settings and the audit log.
+var adminPathPrefixes = []string{
+	"/api/v1/users",
+	"/api/v1/settings/auth-providers",
+	"/api/v1/audit",
+}
+
+func isAdminOnlyPath(path string) bool {
+	for _, p := range adminPathPrefixes {
+		if path == p || strings.HasPrefix(path, p+"/") {
+			return true
+		}
+	}
+	return false
+}
+
 // UserGetter is the store subset the Guard middleware needs.
 type UserGetter interface {
 	GetUser(ctx context.Context, id uuid.UUID) (store.User, error)
@@ -35,9 +53,11 @@ func isMutating(method string) bool {
 	return false
 }
 
-// Guard enforces, in order: session authentication (401), CSRF on mutating
-// requests (403), and RBAC — mutations require operator or admin (403).
-// The resolved principal is attached to the request context.
+// Guard enforces, in order: session authentication (401), admin-only areas
+// (403, all methods), CSRF on mutating requests (403), and RBAC — mutations
+// require operator or admin (403). The resolved principal is attached to the
+// request context. The per-request user load doubles as the disabled check:
+// a disabled user's next request fails even if a session row survived.
 func Guard(sessions *auth.Sessions, users UserGetter) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -63,6 +83,11 @@ func Guard(sessions *auth.Sessions, users UserGetter) func(http.Handler) http.Ha
 			}
 			if user.DisabledAt != nil {
 				writeError(w, http.StatusUnauthorized, codeUnauthorized, "account disabled")
+				return
+			}
+
+			if isAdminOnlyPath(r.URL.Path) && !authz.AtLeast(user.Role, authz.RoleAdmin) {
+				writeError(w, http.StatusForbidden, codeForbidden, "requires admin role")
 				return
 			}
 

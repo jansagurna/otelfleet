@@ -40,12 +40,22 @@ controlPlane:
   devLogin: false
   baseUrl: ""          # external URL, required for OIDC redirects
   sessionSecure: true
+  # Secret with key OTELFLEET_MASTER_KEY (base64, 32 bytes — e.g.
+  # `openssl rand -base64 32`). Required for storing SSO providers and
+  # pipeline credentials (encrypted at rest); without it those features
+  # return a clear error.
+  masterKeySecret: ""
   oidc:
-    # Generic OIDC provider (P4 brings the multi-provider registry).
+    # Env-defined fallback OIDC provider; additional providers (Google,
+    # Microsoft, GitHub, generic OIDC) are managed in the UI under
+    # Settings -> SSO and stored encrypted in the database.
     issuer: ""
     clientId: ""
     displayName: SSO
     clientSecretRef: ""   # Secret with key OTELFLEET_OIDC_CLIENT_SECRET
+  # Extra environment variables for the control-plane container (verbatim
+  # EnvVar entries), e.g. proxy settings.
+  extraEnv: []
   # publish: forwarding pods pull config from the ops endpoint (restart to
   # apply). k8s: control plane patches the OpenTelemetryCollector CR (requires
   # the opentelemetry-operator and forwarding.mode=operator).

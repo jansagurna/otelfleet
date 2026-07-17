@@ -68,6 +68,69 @@ func (e AgentEventEventType) Valid() bool {
 	}
 }
 
+// Defines values for AuditEntryActorType.
+const (
+	AuditEntryActorTypeAgent  AuditEntryActorType = "agent"
+	AuditEntryActorTypeSystem AuditEntryActorType = "system"
+	AuditEntryActorTypeUser   AuditEntryActorType = "user"
+)
+
+// Valid indicates whether the value is a known member of the AuditEntryActorType enum.
+func (e AuditEntryActorType) Valid() bool {
+	switch e {
+	case AuditEntryActorTypeAgent:
+		return true
+	case AuditEntryActorTypeSystem:
+		return true
+	case AuditEntryActorTypeUser:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuthProviderConfigSource.
+const (
+	Database    AuthProviderConfigSource = "database"
+	Environment AuthProviderConfigSource = "environment"
+)
+
+// Valid indicates whether the value is a known member of the AuthProviderConfigSource enum.
+func (e AuthProviderConfigSource) Valid() bool {
+	switch e {
+	case Database:
+		return true
+	case Environment:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuthProviderType.
+const (
+	Github    AuthProviderType = "github"
+	Google    AuthProviderType = "google"
+	Microsoft AuthProviderType = "microsoft"
+	Oidc      AuthProviderType = "oidc"
+)
+
+// Valid indicates whether the value is a known member of the AuthProviderType enum.
+func (e AuthProviderType) Valid() bool {
+	switch e {
+	case Github:
+		return true
+	case Google:
+		return true
+	case Microsoft:
+		return true
+	case Oidc:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CatalogComponentKind.
 const (
 	Exporter  CatalogComponentKind = "exporter"
@@ -468,12 +531,84 @@ type ApiKeyCreated struct {
 	Secret string `json:"secret"`
 }
 
+// AuditEntry defines model for AuditEntry.
+type AuditEntry struct {
+	Action       string                  `json:"action"`
+	ActorEmail   *string                 `json:"actorEmail,omitempty"`
+	ActorType    AuditEntryActorType     `json:"actorType"`
+	ActorUserId  *openapi_types.UUID     `json:"actorUserId,omitempty"`
+	CreatedAt    time.Time               `json:"createdAt"`
+	CustomerId   *openapi_types.UUID     `json:"customerId,omitempty"`
+	CustomerName *string                 `json:"customerName,omitempty"`
+	EntityId     string                  `json:"entityId"`
+	EntityType   string                  `json:"entityType"`
+	Id           int64                   `json:"id"`
+	Payload      *map[string]interface{} `json:"payload,omitempty"`
+}
+
+// AuditEntryActorType defines model for AuditEntry.ActorType.
+type AuditEntryActorType string
+
 // AuthProvider defines model for AuthProvider.
 type AuthProvider struct {
 	DisplayName string `json:"displayName"`
 	LoginUrl    string `json:"loginUrl"`
 	Name        string `json:"name"`
 }
+
+// AuthProviderConfig defines model for AuthProviderConfig.
+type AuthProviderConfig struct {
+	ClientId    string             `json:"clientId"`
+	CreatedAt   time.Time          `json:"createdAt"`
+	DisplayName string             `json:"displayName"`
+	Enabled     bool               `json:"enabled"`
+	Id          openapi_types.UUID `json:"id"`
+
+	// Issuer Only for type oidc
+	Issuer *string `json:"issuer,omitempty"`
+
+	// Name URL-safe slug used in /auth/{name}/start
+	Name string `json:"name"`
+
+	// RedirectUri Callback URL to register at the identity provider.
+	RedirectUri string `json:"redirectUri"`
+
+	// Source environment = defined via OTELFLEET_OIDC_* env vars (read-only here).
+	Source AuthProviderConfigSource `json:"source"`
+	Type   AuthProviderType         `json:"type"`
+}
+
+// AuthProviderConfigSource environment = defined via OTELFLEET_OIDC_* env vars (read-only here).
+type AuthProviderConfigSource string
+
+// AuthProviderConfigCreate defines model for AuthProviderConfigCreate.
+type AuthProviderConfigCreate struct {
+	ClientId     string `json:"clientId"`
+	ClientSecret string `json:"clientSecret"`
+	DisplayName  string `json:"displayName"`
+	Enabled      *bool  `json:"enabled,omitempty"`
+
+	// Issuer Required for type oidc; ignored for google/microsoft/github.
+	Issuer *string `json:"issuer,omitempty"`
+
+	// Name Unique slug; becomes /auth/{name}/start.
+	Name string           `json:"name"`
+	Type AuthProviderType `json:"type"`
+}
+
+// AuthProviderConfigUpdate defines model for AuthProviderConfigUpdate.
+type AuthProviderConfigUpdate struct {
+	ClientId *string `json:"clientId,omitempty"`
+
+	// ClientSecret Omit to keep the stored secret.
+	ClientSecret *string `json:"clientSecret,omitempty"`
+	DisplayName  *string `json:"displayName,omitempty"`
+	Enabled      *bool   `json:"enabled,omitempty"`
+	Issuer       *string `json:"issuer,omitempty"`
+}
+
+// AuthProviderType defines model for AuthProviderType.
+type AuthProviderType string
 
 // BootstrapToken defines model for BootstrapToken.
 type BootstrapToken struct {
@@ -742,6 +877,23 @@ type ThroughputSeries struct {
 	Signal Signal            `json:"signal"`
 }
 
+// UserAccount defines model for UserAccount.
+type UserAccount struct {
+	CreatedAt   time.Time           `json:"createdAt"`
+	Disabled    bool                `json:"disabled"`
+	DisplayName *string             `json:"displayName,omitempty"`
+	Email       openapi_types.Email `json:"email"`
+	Id          openapi_types.UUID  `json:"id"`
+
+	// Identities Linked login identities (provider names).
+	Identities []string `json:"identities"`
+
+	// Invited True until the user logs in for the first time (no linked identity yet).
+	Invited     bool       `json:"invited"`
+	LastLoginAt *time.Time `json:"lastLoginAt,omitempty"`
+	Role        Role       `json:"role"`
+}
+
 // ValidationResult defines model for ValidationResult.
 type ValidationResult struct {
 	Errors []struct {
@@ -784,6 +936,20 @@ type ListAgentsParamsClass string
 // ListAgentEventsParams defines parameters for ListAgentEvents.
 type ListAgentEventsParams struct {
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListAuditLogParams defines parameters for ListAuditLog.
+type ListAuditLogParams struct {
+	Action      *string             `form:"action,omitempty" json:"action,omitempty"`
+	EntityType  *string             `form:"entityType,omitempty" json:"entityType,omitempty"`
+	CustomerId  *openapi_types.UUID `form:"customerId,omitempty" json:"customerId,omitempty"`
+	ActorUserId *openapi_types.UUID `form:"actorUserId,omitempty" json:"actorUserId,omitempty"`
+	From        *time.Time          `form:"from,omitempty" json:"from,omitempty"`
+	To          *time.Time          `form:"to,omitempty" json:"to,omitempty"`
+	Limit       *int                `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// BeforeId Cursor from the previous page
+	BeforeId *int64 `form:"beforeId,omitempty" json:"beforeId,omitempty"`
 }
 
 // DevLoginJSONBody defines parameters for DevLogin.
@@ -872,6 +1038,18 @@ type GetStatsOverviewParams struct {
 	To   time.Time `form:"to" json:"to"`
 }
 
+// InviteUserJSONBody defines parameters for InviteUser.
+type InviteUserJSONBody struct {
+	Email openapi_types.Email `json:"email"`
+	Role  Role                `json:"role"`
+}
+
+// UpdateUserJSONBody defines parameters for UpdateUser.
+type UpdateUserJSONBody struct {
+	Disabled *bool `json:"disabled,omitempty"`
+	Role     *Role `json:"role,omitempty"`
+}
+
 // DevLoginJSONRequestBody defines body for DevLogin for application/json ContentType.
 type DevLoginJSONRequestBody DevLoginJSONBody
 
@@ -896,6 +1074,18 @@ type ValidatePipelineJSONRequestBody ValidatePipelineJSONBody
 // CreatePipelineVersionJSONRequestBody defines body for CreatePipelineVersion for application/json ContentType.
 type CreatePipelineVersionJSONRequestBody CreatePipelineVersionJSONBody
 
+// CreateAuthProviderConfigJSONRequestBody defines body for CreateAuthProviderConfig for application/json ContentType.
+type CreateAuthProviderConfigJSONRequestBody = AuthProviderConfigCreate
+
+// UpdateAuthProviderConfigJSONRequestBody defines body for UpdateAuthProviderConfig for application/json ContentType.
+type UpdateAuthProviderConfigJSONRequestBody = AuthProviderConfigUpdate
+
+// InviteUserJSONRequestBody defines body for InviteUser for application/json ContentType.
+type InviteUserJSONRequestBody InviteUserJSONBody
+
+// UpdateUserJSONRequestBody defines body for UpdateUser for application/json ContentType.
+type UpdateUserJSONRequestBody UpdateUserJSONBody
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// List collector agents (gateway replicas and edge agents)
@@ -913,6 +1103,9 @@ type ServerInterface interface {
 	// Status transitions of one agent, newest first
 	// (GET /api/v1/agents/{agentId}/events)
 	ListAgentEvents(w http.ResponseWriter, r *http.Request, agentId openapi_types.UUID, params ListAgentEventsParams)
+	// Query the audit log (newest first, cursor-paged)
+	// (GET /api/v1/audit)
+	ListAuditLog(w http.ResponseWriter, r *http.Request, params ListAuditLogParams)
 	// Password-less local development login (disabled in production)
 	// (POST /api/v1/auth/dev-login)
 	DevLogin(w http.ResponseWriter, r *http.Request)
@@ -994,9 +1187,36 @@ type ServerInterface interface {
 	// Activate a version (deploys it to the forwarding tier; also used for rollback)
 	// (POST /api/v1/pipelines/{pipelineId}/versions/{version}/activate)
 	ActivatePipelineVersion(w http.ResponseWriter, r *http.Request, pipelineId openapi_types.UUID, version int)
+	// Configured SSO providers incl. env-defined ones (admin only, no secrets)
+	// (GET /api/v1/settings/auth-providers)
+	ListAuthProviderConfigs(w http.ResponseWriter, r *http.Request)
+	// Add an SSO provider (client secret is encrypted at rest)
+	// (POST /api/v1/settings/auth-providers)
+	CreateAuthProviderConfig(w http.ResponseWriter, r *http.Request)
+	// Remove a provider (existing sessions stay valid)
+	// (DELETE /api/v1/settings/auth-providers/{providerId})
+	DeleteAuthProviderConfig(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID)
+	// Update a provider; omit clientSecret to keep the stored one
+	// (PATCH /api/v1/settings/auth-providers/{providerId})
+	UpdateAuthProviderConfig(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID)
+	// Connectivity test (OIDC discovery / GitHub API reachability)
+	// (POST /api/v1/settings/auth-providers/{providerId}/test)
+	TestAuthProviderConfig(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID)
 	// Fleet-wide totals for the dashboard
 	// (GET /api/v1/stats/overview)
 	GetStatsOverview(w http.ResponseWriter, r *http.Request, params GetStatsOverviewParams)
+	// List UI users (admin only)
+	// (GET /api/v1/users)
+	ListUsers(w http.ResponseWriter, r *http.Request)
+	// Invite a user by email; the role applies on their first SSO login
+	// (POST /api/v1/users)
+	InviteUser(w http.ResponseWriter, r *http.Request)
+	// Delete a user (admin only, not self, not the last admin)
+	// (DELETE /api/v1/users/{userId})
+	DeleteUser(w http.ResponseWriter, r *http.Request, userId openapi_types.UUID)
+	// Change role or disable/enable (admin only; self-demotion and disabling the last admin are rejected)
+	// (PATCH /api/v1/users/{userId})
+	UpdateUser(w http.ResponseWriter, r *http.Request, userId openapi_types.UUID)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -1030,6 +1250,12 @@ func (_ Unimplemented) GetAgentConfig(w http.ResponseWriter, r *http.Request, ag
 // Status transitions of one agent, newest first
 // (GET /api/v1/agents/{agentId}/events)
 func (_ Unimplemented) ListAgentEvents(w http.ResponseWriter, r *http.Request, agentId openapi_types.UUID, params ListAgentEventsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Query the audit log (newest first, cursor-paged)
+// (GET /api/v1/audit)
+func (_ Unimplemented) ListAuditLog(w http.ResponseWriter, r *http.Request, params ListAuditLogParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1195,9 +1421,63 @@ func (_ Unimplemented) ActivatePipelineVersion(w http.ResponseWriter, r *http.Re
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Configured SSO providers incl. env-defined ones (admin only, no secrets)
+// (GET /api/v1/settings/auth-providers)
+func (_ Unimplemented) ListAuthProviderConfigs(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Add an SSO provider (client secret is encrypted at rest)
+// (POST /api/v1/settings/auth-providers)
+func (_ Unimplemented) CreateAuthProviderConfig(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Remove a provider (existing sessions stay valid)
+// (DELETE /api/v1/settings/auth-providers/{providerId})
+func (_ Unimplemented) DeleteAuthProviderConfig(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update a provider; omit clientSecret to keep the stored one
+// (PATCH /api/v1/settings/auth-providers/{providerId})
+func (_ Unimplemented) UpdateAuthProviderConfig(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Connectivity test (OIDC discovery / GitHub API reachability)
+// (POST /api/v1/settings/auth-providers/{providerId}/test)
+func (_ Unimplemented) TestAuthProviderConfig(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Fleet-wide totals for the dashboard
 // (GET /api/v1/stats/overview)
 func (_ Unimplemented) GetStatsOverview(w http.ResponseWriter, r *http.Request, params GetStatsOverviewParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List UI users (admin only)
+// (GET /api/v1/users)
+func (_ Unimplemented) ListUsers(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Invite a user by email; the role applies on their first SSO login
+// (POST /api/v1/users)
+func (_ Unimplemented) InviteUser(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete a user (admin only, not self, not the last admin)
+// (DELETE /api/v1/users/{userId})
+func (_ Unimplemented) DeleteUser(w http.ResponseWriter, r *http.Request, userId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Change role or disable/enable (admin only; self-demotion and disabling the last admin are rejected)
+// (PATCH /api/v1/users/{userId})
+func (_ Unimplemented) UpdateUser(w http.ResponseWriter, r *http.Request, userId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1380,6 +1660,130 @@ func (siw *ServerInterfaceWrapper) ListAgentEvents(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListAgentEvents(w, r, agentId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAuditLog operation middleware
+func (siw *ServerInterfaceWrapper) ListAuditLog(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAuditLogParams
+
+	// ------------- Optional query parameter "action" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "action", r.URL.Query(), &params.Action, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "action"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "action", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "entityType" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "entityType", r.URL.Query(), &params.EntityType, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "entityType"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "entityType", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "customerId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "customerId", r.URL.Query(), &params.CustomerId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "customerId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerId", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "actorUserId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "actorUserId", r.URL.Query(), &params.ActorUserId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "actorUserId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "actorUserId", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "beforeId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "beforeId", r.URL.Query(), &params.BeforeId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "beforeId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "beforeId", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAuditLog(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2122,6 +2526,112 @@ func (siw *ServerInterfaceWrapper) ActivatePipelineVersion(w http.ResponseWriter
 	handler.ServeHTTP(w, r)
 }
 
+// ListAuthProviderConfigs operation middleware
+func (siw *ServerInterfaceWrapper) ListAuthProviderConfigs(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAuthProviderConfigs(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateAuthProviderConfig operation middleware
+func (siw *ServerInterfaceWrapper) CreateAuthProviderConfig(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateAuthProviderConfig(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAuthProviderConfig operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAuthProviderConfig(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "providerId" -------------
+	var providerId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "providerId", chi.URLParam(r, "providerId"), &providerId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "providerId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAuthProviderConfig(w, r, providerId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateAuthProviderConfig operation middleware
+func (siw *ServerInterfaceWrapper) UpdateAuthProviderConfig(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "providerId" -------------
+	var providerId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "providerId", chi.URLParam(r, "providerId"), &providerId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "providerId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateAuthProviderConfig(w, r, providerId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TestAuthProviderConfig operation middleware
+func (siw *ServerInterfaceWrapper) TestAuthProviderConfig(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "providerId" -------------
+	var providerId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "providerId", chi.URLParam(r, "providerId"), &providerId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "providerId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TestAuthProviderConfig(w, r, providerId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetStatsOverview operation middleware
 func (siw *ServerInterfaceWrapper) GetStatsOverview(w http.ResponseWriter, r *http.Request) {
 
@@ -2159,6 +2669,86 @@ func (siw *ServerInterfaceWrapper) GetStatsOverview(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetStatsOverview(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListUsers operation middleware
+func (siw *ServerInterfaceWrapper) ListUsers(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListUsers(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// InviteUser operation middleware
+func (siw *ServerInterfaceWrapper) InviteUser(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.InviteUser(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteUser operation middleware
+func (siw *ServerInterfaceWrapper) DeleteUser(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "userId" -------------
+	var userId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userId", chi.URLParam(r, "userId"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteUser(w, r, userId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateUser operation middleware
+func (siw *ServerInterfaceWrapper) UpdateUser(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "userId" -------------
+	var userId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userId", chi.URLParam(r, "userId"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateUser(w, r, userId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2297,6 +2887,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/v1/agents/{agentId}/events", wrapper.ListAgentEvents)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/audit", wrapper.ListAuditLog)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/auth/dev-login", wrapper.DevLogin)
 	})
 	r.Group(func(r chi.Router) {
@@ -2378,7 +2971,34 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/v1/pipelines/{pipelineId}/versions/{version}/activate", wrapper.ActivatePipelineVersion)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/settings/auth-providers", wrapper.ListAuthProviderConfigs)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/settings/auth-providers", wrapper.CreateAuthProviderConfig)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/settings/auth-providers/{providerId}", wrapper.DeleteAuthProviderConfig)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/settings/auth-providers/{providerId}", wrapper.UpdateAuthProviderConfig)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/settings/auth-providers/{providerId}/test", wrapper.TestAuthProviderConfig)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/stats/overview", wrapper.GetStatsOverview)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/users", wrapper.ListUsers)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/users", wrapper.InviteUser)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/users/{userId}", wrapper.DeleteUser)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/users/{userId}", wrapper.UpdateUser)
 	})
 
 	return r
@@ -2659,6 +3279,61 @@ func (response ListAgentEvents404JSONResponse) VisitListAgentEventsResponse(w ht
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAuditLogRequestObject struct {
+	Params ListAuditLogParams
+}
+
+type ListAuditLogResponseObject interface {
+	VisitListAuditLogResponse(w http.ResponseWriter) error
+}
+
+type ListAuditLog200JSONResponse struct {
+	Entries []AuditEntry `json:"entries"`
+
+	// NextBeforeId Pass as beforeId to fetch the next page; null when exhausted.
+	NextBeforeId *int64 `json:"nextBeforeId,omitempty"`
+}
+
+func (response ListAuditLog200JSONResponse) VisitListAuditLogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAuditLog401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListAuditLog401JSONResponse) VisitListAuditLogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAuditLog403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListAuditLog403JSONResponse) VisitListAuditLogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -4073,6 +4748,339 @@ func (response ActivatePipelineVersion404JSONResponse) VisitActivatePipelineVers
 	return err
 }
 
+type ListAuthProviderConfigsRequestObject struct {
+}
+
+type ListAuthProviderConfigsResponseObject interface {
+	VisitListAuthProviderConfigsResponse(w http.ResponseWriter) error
+}
+
+type ListAuthProviderConfigs200JSONResponse struct {
+	Providers []AuthProviderConfig `json:"providers"`
+}
+
+func (response ListAuthProviderConfigs200JSONResponse) VisitListAuthProviderConfigsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAuthProviderConfigs401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListAuthProviderConfigs401JSONResponse) VisitListAuthProviderConfigsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAuthProviderConfigs403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListAuthProviderConfigs403JSONResponse) VisitListAuthProviderConfigsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateAuthProviderConfigRequestObject struct {
+	Body *CreateAuthProviderConfigJSONRequestBody
+}
+
+type CreateAuthProviderConfigResponseObject interface {
+	VisitCreateAuthProviderConfigResponse(w http.ResponseWriter) error
+}
+
+type CreateAuthProviderConfig201JSONResponse AuthProviderConfig
+
+func (response CreateAuthProviderConfig201JSONResponse) VisitCreateAuthProviderConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateAuthProviderConfig400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateAuthProviderConfig400JSONResponse) VisitCreateAuthProviderConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateAuthProviderConfig401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateAuthProviderConfig401JSONResponse) VisitCreateAuthProviderConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateAuthProviderConfig403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateAuthProviderConfig403JSONResponse) VisitCreateAuthProviderConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateAuthProviderConfig409JSONResponse struct{ ConflictJSONResponse }
+
+func (response CreateAuthProviderConfig409JSONResponse) VisitCreateAuthProviderConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAuthProviderConfigRequestObject struct {
+	ProviderId openapi_types.UUID `json:"providerId"`
+}
+
+type DeleteAuthProviderConfigResponseObject interface {
+	VisitDeleteAuthProviderConfigResponse(w http.ResponseWriter) error
+}
+
+type DeleteAuthProviderConfig204Response struct {
+}
+
+func (response DeleteAuthProviderConfig204Response) VisitDeleteAuthProviderConfigResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteAuthProviderConfig401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteAuthProviderConfig401JSONResponse) VisitDeleteAuthProviderConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAuthProviderConfig403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteAuthProviderConfig403JSONResponse) VisitDeleteAuthProviderConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAuthProviderConfig404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteAuthProviderConfig404JSONResponse) VisitDeleteAuthProviderConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateAuthProviderConfigRequestObject struct {
+	ProviderId openapi_types.UUID `json:"providerId"`
+	Body       *UpdateAuthProviderConfigJSONRequestBody
+}
+
+type UpdateAuthProviderConfigResponseObject interface {
+	VisitUpdateAuthProviderConfigResponse(w http.ResponseWriter) error
+}
+
+type UpdateAuthProviderConfig200JSONResponse AuthProviderConfig
+
+func (response UpdateAuthProviderConfig200JSONResponse) VisitUpdateAuthProviderConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateAuthProviderConfig400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UpdateAuthProviderConfig400JSONResponse) VisitUpdateAuthProviderConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateAuthProviderConfig401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UpdateAuthProviderConfig401JSONResponse) VisitUpdateAuthProviderConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateAuthProviderConfig403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UpdateAuthProviderConfig403JSONResponse) VisitUpdateAuthProviderConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateAuthProviderConfig404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdateAuthProviderConfig404JSONResponse) VisitUpdateAuthProviderConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestAuthProviderConfigRequestObject struct {
+	ProviderId openapi_types.UUID `json:"providerId"`
+}
+
+type TestAuthProviderConfigResponseObject interface {
+	VisitTestAuthProviderConfigResponse(w http.ResponseWriter) error
+}
+
+type TestAuthProviderConfig200JSONResponse struct {
+	Message string `json:"message"`
+	Ok      bool   `json:"ok"`
+}
+
+func (response TestAuthProviderConfig200JSONResponse) VisitTestAuthProviderConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestAuthProviderConfig401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response TestAuthProviderConfig401JSONResponse) VisitTestAuthProviderConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestAuthProviderConfig403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response TestAuthProviderConfig403JSONResponse) VisitTestAuthProviderConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestAuthProviderConfig404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response TestAuthProviderConfig404JSONResponse) VisitTestAuthProviderConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetStatsOverviewRequestObject struct {
 	Params GetStatsOverviewParams
 }
@@ -4109,6 +5117,286 @@ func (response GetStatsOverview401JSONResponse) VisitGetStatsOverviewResponse(w 
 	return err
 }
 
+type ListUsersRequestObject struct {
+}
+
+type ListUsersResponseObject interface {
+	VisitListUsersResponse(w http.ResponseWriter) error
+}
+
+type ListUsers200JSONResponse struct {
+	Users []UserAccount `json:"users"`
+}
+
+func (response ListUsers200JSONResponse) VisitListUsersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListUsers401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListUsers401JSONResponse) VisitListUsersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListUsers403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListUsers403JSONResponse) VisitListUsersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type InviteUserRequestObject struct {
+	Body *InviteUserJSONRequestBody
+}
+
+type InviteUserResponseObject interface {
+	VisitInviteUserResponse(w http.ResponseWriter) error
+}
+
+type InviteUser201JSONResponse UserAccount
+
+func (response InviteUser201JSONResponse) VisitInviteUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type InviteUser401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response InviteUser401JSONResponse) VisitInviteUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type InviteUser403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response InviteUser403JSONResponse) VisitInviteUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type InviteUser409JSONResponse struct{ ConflictJSONResponse }
+
+func (response InviteUser409JSONResponse) VisitInviteUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteUserRequestObject struct {
+	UserId openapi_types.UUID `json:"userId"`
+}
+
+type DeleteUserResponseObject interface {
+	VisitDeleteUserResponse(w http.ResponseWriter) error
+}
+
+type DeleteUser204Response struct {
+}
+
+func (response DeleteUser204Response) VisitDeleteUserResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteUser401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteUser401JSONResponse) VisitDeleteUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteUser403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteUser403JSONResponse) VisitDeleteUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteUser404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteUser404JSONResponse) VisitDeleteUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteUser409JSONResponse struct{ ConflictJSONResponse }
+
+func (response DeleteUser409JSONResponse) VisitDeleteUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateUserRequestObject struct {
+	UserId openapi_types.UUID `json:"userId"`
+	Body   *UpdateUserJSONRequestBody
+}
+
+type UpdateUserResponseObject interface {
+	VisitUpdateUserResponse(w http.ResponseWriter) error
+}
+
+type UpdateUser200JSONResponse UserAccount
+
+func (response UpdateUser200JSONResponse) VisitUpdateUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateUser400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UpdateUser400JSONResponse) VisitUpdateUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateUser401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UpdateUser401JSONResponse) VisitUpdateUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateUser403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UpdateUser403JSONResponse) VisitUpdateUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateUser404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdateUser404JSONResponse) VisitUpdateUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateUser409JSONResponse struct{ ConflictJSONResponse }
+
+func (response UpdateUser409JSONResponse) VisitUpdateUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// List collector agents (gateway replicas and edge agents)
@@ -4126,6 +5414,9 @@ type StrictServerInterface interface {
 	// Status transitions of one agent, newest first
 	// (GET /api/v1/agents/{agentId}/events)
 	ListAgentEvents(ctx context.Context, request ListAgentEventsRequestObject) (ListAgentEventsResponseObject, error)
+	// Query the audit log (newest first, cursor-paged)
+	// (GET /api/v1/audit)
+	ListAuditLog(ctx context.Context, request ListAuditLogRequestObject) (ListAuditLogResponseObject, error)
 	// Password-less local development login (disabled in production)
 	// (POST /api/v1/auth/dev-login)
 	DevLogin(ctx context.Context, request DevLoginRequestObject) (DevLoginResponseObject, error)
@@ -4207,9 +5498,36 @@ type StrictServerInterface interface {
 	// Activate a version (deploys it to the forwarding tier; also used for rollback)
 	// (POST /api/v1/pipelines/{pipelineId}/versions/{version}/activate)
 	ActivatePipelineVersion(ctx context.Context, request ActivatePipelineVersionRequestObject) (ActivatePipelineVersionResponseObject, error)
+	// Configured SSO providers incl. env-defined ones (admin only, no secrets)
+	// (GET /api/v1/settings/auth-providers)
+	ListAuthProviderConfigs(ctx context.Context, request ListAuthProviderConfigsRequestObject) (ListAuthProviderConfigsResponseObject, error)
+	// Add an SSO provider (client secret is encrypted at rest)
+	// (POST /api/v1/settings/auth-providers)
+	CreateAuthProviderConfig(ctx context.Context, request CreateAuthProviderConfigRequestObject) (CreateAuthProviderConfigResponseObject, error)
+	// Remove a provider (existing sessions stay valid)
+	// (DELETE /api/v1/settings/auth-providers/{providerId})
+	DeleteAuthProviderConfig(ctx context.Context, request DeleteAuthProviderConfigRequestObject) (DeleteAuthProviderConfigResponseObject, error)
+	// Update a provider; omit clientSecret to keep the stored one
+	// (PATCH /api/v1/settings/auth-providers/{providerId})
+	UpdateAuthProviderConfig(ctx context.Context, request UpdateAuthProviderConfigRequestObject) (UpdateAuthProviderConfigResponseObject, error)
+	// Connectivity test (OIDC discovery / GitHub API reachability)
+	// (POST /api/v1/settings/auth-providers/{providerId}/test)
+	TestAuthProviderConfig(ctx context.Context, request TestAuthProviderConfigRequestObject) (TestAuthProviderConfigResponseObject, error)
 	// Fleet-wide totals for the dashboard
 	// (GET /api/v1/stats/overview)
 	GetStatsOverview(ctx context.Context, request GetStatsOverviewRequestObject) (GetStatsOverviewResponseObject, error)
+	// List UI users (admin only)
+	// (GET /api/v1/users)
+	ListUsers(ctx context.Context, request ListUsersRequestObject) (ListUsersResponseObject, error)
+	// Invite a user by email; the role applies on their first SSO login
+	// (POST /api/v1/users)
+	InviteUser(ctx context.Context, request InviteUserRequestObject) (InviteUserResponseObject, error)
+	// Delete a user (admin only, not self, not the last admin)
+	// (DELETE /api/v1/users/{userId})
+	DeleteUser(ctx context.Context, request DeleteUserRequestObject) (DeleteUserResponseObject, error)
+	// Change role or disable/enable (admin only; self-demotion and disabling the last admin are rejected)
+	// (PATCH /api/v1/users/{userId})
+	UpdateUser(ctx context.Context, request UpdateUserRequestObject) (UpdateUserResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -4365,6 +5683,32 @@ func (sh *strictHandler) ListAgentEvents(w http.ResponseWriter, r *http.Request,
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListAgentEventsResponseObject); ok {
 		if err := validResponse.VisitListAgentEventsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListAuditLog operation middleware
+func (sh *strictHandler) ListAuditLog(w http.ResponseWriter, r *http.Request, params ListAuditLogParams) {
+	var request ListAuditLogRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAuditLog(ctx, request.(ListAuditLogRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAuditLog")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAuditLogResponseObject); ok {
+		if err := validResponse.VisitListAuditLogResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -5120,6 +6464,146 @@ func (sh *strictHandler) ActivatePipelineVersion(w http.ResponseWriter, r *http.
 	}
 }
 
+// ListAuthProviderConfigs operation middleware
+func (sh *strictHandler) ListAuthProviderConfigs(w http.ResponseWriter, r *http.Request) {
+	var request ListAuthProviderConfigsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAuthProviderConfigs(ctx, request.(ListAuthProviderConfigsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAuthProviderConfigs")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAuthProviderConfigsResponseObject); ok {
+		if err := validResponse.VisitListAuthProviderConfigsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateAuthProviderConfig operation middleware
+func (sh *strictHandler) CreateAuthProviderConfig(w http.ResponseWriter, r *http.Request) {
+	var request CreateAuthProviderConfigRequestObject
+
+	var body CreateAuthProviderConfigJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateAuthProviderConfig(ctx, request.(CreateAuthProviderConfigRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateAuthProviderConfig")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateAuthProviderConfigResponseObject); ok {
+		if err := validResponse.VisitCreateAuthProviderConfigResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteAuthProviderConfig operation middleware
+func (sh *strictHandler) DeleteAuthProviderConfig(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID) {
+	var request DeleteAuthProviderConfigRequestObject
+
+	request.ProviderId = providerId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAuthProviderConfig(ctx, request.(DeleteAuthProviderConfigRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAuthProviderConfig")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteAuthProviderConfigResponseObject); ok {
+		if err := validResponse.VisitDeleteAuthProviderConfigResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateAuthProviderConfig operation middleware
+func (sh *strictHandler) UpdateAuthProviderConfig(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID) {
+	var request UpdateAuthProviderConfigRequestObject
+
+	request.ProviderId = providerId
+
+	var body UpdateAuthProviderConfigJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateAuthProviderConfig(ctx, request.(UpdateAuthProviderConfigRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateAuthProviderConfig")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateAuthProviderConfigResponseObject); ok {
+		if err := validResponse.VisitUpdateAuthProviderConfigResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// TestAuthProviderConfig operation middleware
+func (sh *strictHandler) TestAuthProviderConfig(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID) {
+	var request TestAuthProviderConfigRequestObject
+
+	request.ProviderId = providerId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.TestAuthProviderConfig(ctx, request.(TestAuthProviderConfigRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "TestAuthProviderConfig")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(TestAuthProviderConfigResponseObject); ok {
+		if err := validResponse.VisitTestAuthProviderConfigResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetStatsOverview operation middleware
 func (sh *strictHandler) GetStatsOverview(w http.ResponseWriter, r *http.Request, params GetStatsOverviewParams) {
 	var request GetStatsOverviewRequestObject
@@ -5139,6 +6623,120 @@ func (sh *strictHandler) GetStatsOverview(w http.ResponseWriter, r *http.Request
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetStatsOverviewResponseObject); ok {
 		if err := validResponse.VisitGetStatsOverviewResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListUsers operation middleware
+func (sh *strictHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
+	var request ListUsersRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListUsers(ctx, request.(ListUsersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListUsers")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListUsersResponseObject); ok {
+		if err := validResponse.VisitListUsersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// InviteUser operation middleware
+func (sh *strictHandler) InviteUser(w http.ResponseWriter, r *http.Request) {
+	var request InviteUserRequestObject
+
+	var body InviteUserJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.InviteUser(ctx, request.(InviteUserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "InviteUser")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(InviteUserResponseObject); ok {
+		if err := validResponse.VisitInviteUserResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteUser operation middleware
+func (sh *strictHandler) DeleteUser(w http.ResponseWriter, r *http.Request, userId openapi_types.UUID) {
+	var request DeleteUserRequestObject
+
+	request.UserId = userId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteUser(ctx, request.(DeleteUserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteUser")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteUserResponseObject); ok {
+		if err := validResponse.VisitDeleteUserResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateUser operation middleware
+func (sh *strictHandler) UpdateUser(w http.ResponseWriter, r *http.Request, userId openapi_types.UUID) {
+	var request UpdateUserRequestObject
+
+	request.UserId = userId
+
+	var body UpdateUserJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateUser(ctx, request.(UpdateUserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateUser")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateUserResponseObject); ok {
+		if err := validResponse.VisitUpdateUserResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

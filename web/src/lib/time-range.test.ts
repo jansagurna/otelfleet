@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
+  EXTENDED_TIME_RANGES,
   isTimeRange,
   parseTimeRange,
+  previousInterval,
   rangeSeconds,
   rangeToInterval,
   RANGE_STEP,
+  shiftToCurrentWindow,
   TIME_RANGES,
 } from '@/lib/time-range'
 
@@ -54,9 +57,41 @@ describe('rangeToInterval', () => {
 })
 
 describe('RANGE_STEP', () => {
-  it('has a chart resolution for every range', () => {
-    for (const range of TIME_RANGES) {
+  it('has a chart resolution for every range, including 30d', () => {
+    for (const range of EXTENDED_TIME_RANGES) {
       expect(RANGE_STEP[range]).toMatch(/^\d+[smh]$/)
     }
+  })
+})
+
+describe('extended ranges (metrics explorer)', () => {
+  it('accepts 30d only against the extended set', () => {
+    expect(isTimeRange('30d')).toBe(false)
+    expect(isTimeRange('30d', EXTENDED_TIME_RANGES)).toBe(true)
+  })
+
+  it('30d spans thirty days', () => {
+    expect(rangeSeconds('30d')).toBe(30 * 24 * 3600)
+  })
+})
+
+describe('previousInterval (compare-period shift)', () => {
+  it('returns the immediately preceding window of equal duration', () => {
+    const current = rangeToInterval('24h', new Date('2026-07-15T10:00:00Z'))
+    const previous = previousInterval(current)
+    expect(previous.to).toBe(current.from)
+    expect(previous.from).toBe('2026-07-13T10:00:00.000Z')
+    const span = (i: { from: string; to: string }) =>
+      new Date(i.to).getTime() - new Date(i.from).getTime()
+    expect(span(previous)).toBe(span(current))
+  })
+
+  it('shiftToCurrentWindow maps previous-period timestamps onto the current axis', () => {
+    const current = rangeToInterval('1h', new Date('2026-07-15T10:00:00Z'))
+    const previous = previousInterval(current)
+    // Start of the previous window lands on the start of the current one …
+    expect(shiftToCurrentWindow(previous.from, current)).toBe(new Date(current.from).getTime())
+    // … and its end on the current end.
+    expect(shiftToCurrentWindow(previous.to, current)).toBe(new Date(current.to).getTime())
   })
 })

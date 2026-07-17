@@ -1,11 +1,11 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import * as echarts from 'echarts/core'
 import { LineChart } from 'echarts/charts'
-import { GridComponent, TooltipComponent } from 'echarts/components'
+import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import type { EChartsCoreOption, ECharts } from 'echarts/core'
 
-echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
+echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer])
 
 /**
  * Minimal ECharts binding: init once (canvas renderer), push options as
