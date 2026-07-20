@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 COMPOSE := docker compose -f deploy/compose/docker-compose.yaml
 
-.PHONY: dev-up dev-down run build test lint gen gen-go gen-web clean
+.PHONY: dev-up dev-down run build cli test lint gen gen-go gen-web clean
 
 dev-up:
 	$(COMPOSE) up -d --build
@@ -45,3 +45,7 @@ docs-serve:
 
 docs-build:
 	uvx --with mkdocs-material mkdocs build --strict
+
+cli:
+	mkdir -p bin
+	go build -o bin/otelfleetctl ./cmd/otelfleetctl
