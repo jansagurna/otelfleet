@@ -237,6 +237,28 @@ export type RolloutStatus = {
     detail?: string | null;
 };
 
+export type ApiToken = {
+    id: string;
+    name: string;
+    tokenPrefix: string;
+    role: Role;
+    /**
+     * Creator email
+     */
+    createdBy?: string | null;
+    createdAt: string;
+    expiresAt?: string | null;
+    lastUsedAt?: string | null;
+    revokedAt?: string | null;
+};
+
+export type ApiTokenCreated = ApiToken & {
+    /**
+     * Full token (otm_pat_…). Shown once; send as an Authorization: Bearer header.
+     */
+    secret: string;
+};
+
 export type UserAccount = {
     id: string;
     email: string;
@@ -1982,6 +2004,112 @@ export type TestAuthProviderConfigResponses = {
 };
 
 export type TestAuthProviderConfigResponse = TestAuthProviderConfigResponses[keyof TestAuthProviderConfigResponses];
+
+export type ListApiTokensData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/settings/api-tokens';
+};
+
+export type ListApiTokensErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+};
+
+export type ListApiTokensError = ListApiTokensErrors[keyof ListApiTokensErrors];
+
+export type ListApiTokensResponses = {
+    /**
+     * Tokens
+     */
+    200: {
+        tokens: Array<ApiToken>;
+    };
+};
+
+export type ListApiTokensResponse = ListApiTokensResponses[keyof ListApiTokensResponses];
+
+export type CreateApiTokenData = {
+    body: {
+        name: string;
+        role: Role;
+        /**
+         * Defaults to no expiry
+         */
+        expiresAt?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/settings/api-tokens';
+};
+
+export type CreateApiTokenErrors = {
+    /**
+     * Validation error
+     */
+    400: Error;
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+};
+
+export type CreateApiTokenError = CreateApiTokenErrors[keyof CreateApiTokenErrors];
+
+export type CreateApiTokenResponses = {
+    /**
+     * Token including the one-time secret
+     */
+    201: ApiTokenCreated;
+};
+
+export type CreateApiTokenResponse = CreateApiTokenResponses[keyof CreateApiTokenResponses];
+
+export type RevokeApiTokenData = {
+    body?: never;
+    path: {
+        tokenId: string;
+    };
+    query?: never;
+    url: '/api/v1/settings/api-tokens/{tokenId}';
+};
+
+export type RevokeApiTokenErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+};
+
+export type RevokeApiTokenError = RevokeApiTokenErrors[keyof RevokeApiTokenErrors];
+
+export type RevokeApiTokenResponses = {
+    /**
+     * Revoked
+     */
+    204: void;
+};
+
+export type RevokeApiTokenResponse = RevokeApiTokenResponses[keyof RevokeApiTokenResponses];
 
 export type ListAuditLogData = {
     body?: never;

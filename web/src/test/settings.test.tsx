@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { renderApp, stubApi, testViewerMe } from '@/test/render-app'
 import { setCsrfToken } from '@/lib/api-client'
 
@@ -50,6 +51,30 @@ describe('/settings?tab=users', () => {
     ).not.toBeDisabled()
     expect(screen.getByRole('button', { name: 'Delete newbie@example.com' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /invite user/i })).toBeInTheDocument()
+  })
+})
+
+describe('/settings?tab=tokens', () => {
+  it('renders the tokens table with role/status badges and opens the create dialog', async () => {
+    const user = userEvent.setup()
+    renderApp('/settings?tab=tokens')
+    // Rows: an active operator token and a revoked viewer token.
+    expect(await screen.findByText('ci-deploy')).toBeInTheDocument()
+    expect(screen.getByText('old-laptop')).toBeInTheDocument()
+    expect(screen.getByText('otm_pat_7a3f')).toBeInTheDocument()
+    // Status badges.
+    expect(screen.getByText('Active')).toBeInTheDocument()
+    expect(screen.getByText('Revoked')).toBeInTheDocument()
+    // Active row has a Revoke action; the revoked row does not.
+    expect(screen.getByRole('button', { name: 'Revoke' })).toBeInTheDocument()
+
+    // Create dialog opens with the role radios.
+    await user.click(screen.getByRole('button', { name: /create token/i }))
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByLabelText('Name')).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: /admin/i })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: /operator/i })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: /viewer/i })).toBeInTheDocument()
   })
 })
 

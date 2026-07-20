@@ -7,6 +7,7 @@ import type {
   AgentDetail,
   AgentEvent,
   ApiKey,
+  ApiToken,
   AuditEntry,
   AuthProviderConfig,
   BootstrapToken,
@@ -86,6 +87,31 @@ export const testBootstrapToken: BootstrapToken = {
   expiresAt: '2027-08-09T09:00:00Z',
   revokedAt: null,
 }
+
+export const testApiTokens: ApiToken[] = [
+  {
+    id: '4f2c7a1e-0000-4000-8000-000000000051',
+    name: 'ci-deploy',
+    tokenPrefix: 'otm_pat_7a3f',
+    role: 'operator',
+    createdBy: 'ops@example.com',
+    createdAt: '2026-07-10T09:00:00Z',
+    expiresAt: '2027-07-10T09:00:00Z',
+    lastUsedAt: '2026-07-15T08:00:00Z',
+    revokedAt: null,
+  },
+  {
+    id: '4f2c7a1e-0000-4000-8000-000000000052',
+    name: 'old-laptop',
+    tokenPrefix: 'otm_pat_9c2b',
+    role: 'viewer',
+    createdBy: 'ops@example.com',
+    createdAt: '2026-06-01T09:00:00Z',
+    expiresAt: null,
+    lastUsedAt: null,
+    revokedAt: '2026-07-01T09:00:00Z',
+  },
+]
 
 export const testViewerMe: Me = {
   id: '4f2c7a1e-0000-4000-8000-000000000021',
@@ -306,6 +332,8 @@ export function stubApi(overrides: { me?: Me } = {}): void {
           return json({ users: testUsers })
         case '/api/v1/settings/auth-providers':
           return json({ providers: testProviders })
+        case '/api/v1/settings/api-tokens':
+          return json({ tokens: testApiTokens })
         case '/api/v1/audit':
           return json({ entries: testAuditEntries, nextBeforeId: null })
         default:

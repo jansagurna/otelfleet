@@ -1,11 +1,12 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { cn } from '@/lib/utils'
 import { AdminGate } from '@/components/admin-gate'
+import { ApiTokensTab } from '@/features/settings/api-tokens-tab'
 import { SsoTab } from '@/features/settings/sso-tab'
 import { UsersTab } from '@/features/settings/users-tab'
 import { WebhooksTab } from '@/features/settings/webhooks-tab'
 
-const TABS = ['sso', 'users', 'alerts'] as const
+const TABS = ['sso', 'users', 'tokens', 'alerts'] as const
 type Tab = (typeof TABS)[number]
 
 interface SettingsSearch {
@@ -34,6 +35,7 @@ function SettingsPage() {
         <TabBar active={tab} />
         {tab === 'sso' && <SsoTab />}
         {tab === 'users' && <UsersTab />}
+        {tab === 'tokens' && <ApiTokensTab />}
         {tab === 'alerts' && <WebhooksTab />}
       </div>
     </AdminGate>
@@ -41,7 +43,12 @@ function SettingsPage() {
 }
 
 function TabBar({ active }: { active: Tab }) {
-  const labels: Record<Tab, string> = { sso: 'SSO providers', users: 'Users', alerts: 'Alerts' }
+  const labels: Record<Tab, string> = {
+    sso: 'SSO providers',
+    users: 'Users',
+    tokens: 'API tokens',
+    alerts: 'Alerts',
+  }
   return (
     <nav aria-label="Settings sections" className="flex gap-1 border-b border-line">
       {TABS.map((tab) => (
