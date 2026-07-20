@@ -62,10 +62,13 @@ nav:
       - Helm: installation/helm.md
       - Configuration reference: installation/configuration.md
   - Guides:
+      - Sending data: guides/sending-data.md
       - Multi-tenancy: guides/multi-tenancy.md
       - Pipelines: guides/pipelines.md
+      - Pipeline templates: guides/pipeline-templates.md
       - Edge agents: guides/edge-agents.md
       - Single sign-on: guides/sso.md
+      - CLI & config-as-code: guides/cli.md
   - Architecture: architecture.md
   - Reference:
       - REST API: reference/api.md
