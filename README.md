@@ -36,6 +36,17 @@ customer's own backends — managed through a web UI.
   roles admin/operator/viewer; user invites; queryable audit log. Secrets
   (SSO client secrets, pipeline credentials) AES-256-GCM-encrypted at rest.
 
+## Screenshots
+
+|  |  |
+|---|---|
+| **Pipeline builder** — schema-driven form with a live, validated YAML preview | **Dashboard** — fleet-wide ingest and top customers by volume |
+| [![Pipeline builder](docs/assets/screenshots/pipeline-builder.png)](docs/assets/screenshots/pipeline-builder.png) | [![Dashboard](docs/assets/screenshots/dashboard.png)](docs/assets/screenshots/dashboard.png) |
+| **Explore** — search a tenant's stored logs on the read path | **Explore** — root-span trace list with span and error counts |
+| [![Explore logs](docs/assets/screenshots/explore-logs.png)](docs/assets/screenshots/explore-logs.png) | [![Explore traces](docs/assets/screenshots/explore-traces.png)](docs/assets/screenshots/explore-traces.png) |
+| **Fleet** — every collector managed over OpAMP, with config sync status |  |
+| [![Fleet](docs/assets/screenshots/fleet.png)](docs/assets/screenshots/fleet.png) |  |
+
 ## Architecture
 
 ```mermaid
