@@ -62,6 +62,25 @@ controlPlane:
   # Extra environment variables for the control-plane container (verbatim
   # EnvVar entries), e.g. proxy settings.
   extraEnv: []
+  # In-cluster TLS. When disabled the listeners are plaintext (terminate TLS
+  # at an ingress in front). When enabled the pods serve TLS directly.
+  tls:
+    enabled: false
+    # Secret (type kubernetes.io/tls: tls.crt + tls.key) for the public
+    # listeners — HTTPS on :8080 and wss:// OpAMP on :4320.
+    publicSecretName: ""
+    # Secret (tls.crt + tls.key, and ca.crt for mTLS) for the internal gRPC
+    # AuthService the gateway collectors call.
+    grpcSecretName: ""
+    # Require gateway collectors to present a client cert (mTLS). The gRPC
+    # secret must then include ca.crt (the CA that signs client certs).
+    grpcMTLS: false
+    # Optionally let cert-manager issue the two secrets from an Issuer.
+    certManager:
+      enabled: false
+      # dnsNames the public cert should cover (OpAMP/HTTPS hostnames).
+      publicDNSNames: []
+      issuerRef: {}   # { name: my-issuer, kind: ClusterIssuer }
   # publish: forwarding pods pull config from the ops endpoint (restart to
   # apply). k8s: control plane patches the OpenTelemetryCollector CR (requires
   # the opentelemetry-operator and forwarding.mode=operator).

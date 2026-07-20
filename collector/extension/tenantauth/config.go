@@ -4,7 +4,11 @@
 package tenantauth // import "github.com/jansagurna/otelfleet/collector/extension/tenantauth"
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
+	"fmt"
+	"os"
 	"time"
 )
 
@@ -32,8 +36,54 @@ type Config struct {
 	// Insecure disables transport security (dev only; the AuthService
 	// listener must never be reachable from outside the cluster).
 	Insecure bool `mapstructure:"insecure"`
+	// TLS configures transport security when Insecure is false.
+	TLS TLSConfig `mapstructure:"tls"`
 
 	Cache CacheConfig `mapstructure:"cache"`
+}
+
+// TLSConfig configures the gRPC client transport to the control-plane
+// AuthService. When Insecure is false and no CAFile is given, the system trust
+// store is used. Setting CertFile+KeyFile enables mutual TLS.
+type TLSConfig struct {
+	// CAFile is a PEM bundle that must sign the server certificate. Empty =
+	// use the system trust store.
+	CAFile string `mapstructure:"ca_file"`
+	// CertFile / KeyFile present a client certificate (mutual TLS).
+	CertFile string `mapstructure:"cert_file"`
+	KeyFile  string `mapstructure:"key_file"`
+	// ServerName overrides the SNI / certificate name verified against the
+	// server (useful when dialing by IP or a service DNS name).
+	ServerName string `mapstructure:"server_name"`
+}
+
+// build assembles the client tls.Config: an optional custom CA to verify the
+// server, an optional client certificate for mutual TLS, and an optional
+// ServerName override.
+func (t TLSConfig) build() (*tls.Config, error) {
+	cfg := &tls.Config{MinVersion: tls.VersionTLS12, ServerName: t.ServerName}
+	if t.CAFile != "" {
+		pem, err := os.ReadFile(t.CAFile)
+		if err != nil {
+			return nil, fmt.Errorf("read ca_file: %w", err)
+		}
+		pool := x509.NewCertPool()
+		if !pool.AppendCertsFromPEM(pem) {
+			return nil, fmt.Errorf("ca_file %s contains no certificates", t.CAFile)
+		}
+		cfg.RootCAs = pool
+	}
+	if t.CertFile != "" || t.KeyFile != "" {
+		if t.CertFile == "" || t.KeyFile == "" {
+			return nil, errors.New("both cert_file and key_file are required for mutual TLS")
+		}
+		cert, err := tls.LoadX509KeyPair(t.CertFile, t.KeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("load client key pair: %w", err)
+		}
+		cfg.Certificates = []tls.Certificate{cert}
+	}
+	return cfg, nil
 }
 
 func (cfg *Config) Validate() error {

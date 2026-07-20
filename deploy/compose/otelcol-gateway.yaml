@@ -19,6 +19,9 @@ extensions:
   health_check:
     endpoint: 0.0.0.0:13133
 
+# For production, serve OTLP over TLS by adding a tls block to each protocol,
+# e.g. under grpc/http:  tls: { cert_file: /etc/otelcol/tls/tls.crt, key_file: /etc/otelcol/tls/tls.key }
+# and mount the cert. Dev runs plaintext.
 receivers:
   otlp:
     protocols:

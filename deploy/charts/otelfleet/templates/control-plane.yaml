@@ -46,6 +46,14 @@ spec:
             httpGet: { path: /healthz, port: ops }
             initialDelaySeconds: 10
           resources: {{- toYaml $.Values.controlPlane.resources | nindent 12 }}
+          {{- $mounts := include "otelfleet.tlsVolumeMounts" $ }}
+          {{- with $mounts }}
+          volumeMounts: {{ . | nindent 12 }}
+          {{- end }}
+      {{- $volumes := include "otelfleet.tlsVolumes" $ }}
+      {{- with $volumes }}
+      volumes: {{ . | nindent 8 }}
+      {{- end }}
       {{- with $.Values.nodeSelector }}
       nodeSelector: {{- toYaml . | nindent 8 }}
       {{- end }}

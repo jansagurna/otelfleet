@@ -11,7 +11,6 @@ package tenantauth // import "github.com/jansagurna/otelfleet/collector/extensio
 import (
 	"context"
 	"crypto/sha256"
-	"crypto/tls"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -89,9 +88,15 @@ func newAuthenticator(cfg *Config, telemetry component.TelemetrySettings) (*auth
 }
 
 func (a *authenticator) Start(_ context.Context, _ component.Host) error {
-	creds := credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS12})
+	var creds credentials.TransportCredentials
 	if a.cfg.Insecure {
 		creds = insecure.NewCredentials()
+	} else {
+		tlsCfg, err := a.cfg.TLS.build()
+		if err != nil {
+			return fmt.Errorf("tenantauth TLS: %w", err)
+		}
+		creds = credentials.NewTLS(tlsCfg)
 	}
 	conn, err := grpc.NewClient(a.cfg.Endpoint, grpc.WithTransportCredentials(creds))
 	if err != nil {

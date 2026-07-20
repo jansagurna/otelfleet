@@ -96,7 +96,44 @@ app.kubernetes.io/instance: {{ .Release.Name }}
     secretKeyRef: { name: {{ . | quote }}, key: OTELFLEET_OIDC_CLIENT_SECRET }
 {{- end }}
 {{- end }}
+{{- if .Values.controlPlane.tls.enabled }}
+{{- if .Values.controlPlane.tls.publicSecretName }}
+- { name: OTELFLEET_TLS_CERT_FILE, value: /etc/otelfleet/tls/tls.crt }
+- { name: OTELFLEET_TLS_KEY_FILE, value: /etc/otelfleet/tls/tls.key }
+{{- end }}
+{{- if .Values.controlPlane.tls.grpcSecretName }}
+- { name: OTELFLEET_GRPC_TLS_CERT_FILE, value: /etc/otelfleet/grpc-tls/tls.crt }
+- { name: OTELFLEET_GRPC_TLS_KEY_FILE, value: /etc/otelfleet/grpc-tls/tls.key }
+{{- if .Values.controlPlane.tls.grpcMTLS }}
+- { name: OTELFLEET_GRPC_CLIENT_CA_FILE, value: /etc/otelfleet/grpc-tls/ca.crt }
+{{- end }}
+{{- end }}
+{{- end }}
 # The image bundles the web UI and the collector binary for `otelcol validate`.
 - { name: OTELFLEET_WEB_DIR, value: /srv/otelfleet/web }
 - { name: OTELFLEET_OTELCOL_BIN, value: /usr/local/bin/otelfleet-collector }
+{{- end -}}
+
+{{/* TLS secret volumeMounts for the control-plane container. */}}
+{{- define "otelfleet.tlsVolumeMounts" -}}
+{{- if .Values.controlPlane.tls.enabled }}
+{{- with .Values.controlPlane.tls.publicSecretName }}
+- { name: public-tls, mountPath: /etc/otelfleet/tls, readOnly: true }
+{{- end }}
+{{- with .Values.controlPlane.tls.grpcSecretName }}
+- { name: grpc-tls, mountPath: /etc/otelfleet/grpc-tls, readOnly: true }
+{{- end }}
+{{- end }}
+{{- end -}}
+
+{{/* TLS secret volumes for the control-plane pod. */}}
+{{- define "otelfleet.tlsVolumes" -}}
+{{- if .Values.controlPlane.tls.enabled }}
+{{- with .Values.controlPlane.tls.publicSecretName }}
+- { name: public-tls, secret: { secretName: {{ . | quote }} } }
+{{- end }}
+{{- with .Values.controlPlane.tls.grpcSecretName }}
+- { name: grpc-tls, secret: { secretName: {{ . | quote }} } }
+{{- end }}
+{{- end }}
 {{- end -}}
