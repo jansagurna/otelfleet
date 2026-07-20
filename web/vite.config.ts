@@ -10,6 +10,19 @@ export default defineConfig({
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
+  build: {
+    // ECharts (~530 kB) already lands in its own chunk, loaded only on the
+    // chart/costs routes via the lazy use-echarts hook — it is intentionally
+    // split, not shipped on first paint. Pin it to a stable vendor chunk and
+    // lift the advisory limit above its real size so the build stays quiet
+    // without hiding genuinely oversized app chunks.
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: (id: string) => (id.includes('node_modules/echarts') ? 'echarts' : undefined),
+      },
+    },
+  },
   server: {
     proxy: {
       '/api': 'http://localhost:8080',
