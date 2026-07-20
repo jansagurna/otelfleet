@@ -39,6 +39,10 @@ type Config struct {
 	GRPCAddr  string
 	OpsAddr   string
 	OpAMPAddr string
+	// OpAMPPublicEndpoint is the externally reachable OpAMP WebSocket URL
+	// offered to edge agents in per-agent-token connection settings. Empty =
+	// offer only the new auth header (agents keep their current endpoint).
+	OpAMPPublicEndpoint string
 
 	BaseURL string
 	WebDir  string
@@ -76,23 +80,24 @@ type Config struct {
 // Load reads the configuration from the process environment.
 func Load() (*Config, error) {
 	cfg := &Config{
-		DatabaseURL:        env("DATABASE_URL", "postgres://otelfleet:otelfleet@localhost:5432/otelfleet"),
-		ClickHouseAddr:     env("CLICKHOUSE_ADDR", "localhost:9000"),
-		ClickHouseDatabase: env("CLICKHOUSE_DATABASE", "otel"),
-		ClickHouseUser:     env("CLICKHOUSE_USER", "otelfleet"),
-		ClickHousePassword: env("CLICKHOUSE_PASSWORD", "otelfleet"),
-		VictoriaMetricsURL: env("VICTORIAMETRICS_URL", "http://localhost:8428"),
-		HTTPAddr:           env("HTTP_ADDR", ":8080"),
-		GRPCAddr:           env("GRPC_ADDR", ":9443"),
-		OpsAddr:            env("OPS_ADDR", ":9090"),
-		OpAMPAddr:          env("OPAMP_ADDR", ":4320"),
-		BaseURL:            strings.TrimSuffix(env("BASE_URL", "http://localhost:8080"), "/"),
-		WebDir:             env("WEB_DIR", ""),
-		OtelcolBin:         env("OTELCOL_BIN", "collector/dist/otelfleet-collector"),
-		Distributor:        env("DISTRIBUTOR", "publish"),
-		K8sCRName:          env("K8S_CR_NAME", "otelfleet-forwarding"),
-		K8sCRNamespace:     env("K8S_CR_NAMESPACE", "otelfleet"),
-		MasterKeyBase64:    env("MASTER_KEY", ""),
+		DatabaseURL:         env("DATABASE_URL", "postgres://otelfleet:otelfleet@localhost:5432/otelfleet"),
+		ClickHouseAddr:      env("CLICKHOUSE_ADDR", "localhost:9000"),
+		ClickHouseDatabase:  env("CLICKHOUSE_DATABASE", "otel"),
+		ClickHouseUser:      env("CLICKHOUSE_USER", "otelfleet"),
+		ClickHousePassword:  env("CLICKHOUSE_PASSWORD", "otelfleet"),
+		VictoriaMetricsURL:  env("VICTORIAMETRICS_URL", "http://localhost:8428"),
+		HTTPAddr:            env("HTTP_ADDR", ":8080"),
+		GRPCAddr:            env("GRPC_ADDR", ":9443"),
+		OpsAddr:             env("OPS_ADDR", ":9090"),
+		OpAMPAddr:           env("OPAMP_ADDR", ":4320"),
+		OpAMPPublicEndpoint: env("OPAMP_PUBLIC_ENDPOINT", ""),
+		BaseURL:             strings.TrimSuffix(env("BASE_URL", "http://localhost:8080"), "/"),
+		WebDir:              env("WEB_DIR", ""),
+		OtelcolBin:          env("OTELCOL_BIN", "collector/dist/otelfleet-collector"),
+		Distributor:         env("DISTRIBUTOR", "publish"),
+		K8sCRName:           env("K8S_CR_NAME", "otelfleet-forwarding"),
+		K8sCRNamespace:      env("K8S_CR_NAMESPACE", "otelfleet"),
+		MasterKeyBase64:     env("MASTER_KEY", ""),
 	}
 	if cfg.Distributor != "publish" && cfg.Distributor != "k8s" {
 		return nil, fmt.Errorf("OTELFLEET_DISTRIBUTOR must be 'publish' or 'k8s', got %q", cfg.Distributor)

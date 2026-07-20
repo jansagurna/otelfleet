@@ -24,6 +24,8 @@ type agentConn struct {
 
 	lastSeen  time.Time
 	dirtySeen bool // lastSeen not yet flushed to the row
+
+	tokenOffered bool // a per-agent token was offered on this connection already
 }
 
 // registry tracks live OpAMP connections, keyed by instance UID.

@@ -355,6 +355,16 @@ type EnrollToken struct {
 	CustomerStatus string
 }
 
+// AgentAuth is what the OpAMP auth path needs to validate a presented
+// per-agent token (customer status is checked by the caller).
+type AgentAuth struct {
+	AgentID        uuid.UUID
+	CustomerID     uuid.UUID
+	InstanceUID    []byte
+	TokenHash      []byte
+	CustomerStatus string
+}
+
 // Agent is one collector instance (gateway replica or OpAMP-managed edge
 // agent), joined with the customer name the API needs.
 type Agent struct {
@@ -529,6 +539,8 @@ type Store interface {
 	EnrollAgent(ctx context.Context, a NewAgent) (Agent, error)
 	GetAgent(ctx context.Context, id uuid.UUID) (Agent, error)
 	GetAgentByInstanceUID(ctx context.Context, instanceUID []byte) (Agent, error)
+	AgentsByTokenPrefix(ctx context.Context, prefix string) ([]AgentAuth, error)
+	SetAgentToken(ctx context.Context, id uuid.UUID, prefix string, hash []byte, at time.Time) error
 	ListAgents(ctx context.Context, f AgentFilter) ([]Agent, error)
 	DeleteAgent(ctx context.Context, id uuid.UUID, entries []audit.Entry) error
 	UpdateAgentDescription(ctx context.Context, id uuid.UUID, name, agentVersion *string, description []byte, capabilities *int64) error

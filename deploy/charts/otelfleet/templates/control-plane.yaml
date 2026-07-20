@@ -60,6 +60,9 @@ spec:
             {{- with .Values.controlPlane.baseUrl }}
             - { name: OTELFLEET_BASE_URL, value: {{ . | quote }} }
             {{- end }}
+            {{- with .Values.controlPlane.opamp.publicEndpoint }}
+            - { name: OTELFLEET_OPAMP_PUBLIC_ENDPOINT, value: {{ . | quote }} }
+            {{- end }}
             {{- with .Values.controlPlane.masterKeySecret }}
             - name: OTELFLEET_MASTER_KEY
               valueFrom:

@@ -22,6 +22,10 @@ capabilities:
   reports_remote_config: true   # report RemoteConfigStatus (APPLIED/FAILED)
   reports_health: true
   reports_own_metrics: false    # keep the edge agent light (default is true)
+  # Let the control plane hand the agent a per-agent OpAMP token at enrollment
+  # (offered via OpAMPConnectionSettings); the supervisor reconnects with it,
+  # so revoking the customer bootstrap token no longer disturbs enrolled agents.
+  accepts_opamp_connection_settings: true
 
 agent:
   executable: /usr/local/bin/otelfleet-collector

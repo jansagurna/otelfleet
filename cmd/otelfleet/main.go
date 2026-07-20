@@ -128,7 +128,7 @@ func run(log *slog.Logger) error {
 	// OpAMP server (edge-agent fleet management on :4320). The pipeline
 	// service pushes edge-config changes through it; the OpAMP server renders
 	// desired configs through the pipeline service.
-	opampSrv := opamp.NewServer(st, pipelinesSvc, cfg.OpAMPAddr, log)
+	opampSrv := opamp.NewServer(st, pipelinesSvc, cfg.OpAMPAddr, cfg.OpAMPPublicEndpoint, log)
 	pipelinesSvc.SetEdgeNotifier(opampSrv)
 
 	// Alerting webhooks: the dispatcher consumes fleet events from the OpAMP

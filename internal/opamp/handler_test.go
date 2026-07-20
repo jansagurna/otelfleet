@@ -54,12 +54,34 @@ type fakeStore struct {
 	effective    []string
 	assigned     [][]byte
 	touched      []map[uuid.UUID]time.Time
+
+	agentTokens  map[uuid.UUID]string // agentID -> stored token prefix
+	tokenAgents  []store.AgentAuth    // returned by AgentsByTokenPrefix
 }
 
-func newFakeStore() *fakeStore { return &fakeStore{agents: map[string]store.Agent{}} }
+func newFakeStore() *fakeStore {
+	return &fakeStore{agents: map[string]store.Agent{}, agentTokens: map[uuid.UUID]string{}}
+}
 
 func (f *fakeStore) ActiveBootstrapTokensByPrefix(context.Context, string) ([]store.EnrollToken, error) {
 	return nil, nil
+}
+
+func (f *fakeStore) AgentsByTokenPrefix(_ context.Context, prefix string) ([]store.AgentAuth, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []store.AgentAuth
+	for _, a := range f.tokenAgents {
+		out = append(out, a)
+	}
+	return out, nil
+}
+
+func (f *fakeStore) SetAgentToken(_ context.Context, id uuid.UUID, prefix string, _ []byte, _ time.Time) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.agentTokens[id] = prefix
+	return nil
 }
 
 func (f *fakeStore) EnrollAgent(_ context.Context, a store.NewAgent) (store.Agent, error) {
@@ -159,7 +181,7 @@ var testCaps = uint64(protobufs.AgentCapabilities_AgentCapabilities_AcceptsRemot
 	protobufs.AgentCapabilities_AgentCapabilities_ReportsHealth)
 
 func testHandler(f *fakeStore) *Handler {
-	return NewHandler(f, fakeRenderer{yaml: testConfig}, slog.Default())
+	return NewHandler(f, fakeRenderer{yaml: testConfig}, "", slog.Default())
 }
 
 func testAuth() ConnAuth { return ConnAuth{TokenID: uuid.New(), CustomerID: uuid.New()} }

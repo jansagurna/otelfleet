@@ -30,9 +30,9 @@ type Server struct {
 }
 
 // NewServer wires the OpAMP server (listener started by Start).
-func NewServer(st Store, render ConfigRenderer, addr string, log *slog.Logger) *Server {
+func NewServer(st Store, render ConfigRenderer, addr, publicEndpoint string, log *slog.Logger) *Server {
 	return &Server{
-		handler: NewHandler(st, render, log),
+		handler: NewHandler(st, render, publicEndpoint, log),
 		addr:    addr,
 		log:     log,
 		srv:     server.New(slogAdapter{log}),

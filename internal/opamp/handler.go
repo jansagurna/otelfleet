@@ -29,6 +29,8 @@ import (
 // Store is the persistence subset the OpAMP module needs.
 type Store interface {
 	ActiveBootstrapTokensByPrefix(ctx context.Context, prefix string) ([]store.EnrollToken, error)
+	AgentsByTokenPrefix(ctx context.Context, prefix string) ([]store.AgentAuth, error)
+	SetAgentToken(ctx context.Context, id uuid.UUID, prefix string, hash []byte, at time.Time) error
 	EnrollAgent(ctx context.Context, a store.NewAgent) (store.Agent, error)
 	GetAgentByInstanceUID(ctx context.Context, instanceUID []byte) (store.Agent, error)
 	ListAgents(ctx context.Context, f store.AgentFilter) ([]store.Agent, error)
@@ -57,8 +59,12 @@ type FleetEventSink interface {
 
 // ConnAuth is the customer binding of an authenticated OpAMP connection.
 type ConnAuth struct {
-	TokenID    uuid.UUID
+	TokenID    uuid.UUID // bootstrap token used, if any
 	CustomerID uuid.UUID
+	// AgentID is set when the connection authenticated with a per-agent token;
+	// nil when it used a bootstrap token. ViaAgentToken mirrors this.
+	AgentID       *uuid.UUID
+	ViaAgentToken bool
 }
 
 // serverCapabilities is what this control plane implements.
@@ -73,12 +79,18 @@ type Handler struct {
 	render ConfigRenderer
 	reg    *registry
 	events FleetEventSink // nil: no subscriber
-	log    *slog.Logger
+	// publicEndpoint is the externally reachable OpAMP URL offered to agents in
+	// per-agent-token connection settings; empty = offer headers only (the
+	// agent keeps its current endpoint).
+	publicEndpoint string
+	log            *slog.Logger
 }
 
-// NewHandler wires the message handler.
-func NewHandler(st Store, render ConfigRenderer, log *slog.Logger) *Handler {
-	return &Handler{store: st, render: render, reg: newRegistry(), log: log}
+// NewHandler wires the message handler. publicEndpoint is the externally
+// reachable OpAMP WebSocket URL (OTELFLEET_OPAMP_PUBLIC_ENDPOINT); it may be
+// empty, in which case per-agent-token offers carry only the new header.
+func NewHandler(st Store, render ConfigRenderer, publicEndpoint string, log *slog.Logger) *Handler {
+	return &Handler{store: st, render: render, reg: newRegistry(), publicEndpoint: publicEndpoint, log: log}
 }
 
 // SetEventSink registers the fleet-event subscriber (webhook dispatcher).
@@ -92,21 +104,48 @@ func (h *Handler) emitEvent(eventType string, agentID, customerID uuid.UUID, det
 	}
 }
 
-// Authenticate validates the bootstrap token of an incoming OpAMP request
-// (header `Authorization: Bearer otm_bt_<prefix>_<secret>`) and returns the
-// customer binding. Mirrors the ingest API-key validation: prefix lookup of
-// non-revoked tokens, constant-time hash comparison, then expiry / use-count
-// / customer-status checks.
+// Authenticate validates the bearer token of an incoming OpAMP request. Two
+// credential kinds are accepted:
+//
+//   - a per-agent token (otm_at_<prefix>_<secret>) issued to an enrolled agent;
+//   - a per-customer bootstrap token (otm_bt_<prefix>_<secret>) for enrollment
+//     and as a fallback for agents that have not flipped to a per-agent token.
+//
+// Both are looked up by their clear prefix and compared in constant time.
 func (h *Handler) Authenticate(r *http.Request) (ConnAuth, error) {
 	token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 	if !ok || token == "" {
 		return ConnAuth{}, errors.New("missing bearer token")
 	}
-	prefix, ok := tenants.ParseBootstrapTokenPrefix(token)
-	if !ok {
-		return ConnAuth{}, errors.New("malformed bootstrap token")
+	if prefix, ok := tenants.ParseAgentTokenPrefix(token); ok {
+		return h.authenticateAgentToken(r.Context(), prefix, token)
 	}
-	toks, err := h.store.ActiveBootstrapTokensByPrefix(r.Context(), prefix)
+	if prefix, ok := tenants.ParseBootstrapTokenPrefix(token); ok {
+		return h.authenticateBootstrapToken(r.Context(), prefix, token)
+	}
+	return ConnAuth{}, errors.New("malformed token")
+}
+
+func (h *Handler) authenticateAgentToken(ctx context.Context, prefix, token string) (ConnAuth, error) {
+	agents, err := h.store.AgentsByTokenPrefix(ctx, prefix)
+	if err != nil {
+		return ConnAuth{}, fmt.Errorf("agent token lookup failed: %w", err)
+	}
+	hash := tenants.HashAPIKey(token)
+	for i := range agents {
+		if subtle.ConstantTimeCompare(hash, agents[i].TokenHash) == 1 {
+			if agents[i].CustomerStatus != store.CustomerActive {
+				return ConnAuth{}, fmt.Errorf("customer is %s", agents[i].CustomerStatus)
+			}
+			id := agents[i].AgentID
+			return ConnAuth{CustomerID: agents[i].CustomerID, AgentID: &id, ViaAgentToken: true}, nil
+		}
+	}
+	return ConnAuth{}, errors.New("unknown agent token")
+}
+
+func (h *Handler) authenticateBootstrapToken(ctx context.Context, prefix, token string) (ConnAuth, error) {
+	toks, err := h.store.ActiveBootstrapTokensByPrefix(ctx, prefix)
 	if err != nil {
 		return ConnAuth{}, fmt.Errorf("token lookup failed: %w", err)
 	}
@@ -171,6 +210,19 @@ func (h *Handler) HandleMessage(ctx context.Context, conn types.Connection, auth
 		}
 		return resp
 	}
+	// A per-agent token authorizes exactly its own agent: reject it if the
+	// message's instance_uid resolves to a different agent.
+	if auth.ViaAgentToken && auth.AgentID != nil && st.agentID != *auth.AgentID {
+		h.log.Warn("opamp: per-agent token presented for a different instance_uid",
+			"token_agent", *auth.AgentID, "resolved_agent", st.agentID,
+			"instance_uid", hex.EncodeToString(uid))
+		resp.ErrorResponse = errorResponse("token does not match this agent")
+		if conn != nil {
+			_ = conn.Disconnect()
+		}
+		return resp
+	}
+
 	st.conn = conn
 	st.lastSeen = now
 	st.dirtySeen = true
@@ -223,7 +275,55 @@ func (h *Handler) HandleMessage(ctx context.Context, conn types.Connection, auth
 		h.maybeOfferConfig(ctx, st, resp)
 	}
 
+	// Issue and offer a per-agent token to connections still using the
+	// bootstrap token, so they can flip off it — revoking the bootstrap token
+	// then never disturbs an enrolled agent.
+	if newConn && !auth.ViaAgentToken {
+		h.maybeOfferAgentToken(ctx, st, resp)
+	}
+
 	return resp
+}
+
+// maybeOfferAgentToken mints a fresh per-agent token, stores its hash (the
+// previous one stops working immediately), and offers it via
+// OpAMPConnectionSettings so the supervisor reconnects presenting it. Only
+// agents that advertise AcceptsOpAMPConnectionSettings are offered one; others
+// keep using the bootstrap token.
+func (h *Handler) maybeOfferAgentToken(ctx context.Context, st *agentConn, resp *protobufs.ServerToAgent) {
+	if st.tokenOffered {
+		return
+	}
+	if st.capabilities&uint64(protobufs.AgentCapabilities_AgentCapabilities_AcceptsOpAMPConnectionSettings) == 0 {
+		return
+	}
+	gen, err := tenants.GenerateAgentToken()
+	if err != nil {
+		h.log.Error("opamp: generate agent token failed", "agent", st.agentID, "err", err)
+		return
+	}
+	if err := h.store.SetAgentToken(ctx, st.agentID, gen.Prefix, gen.Hash, time.Now()); err != nil {
+		h.log.Error("opamp: store agent token failed", "agent", st.agentID, "err", err)
+		return
+	}
+	st.tokenOffered = true
+	h.reg.update(st.instanceUID, func(a *agentConn) { a.tokenOffered = true })
+
+	opampSettings := &protobufs.OpAMPConnectionSettings{
+		Headers: &protobufs.Headers{Headers: []*protobufs.Header{
+			{Key: "Authorization", Value: "Bearer " + gen.Secret},
+		}},
+	}
+	if h.publicEndpoint != "" {
+		opampSettings.DestinationEndpoint = h.publicEndpoint
+	}
+	offerHash := sha256.Sum256([]byte(gen.Prefix)) // stable per issued token
+	resp.Capabilities |= uint64(protobufs.ServerCapabilities_ServerCapabilities_OffersConnectionSettings)
+	resp.ConnectionSettings = &protobufs.ConnectionSettingsOffers{
+		Hash:  offerHash[:],
+		Opamp: opampSettings,
+	}
+	h.log.Info("opamp: offering per-agent token", "agent", st.agentID, "token_prefix", gen.Prefix)
 }
 
 // resolveAgent looks up the agent for an instance UID this server has no

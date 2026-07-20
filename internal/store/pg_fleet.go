@@ -189,6 +189,39 @@ func (s *PG) GetAgentByInstanceUID(ctx context.Context, instanceUID []byte) (Age
 	return a, err
 }
 
+// AgentsByTokenPrefix returns the auth records of agents whose per-agent token
+// carries the given prefix and whose customer is not deleted. The caller
+// constant-time-compares the hash and checks the customer status.
+func (s *PG) AgentsByTokenPrefix(ctx context.Context, prefix string) ([]AgentAuth, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT a.id, a.customer_id, a.instance_uid, a.agent_token_hash, c.status
+		FROM agents a
+		JOIN customers c ON c.id = a.customer_id
+		WHERE a.agent_token_prefix = $1 AND c.status <> 'deleted'`, prefix)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []AgentAuth{}
+	for rows.Next() {
+		var a AgentAuth
+		if err := rows.Scan(&a.AgentID, &a.CustomerID, &a.InstanceUID, &a.TokenHash, &a.CustomerStatus); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+// SetAgentToken stores (or rotates) an agent's per-agent token, replacing any
+// previous one — the old token stops authenticating immediately.
+func (s *PG) SetAgentToken(ctx context.Context, id uuid.UUID, prefix string, hash []byte, at time.Time) error {
+	_, err := s.pool.Exec(ctx, `
+		UPDATE agents SET agent_token_prefix = $2, agent_token_hash = $3, agent_token_issued_at = $4
+		WHERE id = $1`, id, prefix, hash, at)
+	return err
+}
+
 func (s *PG) ListAgents(ctx context.Context, f AgentFilter) ([]Agent, error) {
 	q := `SELECT` + agentCols + agentFrom + ` WHERE true`
 	args := []any{}

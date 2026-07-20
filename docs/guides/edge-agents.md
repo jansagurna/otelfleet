@@ -47,7 +47,8 @@ sequenceDiagram
     participant Sup as Supervisor (edge)
     participant CP as Control plane (OpAMP :4320)
     Sup->>CP: connect (ws) + bootstrap token
-    CP-->>Sup: remote config (hash-gated)
+    CP-->>Sup: per-agent token (OpAMPConnectionSettings) + remote config
+    Sup->>CP: reconnect (ws) + per-agent token
     Sup->>Sup: start collector, apply config
     Sup->>CP: RemoteConfigStatus = APPLIED, health, effective config
     Note over Sup,CP: heartbeats / health while connected
@@ -81,7 +82,13 @@ sequenceDiagram
   internet, terminate TLS in front of it (`wss://`) — see
   [Helm: exposing OpAMP](../installation/helm.md#exposing-opamp-to-edge-agents).
 - Keep a single control-plane replica: OpAMP sessions are process-sticky.
-- The supervisor presents its bootstrap token on **every** connection, not just
-  the first: revoking a token also blocks reconnects of agents enrolled with it.
-  Rotate by issuing a new token and updating the agents before revoking the old
-  one.
+- **Per-agent tokens.** On the first bootstrap-authenticated connection the
+  control plane issues the agent its own token (`otm_at_…`) and offers it via
+  OpAMP `ConnectionSettings`; the supervisor reconnects presenting it (requires
+  `accepts_opamp_connection_settings: true`, set in the shipped supervisor
+  config). Because enrolled agents authenticate with their own token,
+  **revoking a customer's bootstrap token only blocks new enrollments — it does
+  not disturb agents already enrolled.** To lock out a single agent, delete it
+  (`DELETE /api/v1/agents/{id}`); its per-agent token stops authenticating.
+  Agents whose supervisor cannot accept connection settings keep using the
+  bootstrap token as a fallback.

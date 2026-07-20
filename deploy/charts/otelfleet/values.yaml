@@ -65,6 +65,10 @@ controlPlane:
       # How edge agents (customer networks!) reach the OpAMP endpoint.
       type: ClusterIP   # set LoadBalancer or wire an ingress/gateway for production
       port: 4320
+    # Externally reachable OpAMP URL offered to edge agents with their
+    # per-agent token (e.g. wss://opamp.example.com/v1/opamp). Empty = offer
+    # only the new auth header; agents keep their current endpoint.
+    publicEndpoint: ""
   resources:
     requests: { cpu: 100m, memory: 128Mi }
     limits: { memory: 512Mi }
