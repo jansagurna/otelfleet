@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ActivatePipelineVersionData, ActivatePipelineVersionErrors, ActivatePipelineVersionResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateAuthProviderConfigData, CreateAuthProviderConfigErrors, CreateAuthProviderConfigResponses, CreateBootstrapTokenData, CreateBootstrapTokenErrors, CreateBootstrapTokenResponses, CreateCustomerData, CreateCustomerErrors, CreateCustomerResponses, CreatePipelineData, CreatePipelineErrors, CreatePipelineResponses, CreatePipelineVersionData, CreatePipelineVersionErrors, CreatePipelineVersionResponses, DeleteAgentData, DeleteAgentErrors, DeleteAgentResponses, DeleteAuthProviderConfigData, DeleteAuthProviderConfigErrors, DeleteAuthProviderConfigResponses, DeleteCustomerData, DeleteCustomerErrors, DeleteCustomerResponses, DeletePipelineData, DeletePipelineErrors, DeletePipelineResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DevLoginData, DevLoginErrors, DevLoginResponses, GetAgentConfigData, GetAgentConfigErrors, GetAgentConfigResponses, GetAgentData, GetAgentErrors, GetAgentResponses, GetComponentCatalogData, GetComponentCatalogErrors, GetComponentCatalogResponses, GetCustomerData, GetCustomerErrors, GetCustomerResponses, GetCustomerThroughputData, GetCustomerThroughputErrors, GetCustomerThroughputResponses, GetMeData, GetMeErrors, GetMeResponses, GetPipelineData, GetPipelineErrors, GetPipelineResponses, GetPipelineStageStatsData, GetPipelineStageStatsErrors, GetPipelineStageStatsResponses, GetPipelineVersionData, GetPipelineVersionErrors, GetPipelineVersionResponses, GetStatsOverviewData, GetStatsOverviewErrors, GetStatsOverviewResponses, InviteUserData, InviteUserErrors, InviteUserResponses, ListAgentEventsData, ListAgentEventsErrors, ListAgentEventsResponses, ListAgentsData, ListAgentsErrors, ListAgentsResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListAuditLogData, ListAuditLogErrors, ListAuditLogResponses, ListAuthProviderConfigsData, ListAuthProviderConfigsErrors, ListAuthProviderConfigsResponses, ListAuthProvidersData, ListAuthProvidersResponses, ListBootstrapTokensData, ListBootstrapTokensErrors, ListBootstrapTokensResponses, ListCustomerPipelinesData, ListCustomerPipelinesErrors, ListCustomerPipelinesResponses, ListCustomersData, ListCustomersErrors, ListCustomersResponses, ListPipelinesData, ListPipelinesErrors, ListPipelinesResponses, ListUsersData, ListUsersErrors, ListUsersResponses, LogoutData, LogoutResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, RevokeBootstrapTokenData, RevokeBootstrapTokenErrors, RevokeBootstrapTokenResponses, TestAuthProviderConfigData, TestAuthProviderConfigErrors, TestAuthProviderConfigResponses, UpdateAuthProviderConfigData, UpdateAuthProviderConfigErrors, UpdateAuthProviderConfigResponses, UpdateCustomerData, UpdateCustomerErrors, UpdateCustomerResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, ValidatePipelineData, ValidatePipelineErrors, ValidatePipelineResponses } from './types.gen';
+import type { ActivatePipelineVersionData, ActivatePipelineVersionErrors, ActivatePipelineVersionResponses, CreateApiKeyData, CreateApiKeyErrors, CreateApiKeyResponses, CreateAuthProviderConfigData, CreateAuthProviderConfigErrors, CreateAuthProviderConfigResponses, CreateBootstrapTokenData, CreateBootstrapTokenErrors, CreateBootstrapTokenResponses, CreateCustomerData, CreateCustomerErrors, CreateCustomerResponses, CreatePipelineData, CreatePipelineErrors, CreatePipelineResponses, CreatePipelineVersionData, CreatePipelineVersionErrors, CreatePipelineVersionResponses, CreateWebhookData, CreateWebhookErrors, CreateWebhookResponses, DeleteAgentData, DeleteAgentErrors, DeleteAgentResponses, DeleteAuthProviderConfigData, DeleteAuthProviderConfigErrors, DeleteAuthProviderConfigResponses, DeleteCustomerData, DeleteCustomerErrors, DeleteCustomerResponses, DeletePipelineData, DeletePipelineErrors, DeletePipelineResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DeleteWebhookData, DeleteWebhookErrors, DeleteWebhookResponses, DevLoginData, DevLoginErrors, DevLoginResponses, GetAgentConfigData, GetAgentConfigErrors, GetAgentConfigResponses, GetAgentData, GetAgentErrors, GetAgentResponses, GetComponentCatalogData, GetComponentCatalogErrors, GetComponentCatalogResponses, GetCostStatsData, GetCostStatsErrors, GetCostStatsResponses, GetCustomerData, GetCustomerErrors, GetCustomerResponses, GetCustomerThroughputData, GetCustomerThroughputErrors, GetCustomerThroughputResponses, GetMeData, GetMeErrors, GetMeResponses, GetPipelineData, GetPipelineErrors, GetPipelineResponses, GetPipelineStageStatsData, GetPipelineStageStatsErrors, GetPipelineStageStatsResponses, GetPipelineVersionData, GetPipelineVersionErrors, GetPipelineVersionResponses, GetStatsOverviewData, GetStatsOverviewErrors, GetStatsOverviewResponses, InviteUserData, InviteUserErrors, InviteUserResponses, ListAgentEventsData, ListAgentEventsErrors, ListAgentEventsResponses, ListAgentsData, ListAgentsErrors, ListAgentsResponses, ListApiKeysData, ListApiKeysErrors, ListApiKeysResponses, ListAuditLogData, ListAuditLogErrors, ListAuditLogResponses, ListAuthProviderConfigsData, ListAuthProviderConfigsErrors, ListAuthProviderConfigsResponses, ListAuthProvidersData, ListAuthProvidersResponses, ListBootstrapTokensData, ListBootstrapTokensErrors, ListBootstrapTokensResponses, ListCustomerPipelinesData, ListCustomerPipelinesErrors, ListCustomerPipelinesResponses, ListCustomersData, ListCustomersErrors, ListCustomersResponses, ListPipelinesData, ListPipelinesErrors, ListPipelinesResponses, ListUsersData, ListUsersErrors, ListUsersResponses, ListWebhooksData, ListWebhooksErrors, ListWebhooksResponses, LogoutData, LogoutResponses, RevokeApiKeyData, RevokeApiKeyErrors, RevokeApiKeyResponses, RevokeBootstrapTokenData, RevokeBootstrapTokenErrors, RevokeBootstrapTokenResponses, TestAuthProviderConfigData, TestAuthProviderConfigErrors, TestAuthProviderConfigResponses, TestWebhookData, TestWebhookErrors, TestWebhookResponses, UpdateAuthProviderConfigData, UpdateAuthProviderConfigErrors, UpdateAuthProviderConfigResponses, UpdateCustomerData, UpdateCustomerErrors, UpdateCustomerResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UpdateWebhookData, UpdateWebhookErrors, UpdateWebhookResponses, ValidatePipelineData, ValidatePipelineErrors, ValidatePipelineResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -316,3 +316,47 @@ export const testAuthProviderConfig = <ThrowOnError extends boolean = false>(opt
  * Query the audit log (newest first, cursor-paged)
  */
 export const listAuditLog = <ThrowOnError extends boolean = false>(options?: Options<ListAuditLogData, ThrowOnError>): RequestResult<ListAuditLogResponses, ListAuditLogErrors, ThrowOnError> => (options?.client ?? client).get<ListAuditLogResponses, ListAuditLogErrors, ThrowOnError>({ url: '/api/v1/audit', ...options });
+
+/**
+ * Ingest volume per customer (items + estimated bytes, daily buckets)
+ */
+export const getCostStats = <ThrowOnError extends boolean = false>(options: Options<GetCostStatsData, ThrowOnError>): RequestResult<GetCostStatsResponses, GetCostStatsErrors, ThrowOnError> => (options.client ?? client).get<GetCostStatsResponses, GetCostStatsErrors, ThrowOnError>({ url: '/api/v1/stats/cost', ...options });
+
+/**
+ * List alerting webhooks (admin only, secrets never returned)
+ */
+export const listWebhooks = <ThrowOnError extends boolean = false>(options?: Options<ListWebhooksData, ThrowOnError>): RequestResult<ListWebhooksResponses, ListWebhooksErrors, ThrowOnError> => (options?.client ?? client).get<ListWebhooksResponses, ListWebhooksErrors, ThrowOnError>({ url: '/api/v1/settings/webhooks', ...options });
+
+/**
+ * Add an alerting webhook (HMAC-SHA256-signed when a secret is set)
+ */
+export const createWebhook = <ThrowOnError extends boolean = false>(options: Options<CreateWebhookData, ThrowOnError>): RequestResult<CreateWebhookResponses, CreateWebhookErrors, ThrowOnError> => (options.client ?? client).post<CreateWebhookResponses, CreateWebhookErrors, ThrowOnError>({
+    url: '/api/v1/settings/webhooks',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete a webhook
+ */
+export const deleteWebhook = <ThrowOnError extends boolean = false>(options: Options<DeleteWebhookData, ThrowOnError>): RequestResult<DeleteWebhookResponses, DeleteWebhookErrors, ThrowOnError> => (options.client ?? client).delete<DeleteWebhookResponses, DeleteWebhookErrors, ThrowOnError>({ url: '/api/v1/settings/webhooks/{webhookId}', ...options });
+
+/**
+ * Update a webhook; omit secret to keep the stored one
+ */
+export const updateWebhook = <ThrowOnError extends boolean = false>(options: Options<UpdateWebhookData, ThrowOnError>): RequestResult<UpdateWebhookResponses, UpdateWebhookErrors, ThrowOnError> => (options.client ?? client).patch<UpdateWebhookResponses, UpdateWebhookErrors, ThrowOnError>({
+    url: '/api/v1/settings/webhooks/{webhookId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Send a signed test event to the webhook URL
+ */
+export const testWebhook = <ThrowOnError extends boolean = false>(options: Options<TestWebhookData, ThrowOnError>): RequestResult<TestWebhookResponses, TestWebhookErrors, ThrowOnError> => (options.client ?? client).post<TestWebhookResponses, TestWebhookErrors, ThrowOnError>({ url: '/api/v1/settings/webhooks/{webhookId}/test', ...options });

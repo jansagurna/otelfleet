@@ -20,8 +20,12 @@ import type { Pipeline, PipelineGraph, ValidationResult } from '@/api/generated'
 type ValidationErrors = ValidationResult['errors']
 type TargetClass = Pipeline['targetClass']
 
-/** Debounced live validation of the current draft graph. */
-function useDraftValidation(graph: PipelineGraph, targetClass: TargetClass) {
+/**
+ * Debounced live validation of the current draft graph. Shared with the
+ * graph view (node error rings): both instances resolve to the same
+ * structural query key, so validation runs once per debounced draft.
+ */
+export function useDraftValidation(graph: PipelineGraph, targetClass: TargetClass) {
   const debounced = useDebouncedValue(graph, 600)
   const query = useQuery({
     queryKey: ['validatePipelineDraft', targetClass, debounced],

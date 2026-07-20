@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, History, Rocket, Save, Trash2 } from 'lucide-react'
+import { ArrowLeft, History, ListTree, Rocket, Save, Trash2, Workflow } from 'lucide-react'
 import {
   activatePipelineVersionMutation,
   createPipelineVersionMutation,
@@ -34,14 +34,24 @@ import type { PipelineDetail, RolloutStatus, ValidationResult } from '@/api/gene
 const TABS = ['builder', 'metrics'] as const
 type Tab = (typeof TABS)[number]
 
+const EDITOR_VIEWS = ['form', 'graph'] as const
+type EditorView = (typeof EDITOR_VIEWS)[number]
+
 interface PipelineSearch {
   tab?: Tab
+  view?: EditorView
   range?: TimeRange
 }
+
+// Kept in a lazy chunk so @xyflow/react only loads when the graph view opens.
+const PipelineGraphView = lazy(() => import('@/features/pipelines/flow-view'))
 
 export const Route = createFileRoute('/_auth/pipelines/$pipelineId')({
   validateSearch: (search: Record<string, unknown>): PipelineSearch => ({
     tab: search.tab === 'metrics' ? 'metrics' : search.tab === 'builder' ? 'builder' : undefined,
+    view: EDITOR_VIEWS.includes(search.view as EditorView)
+      ? (search.view as EditorView)
+      : undefined,
     range: isTimeRange(search.range) ? search.range : undefined,
   }),
   component: PipelinePage,
@@ -184,10 +194,44 @@ function TabBar({ pipelineId, active }: { pipelineId: string; active: Tab }) {
   )
 }
 
+/** Form | Graph segmented toggle for the editor — value lives in the URL. */
+function ViewToggle({ view, onChange }: { view: EditorView; onChange: (next: EditorView) => void }) {
+  const options: { value: EditorView; label: string; icon: typeof ListTree }[] = [
+    { value: 'form', label: 'Form', icon: ListTree },
+    { value: 'graph', label: 'Graph', icon: Workflow },
+  ]
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Editor view"
+      className="inline-flex h-8 items-center gap-0.5 rounded-md border border-line bg-surface p-0.5"
+    >
+      {options.map(({ value, label, icon: Icon }) => (
+        <button
+          key={value}
+          type="button"
+          role="radio"
+          aria-checked={view === value}
+          onClick={() => onChange(value)}
+          className={cn(
+            'inline-flex h-6.5 cursor-pointer items-center gap-1.5 rounded px-2.5 text-xs transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/70',
+            view === value ? 'bg-surface-2 font-semibold text-ink' : 'text-ink-3 hover:text-ink-2',
+          )}
+        >
+          <Icon aria-hidden className="size-3.5" />
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function EditorTab({ pipeline }: { pipeline: PipelineDetail }) {
   const me = useMe()
   const canEdit = canMutate(me)
   const queryClient = useQueryClient()
+  const { view = 'form' } = Route.useSearch()
+  const navigate = Route.useNavigate()
 
   const catalogQuery = useQuery(getComponentCatalogOptions())
 
@@ -310,62 +354,100 @@ function EditorTab({ pipeline }: { pipeline: PipelineDetail }) {
           </>
         )}
         {dirty && <Badge variant="warn">unsaved changes</Badge>}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="ml-auto"
-          onClick={() => setVersionsOpen(true)}
-        >
-          <History aria-hidden />
-          Versions ({pipeline.versions.length})
-        </Button>
+        <div className="ml-auto flex items-center gap-2">
+          <ViewToggle
+            view={view}
+            onChange={(next) =>
+              void navigate({ search: (prev) => ({ ...prev, view: next }), replace: true })
+            }
+          />
+          <Button variant="ghost" size="sm" onClick={() => setVersionsOpen(true)}>
+            <History aria-hidden />
+            Versions ({pipeline.versions.length})
+          </Button>
+        </div>
       </div>
 
       {pipeline.targetClass === 'forwarding' && rollout?.state === 'pending_restart' && (
         <PendingRestartBanner rollout={rollout} />
       )}
 
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,30rem)]">
-        <div className="min-w-0">
-          {catalogQuery.isError && (
-            <div
-              role="alert"
-              className="mb-4 rounded-md border border-warn/40 bg-warn/10 px-3 py-2.5 text-xs text-ink-2"
-            >
-              The component catalog could not be loaded — add menus are empty and configs fall back
-              to raw JSON editing.
-            </div>
-          )}
-          {seeding || catalogQuery.isPending ? (
-            <div className="flex flex-col gap-4">
-              <Skeleton className="h-28 w-full" />
-              <Skeleton className="h-40 w-full" />
-              <Skeleton className="h-40 w-full" />
-            </div>
-          ) : (
-            <PipelineBuilder
-              catalog={catalog ?? { processors: [], exporters: [] }}
-              readOnly={!canEdit}
-            />
-          )}
+      {catalogQuery.isError && (
+        <div
+          role="alert"
+          className="rounded-md border border-warn/40 bg-warn/10 px-3 py-2.5 text-xs text-ink-2"
+        >
+          The component catalog could not be loaded — add menus are empty and configs fall back
+          to raw JSON editing.
         </div>
+      )}
 
-        <div className="min-w-0 xl:sticky xl:top-6">
-          {seeding ? (
-            <Skeleton className="h-64 w-full" />
-          ) : (
-            <PreviewPanel
-              pipelineId={pipeline.id}
-              targetClass={pipeline.targetClass}
-              selectedVersion={selectedVersion}
-              onClearSelection={() => setSelectedVersion(null)}
-              onActivateVersion={(version) => setConfirmActivate(version)}
-              canEdit={canEdit}
-              saveErrors={saveErrors}
-            />
-          )}
+      {view === 'form' ? (
+        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,30rem)]">
+          <div className="min-w-0">
+            {seeding || catalogQuery.isPending ? (
+              <div className="flex flex-col gap-4">
+                <Skeleton className="h-28 w-full" />
+                <Skeleton className="h-40 w-full" />
+                <Skeleton className="h-40 w-full" />
+              </div>
+            ) : (
+              <PipelineBuilder
+                catalog={catalog ?? { processors: [], exporters: [] }}
+                readOnly={!canEdit}
+              />
+            )}
+          </div>
+
+          <div className="min-w-0 xl:sticky xl:top-6">
+            {seeding ? (
+              <Skeleton className="h-64 w-full" />
+            ) : (
+              <PreviewPanel
+                pipelineId={pipeline.id}
+                targetClass={pipeline.targetClass}
+                selectedVersion={selectedVersion}
+                onClearSelection={() => setSelectedVersion(null)}
+                onActivateVersion={(version) => setConfirmActivate(version)}
+                canEdit={canEdit}
+                saveErrors={saveErrors}
+              />
+            )}
+          </div>
         </div>
-      </div>
+      ) : (
+        // Graph view: canvas on top, the validation/YAML preview below it —
+        // both render the same draft store, so switching views is lossless.
+        <div className="flex flex-col gap-5">
+          {seeding || catalogQuery.isPending ? (
+            <Skeleton className="h-[32rem] w-full" />
+          ) : (
+            <Suspense fallback={<Skeleton className="h-[32rem] w-full" />}>
+              <PipelineGraphView
+                catalog={catalog ?? { processors: [], exporters: [] }}
+                readOnly={!canEdit}
+                targetClass={pipeline.targetClass}
+                saveErrors={saveErrors}
+              />
+            </Suspense>
+          )}
+          <div className="min-w-0">
+            {seeding ? (
+              <Skeleton className="h-64 w-full" />
+            ) : (
+              <PreviewPanel
+                pipelineId={pipeline.id}
+                targetClass={pipeline.targetClass}
+                selectedVersion={selectedVersion}
+                onClearSelection={() => setSelectedVersion(null)}
+                onActivateVersion={(version) => setConfirmActivate(version)}
+                canEdit={canEdit}
+                saveErrors={saveErrors}
+              />
+            )}
+          </div>
+        </div>
+      )}
 
       <VersionsSheet
         open={versionsOpen}

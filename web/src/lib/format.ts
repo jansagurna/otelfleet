@@ -23,6 +23,21 @@ export function formatRate(value: number): string {
   return compact.format(value)
 }
 
+const BYTE_UNITS = ['B', 'KiB', 'MiB', 'GiB', 'TiB'] as const
+
+/**
+ * Human byte size in binary units: 0 -> "0 B", 1536 -> "1.5 KiB",
+ * 3.2e9 -> "3.0 GiB". Two significant-ish digits: <10 keeps one decimal.
+ */
+export function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B'
+  const exponent = Math.min(Math.floor(Math.log2(bytes) / 10), BYTE_UNITS.length - 1)
+  const value = bytes / 2 ** (10 * exponent)
+  const rendered =
+    exponent === 0 ? Math.round(value).toString() : value >= 10 ? Math.round(value).toString() : value.toFixed(1)
+  return `${rendered} ${BYTE_UNITS[exponent]}`
+}
+
 const dateTime = new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
   month: 'short',

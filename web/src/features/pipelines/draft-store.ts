@@ -5,6 +5,7 @@ import {
   moveNode,
   removeNode,
   renameNode,
+  reorderNodes,
   toggleSignal,
   updateNodeConfig,
   type NodeSection,
@@ -34,6 +35,8 @@ interface DraftState {
   addNode: (section: NodeSection, node: GraphNode) => void
   removeNode: (section: NodeSection, index: number) => void
   moveNode: (section: NodeSection, index: number, delta: -1 | 1) => void
+  /** Reorder a section by a permutation of current indices (graph view drag). */
+  reorderNodes: (section: NodeSection, order: number[]) => void
   setNodeConfig: (section: NodeSection, index: number, config: Record<string, unknown>) => void
   setNodeName: (section: NodeSection, index: number, name: string) => void
 }
@@ -74,6 +77,12 @@ export const useDraftStore = create<DraftState>()((set) => ({
 
   moveNode: (section, index, delta) =>
     set((state) => ({ graph: moveNode(state.graph, section, index, delta), dirty: true })),
+
+  reorderNodes: (section, order) =>
+    set((state) => {
+      const graph = reorderNodes(state.graph, section, order)
+      return graph === state.graph ? state : { graph, dirty: true }
+    }),
 
   setNodeConfig: (section, index, config) =>
     set((state) => ({ graph: updateNodeConfig(state.graph, section, index, config), dirty: true })),

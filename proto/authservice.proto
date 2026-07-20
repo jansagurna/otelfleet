@@ -23,4 +23,8 @@ message ValidateAPIKeyResponse {
   string client_id = 3;   // stamped as resource attribute tenant.id
   // How long the caller may cache this positive result.
   uint32 cache_ttl_seconds = 4;
+  // Per-tenant ingest quota in items (log records / spans / metric points)
+  // per second; 0 = unlimited. Enforced by the tenantquota processor via a
+  // local token bucket; limit changes propagate within the cache TTL.
+  uint32 rate_limit_items_per_sec = 5;
 }

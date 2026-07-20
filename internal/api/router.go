@@ -55,6 +55,7 @@ func NewRouter(d RouterDeps) http.Handler {
 	})
 	r.Group(func(g chi.Router) {
 		g.Use(Guard(d.Sessions, d.Store))
+		g.Use(captureRawBody)
 		apigen.HandlerWithOptions(strict, apigen.ChiServerOptions{
 			BaseRouter: g,
 			ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {

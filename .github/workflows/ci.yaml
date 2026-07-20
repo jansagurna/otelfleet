@@ -75,11 +75,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: azure/setup-helm@v4
       - run: helm lint deploy/charts/otelfleet --set external.databaseUrl=postgres://x:y@pg:5432/otelfleet
-      - name: Template both forwarding modes
+      - name: Template forwarding modes and KEDA autoscaling
         run: |
           helm template t deploy/charts/otelfleet --set external.databaseUrl=postgres://x:y@pg:5432/otelfleet > /dev/null
           helm template t deploy/charts/otelfleet --set external.databaseUrl=postgres://x:y@pg:5432/otelfleet \
             --set forwarding.mode=operator --set controlPlane.distributor=k8s > /dev/null
+          helm template t deploy/charts/otelfleet --set external.databaseUrl=postgres://x:y@pg:5432/otelfleet \
+            --set keda.enabled=true --set gateway.autoscaling.ingestRatePerReplica=5000 > /dev/null
 
   collector-image:
     runs-on: ubuntu-latest

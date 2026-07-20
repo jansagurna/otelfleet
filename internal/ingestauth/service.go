@@ -107,10 +107,11 @@ func (s *Service) ValidateAPIKey(ctx context.Context, req *authv1.ValidateAPIKey
 	s.recordUsage(match.KeyID, time.Now())
 	s.requests.WithLabelValues(outcomeOK).Inc()
 	return &authv1.ValidateAPIKeyResponse{
-		Valid:           true,
-		CustomerId:      match.CustomerID.String(),
-		ClientId:        match.ClientID,
-		CacheTtlSeconds: cacheTTLSeconds,
+		Valid:                true,
+		CustomerId:           match.CustomerID.String(),
+		ClientId:             match.ClientID,
+		CacheTtlSeconds:      cacheTTLSeconds,
+		RateLimitItemsPerSec: uint32(match.RateLimitItemsPerSec), //nolint:gosec // DB CHECK keeps it positive and small
 	}, nil
 }
 

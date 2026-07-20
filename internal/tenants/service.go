@@ -143,6 +143,12 @@ func (s *Service) UpdateCustomer(ctx context.Context, actor *uuid.UUID, id uuid.
 	if upd.Status != nil {
 		payload["status"] = *upd.Status
 	}
+	if upd.RateLimitItemsPerSec.Set {
+		payload["rate_limit_items_per_sec"] = upd.RateLimitItemsPerSec.Value // null = cleared
+	}
+	if upd.RetentionDays.Set {
+		payload["retention_days"] = upd.RetentionDays.Value // null = cleared
+	}
 	return s.store.UpdateCustomer(ctx, id, upd, []audit.Entry{{
 		ActorUserID: actor,
 		Action:      "customer.update",

@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // OIDCProvider describes the env-defined fallback OIDC provider. Additional
@@ -63,6 +64,10 @@ type Config struct {
 	K8sCRName      string
 	K8sCRNamespace string
 
+	// RetentionInterval is how often the per-customer retention sweep runs
+	// (OTELFLEET_RETENTION_INTERVAL, default 24h).
+	RetentionInterval time.Duration
+
 	// OIDCProviders holds every configured OIDC provider. In Phase 1 at most
 	// one (the generic OTELFLEET_OIDC_* provider) is present.
 	OIDCProviders []OIDCProvider
@@ -91,6 +96,14 @@ func Load() (*Config, error) {
 	}
 	if cfg.Distributor != "publish" && cfg.Distributor != "k8s" {
 		return nil, fmt.Errorf("OTELFLEET_DISTRIBUTOR must be 'publish' or 'k8s', got %q", cfg.Distributor)
+	}
+
+	if raw := env("RETENTION_INTERVAL", "24h"); raw != "" {
+		d, perr := time.ParseDuration(raw)
+		if perr != nil || d < time.Minute {
+			return nil, fmt.Errorf("OTELFLEET_RETENTION_INTERVAL: invalid duration %q (min 1m)", raw)
+		}
+		cfg.RetentionInterval = d
 	}
 
 	var err error

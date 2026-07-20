@@ -61,6 +61,12 @@ func (e throughputErrResponse) VisitGetCustomerThroughputResponse(w http.Respons
 	return e.write(w)
 }
 
+type costStatsErrResponse struct{ errorResponse }
+
+func (e costStatsErrResponse) VisitGetCostStatsResponse(w http.ResponseWriter) error {
+	return e.write(w)
+}
+
 type createAPIKeyErrResponse struct{ errorResponse }
 
 func (e createAPIKeyErrResponse) VisitCreateApiKeyResponse(w http.ResponseWriter) error {

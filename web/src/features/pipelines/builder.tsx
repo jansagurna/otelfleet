@@ -50,7 +50,8 @@ export function PipelineBuilder({ catalog, readOnly }: { catalog: Catalog; readO
   )
 }
 
-function SignalsCard({ readOnly }: { readOnly: boolean }) {
+/** Signal stream checkboxes — shared between the form and graph views. */
+export function SignalsCard({ readOnly }: { readOnly: boolean }) {
   const { theme } = useTheme()
   const signals = useDraftStore((s) => s.graph.signals)
   const toggleSignal = useDraftStore((s) => s.toggleSignal)
@@ -101,6 +102,60 @@ function SignalsCard({ readOnly }: { readOnly: boolean }) {
   )
 }
 
+/**
+ * "+ processor / + exporter" catalog menu over the draft store — shared
+ * between the form and graph views.
+ */
+export function AddNodeMenu({
+  section,
+  components,
+  onAdded,
+}: {
+  section: NodeSection
+  components: CatalogComponent[]
+  /** Called with the index of the freshly added node. */
+  onAdded?: (index: number) => void
+}) {
+  const addNode = useDraftStore((s) => s.addNode)
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm">
+          <Plus aria-hidden />
+          Add {section === 'processors' ? 'processor' : 'exporter'}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-72">
+        <DropdownMenuLabel>Component catalog</DropdownMenuLabel>
+        {components.length === 0 && (
+          <div className="px-2 py-1.5 text-xs text-ink-3">Catalog unavailable.</div>
+        )}
+        {components.map((component) => (
+          <DropdownMenuItem
+            key={component.type}
+            onSelect={() => {
+              const index = useDraftStore.getState().graph[section].length
+              addNode(section, nodeFromCatalog(component))
+              onAdded?.(index)
+            }}
+            className="items-start"
+          >
+            <div className="min-w-0">
+              <div className="flex items-baseline gap-2">
+                <span className="font-medium text-ink">{component.displayName}</span>
+                <span className="font-mono text-[11px] text-ink-3">{component.type}</span>
+              </div>
+              <div className="mt-0.5 line-clamp-2 text-xs text-ink-2">
+                {component.description}
+              </div>
+            </div>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 function NodeSectionCard({
   section,
   title,
@@ -115,7 +170,6 @@ function NodeSectionCard({
   readOnly: boolean
 }) {
   const nodes = useDraftStore((s) => s.graph[section])
-  const addNode = useDraftStore((s) => s.addNode)
   const byType = useMemo(() => new Map(components.map((c) => [c.type, c])), [components])
 
   return (
@@ -125,39 +179,7 @@ function NodeSectionCard({
           <h3 className="text-[13px] font-semibold text-ink">{title}</h3>
           <p className="text-xs text-ink-2">{subtitle}</p>
         </div>
-        {!readOnly && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Plus aria-hidden />
-                Add {section === 'processors' ? 'processor' : 'exporter'}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-72">
-              <DropdownMenuLabel>Component catalog</DropdownMenuLabel>
-              {components.length === 0 && (
-                <div className="px-2 py-1.5 text-xs text-ink-3">Catalog unavailable.</div>
-              )}
-              {components.map((component) => (
-                <DropdownMenuItem
-                  key={component.type}
-                  onSelect={() => addNode(section, nodeFromCatalog(component))}
-                  className="items-start"
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-baseline gap-2">
-                      <span className="font-medium text-ink">{component.displayName}</span>
-                      <span className="font-mono text-[11px] text-ink-3">{component.type}</span>
-                    </div>
-                    <div className="mt-0.5 line-clamp-2 text-xs text-ink-2">
-                      {component.description}
-                    </div>
-                  </div>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+        {!readOnly && <AddNodeMenu section={section} components={components} />}
       </div>
 
       {nodes.length === 0 ? (
@@ -286,7 +308,8 @@ function NodeCard({
   )
 }
 
-function fieldlessSchema(schema: JsonSchema): boolean {
+/** True when a component's schema declares no editable fields at all. */
+export function fieldlessSchema(schema: JsonSchema): boolean {
   return (
     schema.type === 'object' &&
     Object.keys(schema.properties ?? {}).length === 0 &&

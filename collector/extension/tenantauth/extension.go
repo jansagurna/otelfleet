@@ -167,6 +167,10 @@ func (a *authenticator) Authenticate(ctx context.Context, sources map[string][]s
 		tenantID:   resp.GetClientId(),
 		clientID:   resp.GetClientId(),
 		customerID: resp.GetCustomerId(),
+		// Per-tenant ingest quota enforced by the tenantquota processor;
+		// 0 = unlimited. Rides the cache entry, so changes propagate within
+		// the (fresh) cache TTL.
+		rateLimitItemsPerSec: int64(resp.GetRateLimitItemsPerSec()),
 	}
 	a.cache.put(hash, cacheEntry{
 		valid:      true,

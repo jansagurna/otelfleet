@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -37,14 +38,20 @@ type Server struct {
 	authReg   *auth.Registry
 	cipher    *crypto.Cipher   // nil: master key not configured
 	agents    AgentConnections // nil: no OpAMP server (treated as disconnected)
+	webhooks  WebhookTester    // nil: no dispatcher wired
 	log       *slog.Logger
+}
+
+// WebhookTester is the dispatcher subset the API needs for the test endpoint.
+type WebhookTester interface {
+	SendTest(ctx context.Context, wh store.Webhook) (bool, string)
 }
 
 var _ apigen.StrictServerInterface = (*Server)(nil)
 
 // NewServer wires the REST handlers.
-func NewServer(cfg *config.Config, st store.Store, ten *tenants.Service, pipes *pipelines.Service, sts *stats.Service, sessions *auth.Sessions, authReg *auth.Registry, cipher *crypto.Cipher, agents AgentConnections, log *slog.Logger) *Server {
-	return &Server{cfg: cfg, store: st, tenants: ten, pipelines: pipes, stats: sts, sessions: sessions, authReg: authReg, cipher: cipher, agents: agents, log: log}
+func NewServer(cfg *config.Config, st store.Store, ten *tenants.Service, pipes *pipelines.Service, sts *stats.Service, sessions *auth.Sessions, authReg *auth.Registry, cipher *crypto.Cipher, agents AgentConnections, webhooks WebhookTester, log *slog.Logger) *Server {
+	return &Server{cfg: cfg, store: st, tenants: ten, pipelines: pipes, stats: sts, sessions: sessions, authReg: authReg, cipher: cipher, agents: agents, webhooks: webhooks, log: log}
 }
 
 func actorID(ctx context.Context) *openapi_types.UUID {
@@ -57,12 +64,14 @@ func actorID(ctx context.Context) *openapi_types.UUID {
 
 func toCustomer(c store.Customer) apigen.Customer {
 	return apigen.Customer{
-		Id:        c.ID,
-		Slug:      c.Slug,
-		Name:      c.Name,
-		ClientId:  c.ClientID,
-		Status:    apigen.CustomerStatus(c.Status),
-		CreatedAt: c.CreatedAt,
+		Id:                   c.ID,
+		Slug:                 c.Slug,
+		Name:                 c.Name,
+		ClientId:             c.ClientID,
+		Status:               apigen.CustomerStatus(c.Status),
+		RateLimitItemsPerSec: c.RateLimitItemsPerSec,
+		RetentionDays:        c.RetentionDays,
+		CreatedAt:            c.CreatedAt,
 	}
 }
 
@@ -217,6 +226,18 @@ func (s *Server) UpdateCustomer(ctx context.Context, request apigen.UpdateCustom
 		v := string(*request.Body.Status)
 		upd.Status = &v
 	}
+
+	// Nullable PATCH semantics for the quota/retention fields: key present in
+	// the JSON = set (an explicit null clears the value), key absent =
+	// unchanged. The decoded body cannot distinguish null from absent, so key
+	// presence comes from the raw body captured by the router middleware.
+	upd.RateLimitItemsPerSec, upd.RetentionDays = quotaRetentionUpdate(ctx, request.Body)
+	if v := upd.RateLimitItemsPerSec.Value; upd.RateLimitItemsPerSec.Set && v != nil && *v < 1 {
+		return nil, badRequestError{errors.New("rateLimitItemsPerSec must be >= 1 (or null for unlimited)")}
+	}
+	if v := upd.RetentionDays.Value; upd.RetentionDays.Set && v != nil && (*v < 1 || *v > 30) {
+		return nil, badRequestError{errors.New("retentionDays must be between 1 and 30 (or null for the global TTL)")}
+	}
 	c, err := s.tenants.UpdateCustomer(ctx, actorID(ctx), request.CustomerId, upd)
 	switch {
 	case errors.Is(err, tenants.ErrInvalidName):
@@ -320,6 +341,47 @@ func (s *Server) GetStatsOverview(ctx context.Context, request apigen.GetStatsOv
 	return resp, nil
 }
 
+// GetCostStats serves the per-customer ingest-volume breakdown. Bytes are the
+// estimated in-memory row size accumulated by the ClickHouse MVs; rows
+// written before the byte-accounting migration report 0 bytes.
+func (s *Server) GetCostStats(ctx context.Context, request apigen.GetCostStatsRequestObject) (apigen.GetCostStatsResponseObject, error) {
+	from, to := request.Params.From, request.Params.To
+	if !to.After(from) {
+		return costStatsErrResponse{errResp(http.StatusBadRequest, codeBadRequest, "'to' must be after 'from'")}, nil
+	}
+	costs, err := s.stats.GetCost(ctx, from, to)
+	if errors.Is(err, stats.ErrUpstreamUnavailable) {
+		return costStatsErrResponse{errResp(http.StatusServiceUnavailable, codeUpstream, "stats backend unavailable")}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	resp := apigen.GetCostStats200JSONResponse{Customers: make([]apigen.CustomerCost, 0, len(costs))}
+	for _, c := range costs {
+		days := make([]struct {
+			Bytes int64              `json:"bytes"`
+			Date  openapi_types.Date `json:"date"`
+			Items int64              `json:"items"`
+		}, 0, len(c.Days))
+		for _, d := range c.Days {
+			days = append(days, struct {
+				Bytes int64              `json:"bytes"`
+				Date  openapi_types.Date `json:"date"`
+				Items int64              `json:"items"`
+			}{Bytes: d.Bytes, Date: openapi_types.Date{Time: d.Date}, Items: d.Items})
+		}
+		resp.Customers = append(resp.Customers, apigen.CustomerCost{
+			CustomerId: c.CustomerID,
+			Name:       c.Name,
+			Items:      c.Items,
+			Bytes:      c.Bytes,
+			Days:       days,
+		})
+	}
+	return resp, nil
+}
+
 func (s *Server) GetCustomerThroughput(ctx context.Context, request apigen.GetCustomerThroughputRequestObject) (apigen.GetCustomerThroughputResponseObject, error) {
 	from, to := request.Params.From, request.Params.To
 	if !to.After(from) {
@@ -354,6 +416,34 @@ func (s *Server) GetCustomerThroughput(ctx context.Context, request apigen.GetCu
 		out.Series = append(out.Series, apigen.ThroughputSeries{Signal: apigen.Signal(sr.Signal), Points: points})
 	}
 	return apigen.GetCustomerThroughput200JSONResponse(out), nil
+}
+
+// quotaRetentionUpdate derives the tri-state quota/retention updates from the
+// decoded PATCH body plus the raw-body key presence. Without a captured raw
+// body (unreachable via the router) it falls back to "non-nil pointer = set",
+// which cannot express clearing.
+func quotaRetentionUpdate(ctx context.Context, body *apigen.UpdateCustomerJSONRequestBody) (rateLimit, retention store.OptionalInt) {
+	raw, ok := rawBodyFrom(ctx)
+	if !ok {
+		if body.RateLimitItemsPerSec != nil {
+			rateLimit = store.OptionalInt{Set: true, Value: body.RateLimitItemsPerSec}
+		}
+		if body.RetentionDays != nil {
+			retention = store.OptionalInt{Set: true, Value: body.RetentionDays}
+		}
+		return rateLimit, retention
+	}
+	var keys map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &keys); err != nil {
+		return rateLimit, retention // strict decode already succeeded; defensive only
+	}
+	if _, present := keys["rateLimitItemsPerSec"]; present {
+		rateLimit = store.OptionalInt{Set: true, Value: body.RateLimitItemsPerSec}
+	}
+	if _, present := keys["retentionDays"]; present {
+		retention = store.OptionalInt{Set: true, Value: body.RetentionDays}
+	}
+	return rateLimit, retention
 }
 
 // badRequestError marks handler errors that must surface as 400 rather than

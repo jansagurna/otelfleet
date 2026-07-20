@@ -25,7 +25,11 @@ import { useMe, canMutate } from '@/hooks/use-me'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
+import { toast } from '@/components/toaster'
+import { apiErrorMessage } from '@/lib/api-error'
 import {
   Table,
   TableBody,
@@ -46,7 +50,7 @@ import { SecretDialog } from '@/components/secret-dialog'
 import { CustomerAgentsTab } from '@/features/fleet/customer-agents-tab'
 import type { ApiKey, ApiKeyCreated, Customer, ThroughputPoint } from '@/api/generated'
 
-const TABS = ['overview', 'api-keys', 'agents'] as const
+const TABS = ['overview', 'api-keys', 'agents', 'settings'] as const
 type Tab = (typeof TABS)[number]
 
 interface CustomerSearch {
@@ -88,6 +92,7 @@ function CustomerDetailPage() {
       {tab === 'overview' && <OverviewTab customerId={customerId} />}
       {tab === 'api-keys' && <ApiKeysTab customerId={customerId} />}
       {tab === 'agents' && <CustomerAgentsTab customerId={customerId} />}
+      {tab === 'settings' && <CustomerSettingsTab customer={customer} />}
     </div>
   )
 }
@@ -185,6 +190,7 @@ function TabBar({ customerId, active }: { customerId: string; active: Tab }) {
     overview: 'Overview',
     'api-keys': 'API keys',
     agents: 'Agents',
+    settings: 'Settings',
   }
   return (
     <nav aria-label="Customer sections" className="flex gap-1 border-b border-line">
@@ -452,6 +458,106 @@ function ApiKeysTable({
         </TableBody>
       </Table>
     </section>
+  )
+}
+
+function CustomerSettingsTab({ customer }: { customer: Customer }) {
+  const me = useMe()
+  const editable = canMutate(me)
+  const queryClient = useQueryClient()
+
+  const [rateLimit, setRateLimit] = useState(
+    customer.rateLimitItemsPerSec != null ? String(customer.rateLimitItemsPerSec) : '',
+  )
+  const [retention, setRetention] = useState(
+    customer.retentionDays != null ? String(customer.retentionDays) : '',
+  )
+
+  const update = useMutation({
+    ...updateCustomerMutation(),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(getCustomerQueryKey({ path: { customerId: customer.id } }), updated)
+      void queryClient.invalidateQueries({ queryKey: listCustomersQueryKey() })
+      toast('Customer settings saved')
+    },
+    onError: (error) => toast(apiErrorMessage(error, 'Could not save settings'), 'danger'),
+  })
+
+  // null clears the override; the PATCH body distinguishes present-null from absent.
+  const parseOptional = (raw: string): number | null => {
+    const trimmed = raw.trim()
+    if (trimmed === '') return null
+    const n = Number(trimmed)
+    return Number.isFinite(n) ? n : null
+  }
+
+  const saveQuota = () =>
+    update.mutate({
+      path: { customerId: customer.id },
+      body: { rateLimitItemsPerSec: parseOptional(rateLimit) },
+    })
+  const saveRetention = () => {
+    const days = parseOptional(retention)
+    if (days != null && (days < 1 || days > 30)) {
+      toast('Retention must be between 1 and 30 days', 'danger')
+      return
+    }
+    update.mutate({ path: { customerId: customer.id }, body: { retentionDays: days } })
+  }
+
+  return (
+    <div className="flex max-w-xl flex-col gap-4">
+      <section className="flex flex-col gap-2 rounded-lg border border-line bg-surface p-4">
+        <Label htmlFor="rate-limit">Ingest quota (items/sec)</Label>
+        <div className="flex items-center gap-2">
+          <Input
+            id="rate-limit"
+            type="number"
+            min={1}
+            className="max-w-40"
+            placeholder="unlimited"
+            value={rateLimit}
+            disabled={!editable}
+            onChange={(e) => setRateLimit(e.target.value)}
+          />
+          {editable && (
+            <Button variant="outline" size="sm" onClick={saveQuota} disabled={update.isPending}>
+              Save
+            </Button>
+          )}
+        </div>
+        <p className="text-[11px] text-ink-3">
+          Enforced at the gateway within ~30s. Over-quota requests get a retryable
+          429 / RESOURCE_EXHAUSTED. Leave blank for unlimited.
+        </p>
+      </section>
+
+      <section className="flex flex-col gap-2 rounded-lg border border-line bg-surface p-4">
+        <Label htmlFor="retention">Retention (days)</Label>
+        <div className="flex items-center gap-2">
+          <Input
+            id="retention"
+            type="number"
+            min={1}
+            max={30}
+            className="max-w-40"
+            placeholder="30 (default)"
+            value={retention}
+            disabled={!editable}
+            onChange={(e) => setRetention(e.target.value)}
+          />
+          {editable && (
+            <Button variant="outline" size="sm" onClick={saveRetention} disabled={update.isPending}>
+              Save
+            </Button>
+          )}
+        </div>
+        <p className="text-[11px] text-ink-3">
+          Telemetry older than this is deleted by the nightly sweep. Leave blank to keep the
+          global 30-day retention (1–30 days).
+        </p>
+      </section>
+    </div>
   )
 }
 

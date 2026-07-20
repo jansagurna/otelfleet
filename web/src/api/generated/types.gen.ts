@@ -39,6 +39,14 @@ export type Customer = {
      */
     clientId: string;
     status: 'active' | 'suspended' | 'deleted';
+    /**
+     * Ingest quota in items/sec across signals; null = unlimited. Enforced at the gateway within the 30s auth cache.
+     */
+    rateLimitItemsPerSec?: number | null;
+    /**
+     * Telemetry retention override; null = global table TTL (30 days).
+     */
+    retentionDays?: number | null;
     createdAt: string;
 };
 
@@ -315,6 +323,64 @@ export type AuditEntry = {
         [key: string]: unknown;
     } | null;
     createdAt: string;
+};
+
+export type CustomerCost = {
+    customerId: string;
+    name: string;
+    /**
+     * Total items in the range
+     */
+    items: number;
+    /**
+     * Estimated ingested bytes in the range (in-memory row size, not compressed-at-rest).
+     */
+    bytes: number;
+    days: Array<{
+        date: string;
+        items: number;
+        bytes: number;
+    }>;
+};
+
+export type WebhookEvent = 'agent_offline' | 'agent_config_failed' | 'agent_unhealthy';
+
+export type Webhook = {
+    id: string;
+    name: string;
+    url: string;
+    events: Array<WebhookEvent>;
+    enabled: boolean;
+    /**
+     * True when deliveries are HMAC-SHA256-signed (X-Otelfleet-Signature).
+     */
+    hasSecret: boolean;
+    createdAt: string;
+};
+
+export type WebhookCreate = {
+    name: string;
+    /**
+     * Must be https:// (http allowed only for localhost)
+     */
+    url: string;
+    events: Array<WebhookEvent>;
+    /**
+     * HMAC signing secret; encrypted at rest
+     */
+    secret?: string | null;
+    enabled?: boolean;
+};
+
+export type WebhookUpdate = {
+    name?: string;
+    url?: string;
+    events?: Array<WebhookEvent>;
+    /**
+     * Omit = keep; empty string = remove signing
+     */
+    secret?: string | null;
+    enabled?: boolean;
 };
 
 export type AgentClass = 'gateway' | 'edge';
@@ -663,6 +729,14 @@ export type UpdateCustomerData = {
     body: {
         name?: string;
         status?: 'active' | 'suspended';
+        /**
+         * Set null to remove the quota.
+         */
+        rateLimitItemsPerSec?: number | null;
+        /**
+         * Set null to fall back to the global TTL.
+         */
+        retentionDays?: number | null;
     };
     path: {
         customerId: string;
@@ -1914,3 +1988,212 @@ export type ListAuditLogResponses = {
 };
 
 export type ListAuditLogResponse = ListAuditLogResponses[keyof ListAuditLogResponses];
+
+export type GetCostStatsData = {
+    body?: never;
+    path?: never;
+    query: {
+        from: string;
+        to: string;
+    };
+    url: '/api/v1/stats/cost';
+};
+
+export type GetCostStatsErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+};
+
+export type GetCostStatsError = GetCostStatsErrors[keyof GetCostStatsErrors];
+
+export type GetCostStatsResponses = {
+    /**
+     * Cost breakdown
+     */
+    200: {
+        customers: Array<CustomerCost>;
+    };
+};
+
+export type GetCostStatsResponse = GetCostStatsResponses[keyof GetCostStatsResponses];
+
+export type ListWebhooksData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/settings/webhooks';
+};
+
+export type ListWebhooksErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+};
+
+export type ListWebhooksError = ListWebhooksErrors[keyof ListWebhooksErrors];
+
+export type ListWebhooksResponses = {
+    /**
+     * Webhooks
+     */
+    200: {
+        webhooks: Array<Webhook>;
+    };
+};
+
+export type ListWebhooksResponse = ListWebhooksResponses[keyof ListWebhooksResponses];
+
+export type CreateWebhookData = {
+    body: WebhookCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/settings/webhooks';
+};
+
+export type CreateWebhookErrors = {
+    /**
+     * Validation error
+     */
+    400: Error;
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+};
+
+export type CreateWebhookError = CreateWebhookErrors[keyof CreateWebhookErrors];
+
+export type CreateWebhookResponses = {
+    /**
+     * Created webhook
+     */
+    201: Webhook;
+};
+
+export type CreateWebhookResponse = CreateWebhookResponses[keyof CreateWebhookResponses];
+
+export type DeleteWebhookData = {
+    body?: never;
+    path: {
+        webhookId: string;
+    };
+    query?: never;
+    url: '/api/v1/settings/webhooks/{webhookId}';
+};
+
+export type DeleteWebhookErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+};
+
+export type DeleteWebhookError = DeleteWebhookErrors[keyof DeleteWebhookErrors];
+
+export type DeleteWebhookResponses = {
+    /**
+     * Deleted
+     */
+    204: void;
+};
+
+export type DeleteWebhookResponse = DeleteWebhookResponses[keyof DeleteWebhookResponses];
+
+export type UpdateWebhookData = {
+    body: WebhookUpdate;
+    path: {
+        webhookId: string;
+    };
+    query?: never;
+    url: '/api/v1/settings/webhooks/{webhookId}';
+};
+
+export type UpdateWebhookErrors = {
+    /**
+     * Validation error
+     */
+    400: Error;
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+};
+
+export type UpdateWebhookError = UpdateWebhookErrors[keyof UpdateWebhookErrors];
+
+export type UpdateWebhookResponses = {
+    /**
+     * Updated webhook
+     */
+    200: Webhook;
+};
+
+export type UpdateWebhookResponse = UpdateWebhookResponses[keyof UpdateWebhookResponses];
+
+export type TestWebhookData = {
+    body?: never;
+    path: {
+        webhookId: string;
+    };
+    query?: never;
+    url: '/api/v1/settings/webhooks/{webhookId}/test';
+};
+
+export type TestWebhookErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+};
+
+export type TestWebhookError = TestWebhookErrors[keyof TestWebhookErrors];
+
+export type TestWebhookResponses = {
+    /**
+     * Delivery result
+     */
+    200: {
+        ok: boolean;
+        /**
+         * HTTP status or error from the receiver
+         */
+        message: string;
+    };
+};
+
+export type TestWebhookResponse = TestWebhookResponses[keyof TestWebhookResponses];

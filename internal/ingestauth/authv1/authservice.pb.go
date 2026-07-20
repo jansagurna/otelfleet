@@ -74,8 +74,12 @@ type ValidateAPIKeyResponse struct {
 	ClientId   string `protobuf:"bytes,3,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`       // stamped as resource attribute tenant.id
 	// How long the caller may cache this positive result.
 	CacheTtlSeconds uint32 `protobuf:"varint,4,opt,name=cache_ttl_seconds,json=cacheTtlSeconds,proto3" json:"cache_ttl_seconds,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Per-tenant ingest quota in items (log records / spans / metric points)
+	// per second; 0 = unlimited. Enforced by the tenantquota processor via a
+	// local token bucket; limit changes propagate within the cache TTL.
+	RateLimitItemsPerSec uint32 `protobuf:"varint,5,opt,name=rate_limit_items_per_sec,json=rateLimitItemsPerSec,proto3" json:"rate_limit_items_per_sec,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *ValidateAPIKeyResponse) Reset() {
@@ -136,19 +140,27 @@ func (x *ValidateAPIKeyResponse) GetCacheTtlSeconds() uint32 {
 	return 0
 }
 
+func (x *ValidateAPIKeyResponse) GetRateLimitItemsPerSec() uint32 {
+	if x != nil {
+		return x.RateLimitItemsPerSec
+	}
+	return 0
+}
+
 var File_authservice_proto protoreflect.FileDescriptor
 
 const file_authservice_proto_rawDesc = "" +
 	"\n" +
 	"\x11authservice.proto\x12\x11otelfleet.auth.v1\"0\n" +
 	"\x15ValidateAPIKeyRequest\x12\x17\n" +
-	"\aapi_key\x18\x01 \x01(\tR\x06apiKey\"\x98\x01\n" +
+	"\aapi_key\x18\x01 \x01(\tR\x06apiKey\"\xd0\x01\n" +
 	"\x16ValidateAPIKeyResponse\x12\x14\n" +
 	"\x05valid\x18\x01 \x01(\bR\x05valid\x12\x1f\n" +
 	"\vcustomer_id\x18\x02 \x01(\tR\n" +
 	"customerId\x12\x1b\n" +
 	"\tclient_id\x18\x03 \x01(\tR\bclientId\x12*\n" +
-	"\x11cache_ttl_seconds\x18\x04 \x01(\rR\x0fcacheTtlSeconds2t\n" +
+	"\x11cache_ttl_seconds\x18\x04 \x01(\rR\x0fcacheTtlSeconds\x126\n" +
+	"\x18rate_limit_items_per_sec\x18\x05 \x01(\rR\x14rateLimitItemsPerSec2t\n" +
 	"\vAuthService\x12e\n" +
 	"\x0eValidateAPIKey\x12(.otelfleet.auth.v1.ValidateAPIKeyRequest\x1a).otelfleet.auth.v1.ValidateAPIKeyResponseB?Z=github.com/sag-solutions/otelfleet/internal/ingestauth/authv1b\x06proto3"
 

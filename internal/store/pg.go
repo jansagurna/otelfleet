@@ -27,11 +27,12 @@ var _ Store = (*PG)(nil)
 // Ping reports database reachability (used by /readyz).
 func (s *PG) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
 
-const customerCols = `id, slug, name, client_id, status, created_at, updated_at`
+const customerCols = `id, slug, name, client_id, status, rate_limit_items_per_sec, retention_days, created_at, updated_at`
 
 func scanCustomer(row pgx.Row) (Customer, error) {
 	var c Customer
-	err := row.Scan(&c.ID, &c.Slug, &c.Name, &c.ClientID, &c.Status, &c.CreatedAt, &c.UpdatedAt)
+	err := row.Scan(&c.ID, &c.Slug, &c.Name, &c.ClientID, &c.Status,
+		&c.RateLimitItemsPerSec, &c.RetentionDays, &c.CreatedAt, &c.UpdatedAt)
 	return c, err
 }
 
@@ -134,10 +135,16 @@ func (s *PG) UpdateCustomer(ctx context.Context, id uuid.UUID, upd CustomerUpdat
 		var err error
 		cust, err = scanCustomer(tx.QueryRow(ctx, `
 			UPDATE customers
-			SET name = COALESCE($2, name), status = COALESCE($3, status), updated_at = now()
+			SET name   = COALESCE($2, name),
+			    status = COALESCE($3, status),
+			    rate_limit_items_per_sec = CASE WHEN $4 THEN $5 ELSE rate_limit_items_per_sec END,
+			    retention_days           = CASE WHEN $6 THEN $7 ELSE retention_days END,
+			    updated_at = now()
 			WHERE id = $1 AND status <> 'deleted'
 			RETURNING `+customerCols,
-			id, upd.Name, upd.Status))
+			id, upd.Name, upd.Status,
+			upd.RateLimitItemsPerSec.Set, upd.RateLimitItemsPerSec.Value,
+			upd.RetentionDays.Set, upd.RetentionDays.Value))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}
@@ -273,7 +280,8 @@ func (s *PG) RevokeAPIKey(ctx context.Context, customerID, keyID uuid.UUID, entr
 // with their customer. Expiry and customer status are checked by the caller.
 func (s *PG) ActiveKeysByPrefix(ctx context.Context, prefix string) ([]AuthKey, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT k.id, k.customer_id, c.client_id, k.key_hash, c.status, k.expires_at
+		SELECT k.id, k.customer_id, c.client_id, k.key_hash, c.status, k.expires_at,
+		       COALESCE(c.rate_limit_items_per_sec, 0)
 		FROM api_keys k
 		JOIN customers c ON c.id = k.customer_id
 		WHERE k.key_prefix = $1 AND k.revoked_at IS NULL`, prefix)
@@ -284,7 +292,7 @@ func (s *PG) ActiveKeysByPrefix(ctx context.Context, prefix string) ([]AuthKey, 
 	var out []AuthKey
 	for rows.Next() {
 		var k AuthKey
-		if err := rows.Scan(&k.KeyID, &k.CustomerID, &k.ClientID, &k.KeyHash, &k.CustomerStatus, &k.ExpiresAt); err != nil {
+		if err := rows.Scan(&k.KeyID, &k.CustomerID, &k.ClientID, &k.KeyHash, &k.CustomerStatus, &k.ExpiresAt, &k.RateLimitItemsPerSec); err != nil {
 			return nil, err
 		}
 		out = append(out, k)

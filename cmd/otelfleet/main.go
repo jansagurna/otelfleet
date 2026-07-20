@@ -31,7 +31,9 @@ import (
 	"github.com/sag-solutions/otelfleet/internal/ingestauth/authv1"
 	"github.com/sag-solutions/otelfleet/internal/opamp"
 	"github.com/sag-solutions/otelfleet/internal/pipelines"
+	"github.com/sag-solutions/otelfleet/internal/retention"
 	"github.com/sag-solutions/otelfleet/internal/stats"
+	"github.com/sag-solutions/otelfleet/internal/webhooks"
 	"github.com/sag-solutions/otelfleet/internal/store"
 	"github.com/sag-solutions/otelfleet/internal/tenants"
 )
@@ -129,12 +131,20 @@ func run(log *slog.Logger) error {
 	opampSrv := opamp.NewServer(st, pipelinesSvc, cfg.OpAMPAddr, log)
 	pipelinesSvc.SetEdgeNotifier(opampSrv)
 
+	// Alerting webhooks: the dispatcher consumes fleet events from the OpAMP
+	// module through a bounded queue and delivers signed POSTs out of band.
+	webhookDispatcher := webhooks.New(st, cipher, log)
+	opampSrv.Handler().SetEventSink(webhookDispatcher)
+
+	// Per-customer telemetry retention sweep.
+	retentionSvc := retention.New(chConn, st, cfg.RetentionInterval, log)
+
 	// Login provider registry: database providers + the OTELFLEET_OIDC_* env
 	// provider, resolved per request under /auth/{name}/...
 	authRegistry := auth.NewRegistry(cfg, st, cipher, sessions, log)
 
 	// REST API server.
-	server := api.NewServer(cfg, st, tenantsSvc, pipelinesSvc, statsSvc, sessions, authRegistry, cipher, opampSrv, log)
+	server := api.NewServer(cfg, st, tenantsSvc, pipelinesSvc, statsSvc, sessions, authRegistry, cipher, opampSrv, webhookDispatcher, log)
 	httpSrv := &http.Server{
 		Addr: cfg.HTTPAddr,
 		Handler: api.NewRouter(api.RouterDeps{
@@ -187,6 +197,14 @@ func run(log *slog.Logger) error {
 	})
 	g.Go(func() error {
 		ingestAuth.Run(gctx) // flushes batched last_used_at updates; final flush on cancel
+		return nil
+	})
+	g.Go(func() error {
+		webhookDispatcher.Run(gctx) // drains the event queue; stops on cancel
+		return nil
+	})
+	g.Go(func() error {
+		retentionSvc.Run(gctx) // nightly per-customer retention sweep
 		return nil
 	})
 	g.Go(func() error {

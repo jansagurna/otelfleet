@@ -1,0 +1,43 @@
+/*
+ * React Flow chrome mapped onto the otelfleet token system so the canvas
+ * reads as part of the app in both themes. Custom nodes carry their own
+ * card styling; this only covers edges, handles, and controls.
+ */
+.react-flow {
+  --xy-edge-stroke: color-mix(in oklab, var(--ink-3) 65%, transparent);
+  --xy-edge-stroke-selected: var(--accent);
+  --xy-handle-background-color: var(--ink-3);
+  --xy-handle-border-color: var(--surface);
+  --xy-controls-button-background-color: var(--surface);
+  --xy-controls-button-background-color-hover: var(--surface-2);
+  --xy-controls-button-color: var(--ink-2);
+  --xy-controls-button-color-hover: var(--ink);
+  --xy-controls-button-border-color: var(--line);
+  --xy-attribution-background-color: transparent;
+  background: transparent;
+}
+
+/* Edges are derived from the chain order — they are display-only. */
+.react-flow__handle {
+  width: 6px;
+  height: 6px;
+  border: 1px solid var(--surface);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.react-flow__edge {
+  pointer-events: none;
+}
+
+.react-flow__controls {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: none;
+}
+
+.react-flow__attribution a {
+  color: var(--ink-3);
+  font-size: 10px;
+}

@@ -4,6 +4,7 @@ import {
   Building2,
   ChartLine,
   ChevronsUpDown,
+  Coins,
   LayoutDashboard,
   LogOut,
   Moon,
@@ -66,6 +67,7 @@ const NAV_ITEMS: {
   { to: '/pipelines', label: 'Pipelines', icon: Network },
   { to: '/fleet', label: 'Fleet', icon: Ship },
   { to: '/metrics', label: 'Metrics', icon: ChartLine },
+  { to: '/costs', label: 'Costs', icon: Coins },
   { to: '/audit', label: 'Audit', icon: ScrollText, adminOnly: true },
   { to: '/settings', label: 'Settings', icon: Settings, adminOnly: true },
 ]

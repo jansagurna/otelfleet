@@ -42,6 +42,12 @@ processors:
   # tenantstamp must run before batch: batch drops the per-request context
   # that carries the authenticated tenant identity.
   tenantstamp: {}
+  # tenantquota enforces the per-tenant items/sec limit resolved by tenantauth
+  # (rate_limit_items_per_sec; 0 = unlimited). Placed after tenantstamp (needs
+  # the auth context) and before batch (so rejections reach the client
+  # synchronously as gRPC RESOURCE_EXHAUSTED / HTTP 429).
+  tenantquota:
+    burst_seconds: 2
   batch:
     send_batch_size: 8192
     timeout: 5s
@@ -100,15 +106,15 @@ service:
   pipelines:
     logs:
       receivers: [otlp]
-      processors: [memory_limiter, tenantstamp, batch]
+      processors: [memory_limiter, tenantstamp, tenantquota, batch]
       exporters: [count, clickhouse, otlp/forwardtier]
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, tenantstamp, batch]
+      processors: [memory_limiter, tenantstamp, tenantquota, batch]
       exporters: [count, clickhouse, otlp/forwardtier]
     metrics:
       receivers: [otlp]
-      processors: [memory_limiter, tenantstamp, batch]
+      processors: [memory_limiter, tenantstamp, tenantquota, batch]
       exporters: [count, clickhouse, otlp/forwardtier]
     metrics/internal:
       receivers: [count]

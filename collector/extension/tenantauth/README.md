@@ -8,8 +8,18 @@ must present an ingest API key in `Authorization: Bearer <key>` or `X-Api-Key`
 Keys are validated against the control plane's `otelfleet.auth.v1.AuthService`
 (`proto/authservice.proto`; this module generates its own stubs, see
 `buf.gen.yaml`). On success the resolved identity is attached to `client.Info`
-as `client.AuthData` with attributes `tenant.id`, `client.id`, `customer.id` —
-consumed by the `tenantstamp` processor.
+as `client.AuthData` with these attributes:
+
+| Attribute                  | Type   | Consumed by | Meaning |
+|----------------------------|--------|-------------|---------|
+| `tenant.id`                | string | tenantstamp | Tenant identity stamped on resources |
+| `client.id`                | string | tenantstamp | Same as tenant.id today |
+| `customer.id`              | string | tenantstamp | Owning customer UUID |
+| `rate_limit_items_per_sec` | int64  | tenantquota | Per-tenant ingest quota in items/sec; `0` = unlimited |
+
+`rate_limit_items_per_sec` is an **int64** (not a string). It is cached with
+the same TTL as the identity, so a limit change in the control plane takes
+effect within `cache.ttl` (30s in the shipped gateway config).
 
 ## Caching / failure behavior
 

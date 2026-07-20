@@ -47,6 +47,14 @@ type ConfigRenderer interface {
 	RenderEdgeCurrent(ctx context.Context, customerID uuid.UUID) (string, error)
 }
 
+// FleetEventSink receives agent lifecycle events for out-of-band consumers
+// (the webhook dispatcher). eventType is one of the store.WebhookEventAgent*
+// constants. Implementations must not block — the OpAMP message path calls
+// this inline.
+type FleetEventSink interface {
+	AgentEvent(eventType string, agentID, customerID uuid.UUID, detail map[string]any)
+}
+
 // ConnAuth is the customer binding of an authenticated OpAMP connection.
 type ConnAuth struct {
 	TokenID    uuid.UUID
@@ -64,12 +72,24 @@ type Handler struct {
 	store  Store
 	render ConfigRenderer
 	reg    *registry
+	events FleetEventSink // nil: no subscriber
 	log    *slog.Logger
 }
 
 // NewHandler wires the message handler.
 func NewHandler(st Store, render ConfigRenderer, log *slog.Logger) *Handler {
 	return &Handler{store: st, render: render, reg: newRegistry(), log: log}
+}
+
+// SetEventSink registers the fleet-event subscriber (webhook dispatcher).
+// Must be called before the server starts accepting connections.
+func (h *Handler) SetEventSink(sink FleetEventSink) { h.events = sink }
+
+// emitEvent forwards an agent lifecycle event to the sink, if any.
+func (h *Handler) emitEvent(eventType string, agentID, customerID uuid.UUID, detail map[string]any) {
+	if h.events != nil {
+		h.events.AgentEvent(eventType, agentID, customerID, detail)
+	}
 }
 
 // Authenticate validates the bootstrap token of an incoming OpAMP request
@@ -320,6 +340,9 @@ func (h *Handler) handleRemoteConfigStatus(ctx context.Context, st *agentConn, r
 		h.log.Error("opamp: set remote config status failed", "agent", st.agentID, "err", err)
 		return
 	}
+	if status == store.RemoteConfigFailed {
+		h.emitEvent(store.WebhookEventAgentConfigFailed, st.agentID, st.customerID, detail)
+	}
 	st.remoteConfigStatus = status
 	h.reg.update(st.instanceUID, func(a *agentConn) { a.remoteConfigStatus = status })
 }
@@ -356,6 +379,16 @@ func (h *Handler) handleHealth(ctx context.Context, st *agentConn, health *proto
 	if err := h.store.SetAgentHealth(ctx, st.agentID, payload, healthy, flip); err != nil {
 		h.log.Error("opamp: set health failed", "agent", st.agentID, "err", err)
 		return
+	}
+	if flip != nil && !healthy {
+		detail := map[string]any{}
+		if s := health.GetStatus(); s != "" {
+			detail["status"] = s
+		}
+		if e := health.GetLastError(); e != "" {
+			detail["lastError"] = e
+		}
+		h.emitEvent(store.WebhookEventAgentUnhealthy, st.agentID, st.customerID, detail)
 	}
 	st.healthy = &healthy
 	h.reg.update(st.instanceUID, func(a *agentConn) { a.healthy = &healthy })
@@ -400,6 +433,7 @@ func (h *Handler) HandleConnectionClose(conn types.Connection) {
 	if err := h.store.SetAgentConnected(ctx, st.agentID, false, at); err != nil {
 		h.log.Error("opamp: mark agent disconnected failed", "agent", st.agentID, "err", err)
 	}
+	h.emitEvent(store.WebhookEventAgentOffline, st.agentID, st.customerID, nil)
 }
 
 // EdgeConfigChanged implements pipelines.EdgeNotifier: re-render the

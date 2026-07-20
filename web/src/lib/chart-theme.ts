@@ -57,19 +57,26 @@ export const SIGNAL_LABEL: Record<Signal, string> = {
 
 /**
  * Categorical palette for "color by entity" charts (metrics explorer:
- * one hue per customer). Deliberately distinct hues from the signal
- * palette so a customer line never reads as a signal. Order is rank —
- * slot follows selection order, up to 4 concurrent series.
+ * one hue per customer; costs: one hue per customer stack). Deliberately
+ * distinct hues from the signal palette so a customer series never reads
+ * as a signal. Order is rank — slot follows selection order / volume rank.
+ * Slots 5-8 extend the original 4 for the costs breakdown (max 8 + other).
  */
 export const CATEGORICAL_COLOR: Record<Theme, readonly string[]> = {
-  light: ['#6d4fc4', '#0f766e', '#c05717', '#245a8f'],
-  dark: ['#9a7ee8', '#2aa198', '#e08a4a', '#5b9bd5'],
+  light: ['#6d4fc4', '#0f766e', '#c05717', '#245a8f', '#a13a6e', '#647d1f', '#8d6e63', '#5c6bc0'],
+  dark: ['#9a7ee8', '#2aa198', '#e08a4a', '#5b9bd5', '#d4739f', '#9db35c', '#b3948a', '#8d9ae0'],
 }
 
 /** Lighter companion tones for dashed previous-period comparison series. */
 export const CATEGORICAL_COLOR_MUTED: Record<Theme, readonly string[]> = {
-  light: ['#b3a3e3', '#8fc4bf', '#e3b294', '#9dbedd'],
-  dark: ['#5d4c8a', '#1d6b64', '#8a5730', '#3b628a'],
+  light: ['#b3a3e3', '#8fc4bf', '#e3b294', '#9dbedd', '#d9a3c0', '#b6c48d', '#c5b3ad', '#aeb6e2'],
+  dark: ['#5d4c8a', '#1d6b64', '#8a5730', '#3b628a', '#844863', '#61703a', '#6f5c55', '#57608c'],
+}
+
+/** Neutral tone for aggregate "other" buckets in categorical charts. */
+export const CATEGORICAL_OTHER_COLOR: Record<Theme, string> = {
+  light: '#898781',
+  dark: '#6e6d68',
 }
 
 export const SIGNALS: readonly Signal[] = ['logs', 'traces', 'metrics'] as const

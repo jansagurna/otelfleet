@@ -157,6 +157,16 @@ paths:
               properties:
                 name: { type: string, minLength: 1, maxLength: 200 }
                 status: { type: string, enum: [active, suspended] }
+                rateLimitItemsPerSec:
+                  type: integer
+                  nullable: true
+                  description: Set null to remove the quota.
+                retentionDays:
+                  type: integer
+                  nullable: true
+                  minimum: 1
+                  maximum: 30
+                  description: Set null to fall back to the global TTL.
       responses:
         "200":
           description: Updated customer
@@ -865,6 +875,120 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
+  /api/v1/stats/cost:
+    get:
+      tags: [stats]
+      operationId: getCostStats
+      summary: Ingest volume per customer (items + estimated bytes, daily buckets)
+      parameters:
+        - { name: from, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: Cost breakdown
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [customers]
+                properties:
+                  customers:
+                    type: array
+                    items: { $ref: "#/components/schemas/CustomerCost" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/settings/webhooks:
+    get:
+      tags: [admin]
+      operationId: listWebhooks
+      summary: List alerting webhooks (admin only, secrets never returned)
+      responses:
+        "200":
+          description: Webhooks
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [webhooks]
+                properties:
+                  webhooks:
+                    type: array
+                    items: { $ref: "#/components/schemas/Webhook" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [admin]
+      operationId: createWebhook
+      summary: Add an alerting webhook (HMAC-SHA256-signed when a secret is set)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WebhookCreate" }
+      responses:
+        "201":
+          description: Created webhook
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Webhook" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/settings/webhooks/{webhookId}:
+    parameters:
+      - { name: webhookId, in: path, required: true, schema: { type: string, format: uuid } }
+    patch:
+      tags: [admin]
+      operationId: updateWebhook
+      summary: Update a webhook; omit secret to keep the stored one
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WebhookUpdate" }
+      responses:
+        "200":
+          description: Updated webhook
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Webhook" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [admin]
+      operationId: deleteWebhook
+      summary: Delete a webhook
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/settings/webhooks/{webhookId}/test:
+    parameters:
+      - { name: webhookId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [admin]
+      operationId: testWebhook
+      summary: Send a signed test event to the webhook URL
+      responses:
+        "200":
+          description: Delivery result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, message]
+                properties:
+                  ok: { type: boolean }
+                  message: { type: string, description: HTTP status or error from the receiver }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
 components:
   responses:
     Unauthorized:
@@ -941,6 +1065,16 @@ components:
           example: cust_7f3a9b2c
           description: Stamped as resource attribute `tenant.id` on all ingested data.
         status: { type: string, enum: [active, suspended, deleted] }
+        rateLimitItemsPerSec:
+          type: integer
+          nullable: true
+          description: Ingest quota in items/sec across signals; null = unlimited. Enforced at the gateway within the 30s auth cache.
+        retentionDays:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 30
+          description: Telemetry retention override; null = global table TTL (30 days).
         createdAt: { type: string, format: date-time }
 
     CustomerCreate:
@@ -1259,6 +1393,72 @@ components:
           additionalProperties: true
           nullable: true
         createdAt: { type: string, format: date-time }
+
+    CustomerCost:
+      type: object
+      required: [customerId, name, items, bytes, days]
+      properties:
+        customerId: { type: string, format: uuid }
+        name: { type: string }
+        items: { type: integer, format: int64, description: Total items in the range }
+        bytes:
+          type: integer
+          format: int64
+          description: Estimated ingested bytes in the range (in-memory row size, not compressed-at-rest).
+        days:
+          type: array
+          items:
+            type: object
+            required: [date, items, bytes]
+            properties:
+              date: { type: string, format: date }
+              items: { type: integer, format: int64 }
+              bytes: { type: integer, format: int64 }
+
+    WebhookEvent:
+      type: string
+      enum: [agent_offline, agent_config_failed, agent_unhealthy]
+
+    Webhook:
+      type: object
+      required: [id, name, url, events, enabled, hasSecret, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        url: { type: string }
+        events:
+          type: array
+          items: { $ref: "#/components/schemas/WebhookEvent" }
+        enabled: { type: boolean }
+        hasSecret:
+          type: boolean
+          description: True when deliveries are HMAC-SHA256-signed (X-Otelfleet-Signature).
+        createdAt: { type: string, format: date-time }
+
+    WebhookCreate:
+      type: object
+      required: [name, url, events]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        url: { type: string, format: uri, description: Must be https:// (http allowed only for localhost) }
+        events:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/WebhookEvent" }
+        secret: { type: string, nullable: true, description: HMAC signing secret; encrypted at rest }
+        enabled: { type: boolean, default: true }
+
+    WebhookUpdate:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        url: { type: string, format: uri }
+        events:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/WebhookEvent" }
+        secret: { type: string, nullable: true, description: "Omit = keep; empty string = remove signing" }
+        enabled: { type: boolean }
 
     AgentClass:
       type: string

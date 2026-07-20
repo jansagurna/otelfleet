@@ -326,6 +326,27 @@ func (e Signal) Valid() bool {
 	}
 }
 
+// Defines values for WebhookEvent.
+const (
+	AgentConfigFailed WebhookEvent = "agent_config_failed"
+	AgentOffline      WebhookEvent = "agent_offline"
+	AgentUnhealthy    WebhookEvent = "agent_unhealthy"
+)
+
+// Valid indicates whether the value is a known member of the WebhookEvent enum.
+func (e WebhookEvent) Valid() bool {
+	switch e {
+	case AgentConfigFailed:
+		return true
+	case AgentOffline:
+		return true
+	case AgentUnhealthy:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListAgentsParamsClass.
 const (
 	ListAgentsParamsClassEdge    ListAgentsParamsClass = "edge"
@@ -669,12 +690,34 @@ type Customer struct {
 	CreatedAt time.Time          `json:"createdAt"`
 	Id        openapi_types.UUID `json:"id"`
 	Name      string             `json:"name"`
-	Slug      string             `json:"slug"`
-	Status    CustomerStatus     `json:"status"`
+
+	// RateLimitItemsPerSec Ingest quota in items/sec across signals; null = unlimited. Enforced at the gateway within the 30s auth cache.
+	RateLimitItemsPerSec *int `json:"rateLimitItemsPerSec,omitempty"`
+
+	// RetentionDays Telemetry retention override; null = global table TTL (30 days).
+	RetentionDays *int           `json:"retentionDays,omitempty"`
+	Slug          string         `json:"slug"`
+	Status        CustomerStatus `json:"status"`
 }
 
 // CustomerStatus defines model for Customer.Status.
 type CustomerStatus string
+
+// CustomerCost defines model for CustomerCost.
+type CustomerCost struct {
+	// Bytes Estimated ingested bytes in the range (in-memory row size, not compressed-at-rest).
+	Bytes      int64              `json:"bytes"`
+	CustomerId openapi_types.UUID `json:"customerId"`
+	Days       []struct {
+		Bytes int64              `json:"bytes"`
+		Date  openapi_types.Date `json:"date"`
+		Items int64              `json:"items"`
+	} `json:"days"`
+
+	// Items Total items in the range
+	Items int64  `json:"items"`
+	Name  string `json:"name"`
+}
 
 // CustomerCreate defines model for CustomerCreate.
 type CustomerCreate struct {
@@ -908,6 +951,46 @@ type ValidationResult struct {
 	Valid        bool    `json:"valid"`
 }
 
+// Webhook defines model for Webhook.
+type Webhook struct {
+	CreatedAt time.Time      `json:"createdAt"`
+	Enabled   bool           `json:"enabled"`
+	Events    []WebhookEvent `json:"events"`
+
+	// HasSecret True when deliveries are HMAC-SHA256-signed (X-Otelfleet-Signature).
+	HasSecret bool               `json:"hasSecret"`
+	Id        openapi_types.UUID `json:"id"`
+	Name      string             `json:"name"`
+	Url       string             `json:"url"`
+}
+
+// WebhookCreate defines model for WebhookCreate.
+type WebhookCreate struct {
+	Enabled *bool          `json:"enabled,omitempty"`
+	Events  []WebhookEvent `json:"events"`
+	Name    string         `json:"name"`
+
+	// Secret HMAC signing secret; encrypted at rest
+	Secret *string `json:"secret,omitempty"`
+
+	// Url Must be https:// (http allowed only for localhost)
+	Url string `json:"url"`
+}
+
+// WebhookEvent defines model for WebhookEvent.
+type WebhookEvent string
+
+// WebhookUpdate defines model for WebhookUpdate.
+type WebhookUpdate struct {
+	Enabled *bool           `json:"enabled,omitempty"`
+	Events  *[]WebhookEvent `json:"events,omitempty"`
+	Name    *string         `json:"name,omitempty"`
+
+	// Secret Omit = keep; empty string = remove signing
+	Secret *string `json:"secret,omitempty"`
+	Url    *string `json:"url,omitempty"`
+}
+
 // BadRequest defines model for BadRequest.
 type BadRequest = Error
 
@@ -967,8 +1050,14 @@ type ListCustomersParamsStatus string
 
 // UpdateCustomerJSONBody defines parameters for UpdateCustomer.
 type UpdateCustomerJSONBody struct {
-	Name   *string                       `json:"name,omitempty"`
-	Status *UpdateCustomerJSONBodyStatus `json:"status,omitempty"`
+	Name *string `json:"name,omitempty"`
+
+	// RateLimitItemsPerSec Set null to remove the quota.
+	RateLimitItemsPerSec *int `json:"rateLimitItemsPerSec,omitempty"`
+
+	// RetentionDays Set null to fall back to the global TTL.
+	RetentionDays *int                          `json:"retentionDays,omitempty"`
+	Status        *UpdateCustomerJSONBodyStatus `json:"status,omitempty"`
 }
 
 // UpdateCustomerJSONBodyStatus defines parameters for UpdateCustomer.
@@ -1032,6 +1121,12 @@ type CreatePipelineVersionJSONBody struct {
 	Graph PipelineGraph `json:"graph"`
 }
 
+// GetCostStatsParams defines parameters for GetCostStats.
+type GetCostStatsParams struct {
+	From time.Time `form:"from" json:"from"`
+	To   time.Time `form:"to" json:"to"`
+}
+
 // GetStatsOverviewParams defines parameters for GetStatsOverview.
 type GetStatsOverviewParams struct {
 	From time.Time `form:"from" json:"from"`
@@ -1079,6 +1174,12 @@ type CreateAuthProviderConfigJSONRequestBody = AuthProviderConfigCreate
 
 // UpdateAuthProviderConfigJSONRequestBody defines body for UpdateAuthProviderConfig for application/json ContentType.
 type UpdateAuthProviderConfigJSONRequestBody = AuthProviderConfigUpdate
+
+// CreateWebhookJSONRequestBody defines body for CreateWebhook for application/json ContentType.
+type CreateWebhookJSONRequestBody = WebhookCreate
+
+// UpdateWebhookJSONRequestBody defines body for UpdateWebhook for application/json ContentType.
+type UpdateWebhookJSONRequestBody = WebhookUpdate
 
 // InviteUserJSONRequestBody defines body for InviteUser for application/json ContentType.
 type InviteUserJSONRequestBody InviteUserJSONBody
@@ -1202,6 +1303,24 @@ type ServerInterface interface {
 	// Connectivity test (OIDC discovery / GitHub API reachability)
 	// (POST /api/v1/settings/auth-providers/{providerId}/test)
 	TestAuthProviderConfig(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID)
+	// List alerting webhooks (admin only, secrets never returned)
+	// (GET /api/v1/settings/webhooks)
+	ListWebhooks(w http.ResponseWriter, r *http.Request)
+	// Add an alerting webhook (HMAC-SHA256-signed when a secret is set)
+	// (POST /api/v1/settings/webhooks)
+	CreateWebhook(w http.ResponseWriter, r *http.Request)
+	// Delete a webhook
+	// (DELETE /api/v1/settings/webhooks/{webhookId})
+	DeleteWebhook(w http.ResponseWriter, r *http.Request, webhookId openapi_types.UUID)
+	// Update a webhook; omit secret to keep the stored one
+	// (PATCH /api/v1/settings/webhooks/{webhookId})
+	UpdateWebhook(w http.ResponseWriter, r *http.Request, webhookId openapi_types.UUID)
+	// Send a signed test event to the webhook URL
+	// (POST /api/v1/settings/webhooks/{webhookId}/test)
+	TestWebhook(w http.ResponseWriter, r *http.Request, webhookId openapi_types.UUID)
+	// Ingest volume per customer (items + estimated bytes, daily buckets)
+	// (GET /api/v1/stats/cost)
+	GetCostStats(w http.ResponseWriter, r *http.Request, params GetCostStatsParams)
 	// Fleet-wide totals for the dashboard
 	// (GET /api/v1/stats/overview)
 	GetStatsOverview(w http.ResponseWriter, r *http.Request, params GetStatsOverviewParams)
@@ -1448,6 +1567,42 @@ func (_ Unimplemented) UpdateAuthProviderConfig(w http.ResponseWriter, r *http.R
 // Connectivity test (OIDC discovery / GitHub API reachability)
 // (POST /api/v1/settings/auth-providers/{providerId}/test)
 func (_ Unimplemented) TestAuthProviderConfig(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List alerting webhooks (admin only, secrets never returned)
+// (GET /api/v1/settings/webhooks)
+func (_ Unimplemented) ListWebhooks(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Add an alerting webhook (HMAC-SHA256-signed when a secret is set)
+// (POST /api/v1/settings/webhooks)
+func (_ Unimplemented) CreateWebhook(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete a webhook
+// (DELETE /api/v1/settings/webhooks/{webhookId})
+func (_ Unimplemented) DeleteWebhook(w http.ResponseWriter, r *http.Request, webhookId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update a webhook; omit secret to keep the stored one
+// (PATCH /api/v1/settings/webhooks/{webhookId})
+func (_ Unimplemented) UpdateWebhook(w http.ResponseWriter, r *http.Request, webhookId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Send a signed test event to the webhook URL
+// (POST /api/v1/settings/webhooks/{webhookId}/test)
+func (_ Unimplemented) TestWebhook(w http.ResponseWriter, r *http.Request, webhookId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Ingest volume per customer (items + estimated bytes, daily buckets)
+// (GET /api/v1/stats/cost)
+func (_ Unimplemented) GetCostStats(w http.ResponseWriter, r *http.Request, params GetCostStatsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2632,6 +2787,158 @@ func (siw *ServerInterfaceWrapper) TestAuthProviderConfig(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// ListWebhooks operation middleware
+func (siw *ServerInterfaceWrapper) ListWebhooks(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListWebhooks(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateWebhook operation middleware
+func (siw *ServerInterfaceWrapper) CreateWebhook(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateWebhook(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteWebhook operation middleware
+func (siw *ServerInterfaceWrapper) DeleteWebhook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "webhookId" -------------
+	var webhookId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "webhookId", chi.URLParam(r, "webhookId"), &webhookId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "webhookId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteWebhook(w, r, webhookId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateWebhook operation middleware
+func (siw *ServerInterfaceWrapper) UpdateWebhook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "webhookId" -------------
+	var webhookId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "webhookId", chi.URLParam(r, "webhookId"), &webhookId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "webhookId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateWebhook(w, r, webhookId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TestWebhook operation middleware
+func (siw *ServerInterfaceWrapper) TestWebhook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "webhookId" -------------
+	var webhookId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "webhookId", chi.URLParam(r, "webhookId"), &webhookId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "webhookId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TestWebhook(w, r, webhookId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetCostStats operation middleware
+func (siw *ServerInterfaceWrapper) GetCostStats(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetCostStatsParams
+
+	// ------------- Required query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCostStats(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetStatsOverview operation middleware
 func (siw *ServerInterfaceWrapper) GetStatsOverview(w http.ResponseWriter, r *http.Request) {
 
@@ -2984,6 +3291,24 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/settings/auth-providers/{providerId}/test", wrapper.TestAuthProviderConfig)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/settings/webhooks", wrapper.ListWebhooks)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/settings/webhooks", wrapper.CreateWebhook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/settings/webhooks/{webhookId}", wrapper.DeleteWebhook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/settings/webhooks/{webhookId}", wrapper.UpdateWebhook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/settings/webhooks/{webhookId}/test", wrapper.TestWebhook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/stats/cost", wrapper.GetCostStats)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/stats/overview", wrapper.GetStatsOverview)
@@ -5081,6 +5406,364 @@ func (response TestAuthProviderConfig404JSONResponse) VisitTestAuthProviderConfi
 	return err
 }
 
+type ListWebhooksRequestObject struct {
+}
+
+type ListWebhooksResponseObject interface {
+	VisitListWebhooksResponse(w http.ResponseWriter) error
+}
+
+type ListWebhooks200JSONResponse struct {
+	Webhooks []Webhook `json:"webhooks"`
+}
+
+func (response ListWebhooks200JSONResponse) VisitListWebhooksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListWebhooks401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListWebhooks401JSONResponse) VisitListWebhooksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListWebhooks403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListWebhooks403JSONResponse) VisitListWebhooksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateWebhookRequestObject struct {
+	Body *CreateWebhookJSONRequestBody
+}
+
+type CreateWebhookResponseObject interface {
+	VisitCreateWebhookResponse(w http.ResponseWriter) error
+}
+
+type CreateWebhook201JSONResponse Webhook
+
+func (response CreateWebhook201JSONResponse) VisitCreateWebhookResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateWebhook400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateWebhook400JSONResponse) VisitCreateWebhookResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateWebhook401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateWebhook401JSONResponse) VisitCreateWebhookResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateWebhook403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateWebhook403JSONResponse) VisitCreateWebhookResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteWebhookRequestObject struct {
+	WebhookId openapi_types.UUID `json:"webhookId"`
+}
+
+type DeleteWebhookResponseObject interface {
+	VisitDeleteWebhookResponse(w http.ResponseWriter) error
+}
+
+type DeleteWebhook204Response struct {
+}
+
+func (response DeleteWebhook204Response) VisitDeleteWebhookResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteWebhook401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteWebhook401JSONResponse) VisitDeleteWebhookResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteWebhook403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteWebhook403JSONResponse) VisitDeleteWebhookResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteWebhook404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteWebhook404JSONResponse) VisitDeleteWebhookResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateWebhookRequestObject struct {
+	WebhookId openapi_types.UUID `json:"webhookId"`
+	Body      *UpdateWebhookJSONRequestBody
+}
+
+type UpdateWebhookResponseObject interface {
+	VisitUpdateWebhookResponse(w http.ResponseWriter) error
+}
+
+type UpdateWebhook200JSONResponse Webhook
+
+func (response UpdateWebhook200JSONResponse) VisitUpdateWebhookResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateWebhook400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UpdateWebhook400JSONResponse) VisitUpdateWebhookResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateWebhook401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UpdateWebhook401JSONResponse) VisitUpdateWebhookResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateWebhook403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UpdateWebhook403JSONResponse) VisitUpdateWebhookResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateWebhook404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdateWebhook404JSONResponse) VisitUpdateWebhookResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestWebhookRequestObject struct {
+	WebhookId openapi_types.UUID `json:"webhookId"`
+}
+
+type TestWebhookResponseObject interface {
+	VisitTestWebhookResponse(w http.ResponseWriter) error
+}
+
+type TestWebhook200JSONResponse struct {
+	// Message HTTP status or error from the receiver
+	Message string `json:"message"`
+	Ok      bool   `json:"ok"`
+}
+
+func (response TestWebhook200JSONResponse) VisitTestWebhookResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestWebhook401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response TestWebhook401JSONResponse) VisitTestWebhookResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestWebhook403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response TestWebhook403JSONResponse) VisitTestWebhookResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestWebhook404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response TestWebhook404JSONResponse) VisitTestWebhookResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCostStatsRequestObject struct {
+	Params GetCostStatsParams
+}
+
+type GetCostStatsResponseObject interface {
+	VisitGetCostStatsResponse(w http.ResponseWriter) error
+}
+
+type GetCostStats200JSONResponse struct {
+	Customers []CustomerCost `json:"customers"`
+}
+
+func (response GetCostStats200JSONResponse) VisitGetCostStatsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCostStats401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetCostStats401JSONResponse) VisitGetCostStatsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetStatsOverviewRequestObject struct {
 	Params GetStatsOverviewParams
 }
@@ -5513,6 +6196,24 @@ type StrictServerInterface interface {
 	// Connectivity test (OIDC discovery / GitHub API reachability)
 	// (POST /api/v1/settings/auth-providers/{providerId}/test)
 	TestAuthProviderConfig(ctx context.Context, request TestAuthProviderConfigRequestObject) (TestAuthProviderConfigResponseObject, error)
+	// List alerting webhooks (admin only, secrets never returned)
+	// (GET /api/v1/settings/webhooks)
+	ListWebhooks(ctx context.Context, request ListWebhooksRequestObject) (ListWebhooksResponseObject, error)
+	// Add an alerting webhook (HMAC-SHA256-signed when a secret is set)
+	// (POST /api/v1/settings/webhooks)
+	CreateWebhook(ctx context.Context, request CreateWebhookRequestObject) (CreateWebhookResponseObject, error)
+	// Delete a webhook
+	// (DELETE /api/v1/settings/webhooks/{webhookId})
+	DeleteWebhook(ctx context.Context, request DeleteWebhookRequestObject) (DeleteWebhookResponseObject, error)
+	// Update a webhook; omit secret to keep the stored one
+	// (PATCH /api/v1/settings/webhooks/{webhookId})
+	UpdateWebhook(ctx context.Context, request UpdateWebhookRequestObject) (UpdateWebhookResponseObject, error)
+	// Send a signed test event to the webhook URL
+	// (POST /api/v1/settings/webhooks/{webhookId}/test)
+	TestWebhook(ctx context.Context, request TestWebhookRequestObject) (TestWebhookResponseObject, error)
+	// Ingest volume per customer (items + estimated bytes, daily buckets)
+	// (GET /api/v1/stats/cost)
+	GetCostStats(ctx context.Context, request GetCostStatsRequestObject) (GetCostStatsResponseObject, error)
 	// Fleet-wide totals for the dashboard
 	// (GET /api/v1/stats/overview)
 	GetStatsOverview(ctx context.Context, request GetStatsOverviewRequestObject) (GetStatsOverviewResponseObject, error)
@@ -6597,6 +7298,172 @@ func (sh *strictHandler) TestAuthProviderConfig(w http.ResponseWriter, r *http.R
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(TestAuthProviderConfigResponseObject); ok {
 		if err := validResponse.VisitTestAuthProviderConfigResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListWebhooks operation middleware
+func (sh *strictHandler) ListWebhooks(w http.ResponseWriter, r *http.Request) {
+	var request ListWebhooksRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListWebhooks(ctx, request.(ListWebhooksRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListWebhooks")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListWebhooksResponseObject); ok {
+		if err := validResponse.VisitListWebhooksResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateWebhook operation middleware
+func (sh *strictHandler) CreateWebhook(w http.ResponseWriter, r *http.Request) {
+	var request CreateWebhookRequestObject
+
+	var body CreateWebhookJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateWebhook(ctx, request.(CreateWebhookRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateWebhook")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateWebhookResponseObject); ok {
+		if err := validResponse.VisitCreateWebhookResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteWebhook operation middleware
+func (sh *strictHandler) DeleteWebhook(w http.ResponseWriter, r *http.Request, webhookId openapi_types.UUID) {
+	var request DeleteWebhookRequestObject
+
+	request.WebhookId = webhookId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteWebhook(ctx, request.(DeleteWebhookRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteWebhook")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteWebhookResponseObject); ok {
+		if err := validResponse.VisitDeleteWebhookResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateWebhook operation middleware
+func (sh *strictHandler) UpdateWebhook(w http.ResponseWriter, r *http.Request, webhookId openapi_types.UUID) {
+	var request UpdateWebhookRequestObject
+
+	request.WebhookId = webhookId
+
+	var body UpdateWebhookJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateWebhook(ctx, request.(UpdateWebhookRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateWebhook")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateWebhookResponseObject); ok {
+		if err := validResponse.VisitUpdateWebhookResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// TestWebhook operation middleware
+func (sh *strictHandler) TestWebhook(w http.ResponseWriter, r *http.Request, webhookId openapi_types.UUID) {
+	var request TestWebhookRequestObject
+
+	request.WebhookId = webhookId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.TestWebhook(ctx, request.(TestWebhookRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "TestWebhook")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(TestWebhookResponseObject); ok {
+		if err := validResponse.VisitTestWebhookResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetCostStats operation middleware
+func (sh *strictHandler) GetCostStats(w http.ResponseWriter, r *http.Request, params GetCostStatsParams) {
+	var request GetCostStatsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetCostStats(ctx, request.(GetCostStatsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetCostStats")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetCostStatsResponseObject); ok {
+		if err := validResponse.VisitGetCostStatsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

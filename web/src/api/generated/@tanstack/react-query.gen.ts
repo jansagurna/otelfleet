@@ -3,8 +3,8 @@
 import { type DefaultError, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { activatePipelineVersion, createApiKey, createAuthProviderConfig, createBootstrapToken, createCustomer, createPipeline, createPipelineVersion, deleteAgent, deleteAuthProviderConfig, deleteCustomer, deletePipeline, deleteUser, devLogin, getAgent, getAgentConfig, getComponentCatalog, getCustomer, getCustomerThroughput, getMe, getPipeline, getPipelineStageStats, getPipelineVersion, getStatsOverview, inviteUser, listAgentEvents, listAgents, listApiKeys, listAuditLog, listAuthProviderConfigs, listAuthProviders, listBootstrapTokens, listCustomerPipelines, listCustomers, listPipelines, listUsers, logout, type Options, revokeApiKey, revokeBootstrapToken, testAuthProviderConfig, updateAuthProviderConfig, updateCustomer, updateUser, validatePipeline } from '../sdk.gen';
-import type { ActivatePipelineVersionData, ActivatePipelineVersionError, ActivatePipelineVersionResponse, CreateApiKeyData, CreateApiKeyError, CreateApiKeyResponse, CreateAuthProviderConfigData, CreateAuthProviderConfigError, CreateAuthProviderConfigResponse, CreateBootstrapTokenData, CreateBootstrapTokenError, CreateBootstrapTokenResponse, CreateCustomerData, CreateCustomerError, CreateCustomerResponse, CreatePipelineData, CreatePipelineError, CreatePipelineResponse, CreatePipelineVersionData, CreatePipelineVersionError, CreatePipelineVersionResponse, DeleteAgentData, DeleteAgentError, DeleteAgentResponse, DeleteAuthProviderConfigData, DeleteAuthProviderConfigError, DeleteAuthProviderConfigResponse, DeleteCustomerData, DeleteCustomerError, DeleteCustomerResponse, DeletePipelineData, DeletePipelineError, DeletePipelineResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, DevLoginData, DevLoginError, DevLoginResponse, GetAgentConfigData, GetAgentConfigError, GetAgentConfigResponse, GetAgentData, GetAgentError, GetAgentResponse, GetComponentCatalogData, GetComponentCatalogError, GetComponentCatalogResponse, GetCustomerData, GetCustomerError, GetCustomerResponse, GetCustomerThroughputData, GetCustomerThroughputError, GetCustomerThroughputResponse, GetMeData, GetMeError, GetMeResponse, GetPipelineData, GetPipelineError, GetPipelineResponse, GetPipelineStageStatsData, GetPipelineStageStatsError, GetPipelineStageStatsResponse, GetPipelineVersionData, GetPipelineVersionError, GetPipelineVersionResponse, GetStatsOverviewData, GetStatsOverviewError, GetStatsOverviewResponse, InviteUserData, InviteUserError, InviteUserResponse, ListAgentEventsData, ListAgentEventsError, ListAgentEventsResponse, ListAgentsData, ListAgentsError, ListAgentsResponse, ListApiKeysData, ListApiKeysError, ListApiKeysResponse, ListAuditLogData, ListAuditLogError, ListAuditLogResponse, ListAuthProviderConfigsData, ListAuthProviderConfigsError, ListAuthProviderConfigsResponse, ListAuthProvidersData, ListAuthProvidersResponse, ListBootstrapTokensData, ListBootstrapTokensError, ListBootstrapTokensResponse, ListCustomerPipelinesData, ListCustomerPipelinesError, ListCustomerPipelinesResponse, ListCustomersData, ListCustomersError, ListCustomersResponse, ListPipelinesData, ListPipelinesError, ListPipelinesResponse, ListUsersData, ListUsersError, ListUsersResponse, LogoutData, LogoutResponse, RevokeApiKeyData, RevokeApiKeyError, RevokeApiKeyResponse, RevokeBootstrapTokenData, RevokeBootstrapTokenError, RevokeBootstrapTokenResponse, TestAuthProviderConfigData, TestAuthProviderConfigError, TestAuthProviderConfigResponse, UpdateAuthProviderConfigData, UpdateAuthProviderConfigError, UpdateAuthProviderConfigResponse, UpdateCustomerData, UpdateCustomerError, UpdateCustomerResponse, UpdateUserData, UpdateUserError, UpdateUserResponse, ValidatePipelineData, ValidatePipelineError, ValidatePipelineResponse } from '../types.gen';
+import { activatePipelineVersion, createApiKey, createAuthProviderConfig, createBootstrapToken, createCustomer, createPipeline, createPipelineVersion, createWebhook, deleteAgent, deleteAuthProviderConfig, deleteCustomer, deletePipeline, deleteUser, deleteWebhook, devLogin, getAgent, getAgentConfig, getComponentCatalog, getCostStats, getCustomer, getCustomerThroughput, getMe, getPipeline, getPipelineStageStats, getPipelineVersion, getStatsOverview, inviteUser, listAgentEvents, listAgents, listApiKeys, listAuditLog, listAuthProviderConfigs, listAuthProviders, listBootstrapTokens, listCustomerPipelines, listCustomers, listPipelines, listUsers, listWebhooks, logout, type Options, revokeApiKey, revokeBootstrapToken, testAuthProviderConfig, testWebhook, updateAuthProviderConfig, updateCustomer, updateUser, updateWebhook, validatePipeline } from '../sdk.gen';
+import type { ActivatePipelineVersionData, ActivatePipelineVersionError, ActivatePipelineVersionResponse, CreateApiKeyData, CreateApiKeyError, CreateApiKeyResponse, CreateAuthProviderConfigData, CreateAuthProviderConfigError, CreateAuthProviderConfigResponse, CreateBootstrapTokenData, CreateBootstrapTokenError, CreateBootstrapTokenResponse, CreateCustomerData, CreateCustomerError, CreateCustomerResponse, CreatePipelineData, CreatePipelineError, CreatePipelineResponse, CreatePipelineVersionData, CreatePipelineVersionError, CreatePipelineVersionResponse, CreateWebhookData, CreateWebhookError, CreateWebhookResponse, DeleteAgentData, DeleteAgentError, DeleteAgentResponse, DeleteAuthProviderConfigData, DeleteAuthProviderConfigError, DeleteAuthProviderConfigResponse, DeleteCustomerData, DeleteCustomerError, DeleteCustomerResponse, DeletePipelineData, DeletePipelineError, DeletePipelineResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, DeleteWebhookData, DeleteWebhookError, DeleteWebhookResponse, DevLoginData, DevLoginError, DevLoginResponse, GetAgentConfigData, GetAgentConfigError, GetAgentConfigResponse, GetAgentData, GetAgentError, GetAgentResponse, GetComponentCatalogData, GetComponentCatalogError, GetComponentCatalogResponse, GetCostStatsData, GetCostStatsError, GetCostStatsResponse, GetCustomerData, GetCustomerError, GetCustomerResponse, GetCustomerThroughputData, GetCustomerThroughputError, GetCustomerThroughputResponse, GetMeData, GetMeError, GetMeResponse, GetPipelineData, GetPipelineError, GetPipelineResponse, GetPipelineStageStatsData, GetPipelineStageStatsError, GetPipelineStageStatsResponse, GetPipelineVersionData, GetPipelineVersionError, GetPipelineVersionResponse, GetStatsOverviewData, GetStatsOverviewError, GetStatsOverviewResponse, InviteUserData, InviteUserError, InviteUserResponse, ListAgentEventsData, ListAgentEventsError, ListAgentEventsResponse, ListAgentsData, ListAgentsError, ListAgentsResponse, ListApiKeysData, ListApiKeysError, ListApiKeysResponse, ListAuditLogData, ListAuditLogError, ListAuditLogResponse, ListAuthProviderConfigsData, ListAuthProviderConfigsError, ListAuthProviderConfigsResponse, ListAuthProvidersData, ListAuthProvidersResponse, ListBootstrapTokensData, ListBootstrapTokensError, ListBootstrapTokensResponse, ListCustomerPipelinesData, ListCustomerPipelinesError, ListCustomerPipelinesResponse, ListCustomersData, ListCustomersError, ListCustomersResponse, ListPipelinesData, ListPipelinesError, ListPipelinesResponse, ListUsersData, ListUsersError, ListUsersResponse, ListWebhooksData, ListWebhooksError, ListWebhooksResponse, LogoutData, LogoutResponse, RevokeApiKeyData, RevokeApiKeyError, RevokeApiKeyResponse, RevokeBootstrapTokenData, RevokeBootstrapTokenError, RevokeBootstrapTokenResponse, TestAuthProviderConfigData, TestAuthProviderConfigError, TestAuthProviderConfigResponse, TestWebhookData, TestWebhookError, TestWebhookResponse, UpdateAuthProviderConfigData, UpdateAuthProviderConfigError, UpdateAuthProviderConfigResponse, UpdateCustomerData, UpdateCustomerError, UpdateCustomerResponse, UpdateUserData, UpdateUserError, UpdateUserResponse, UpdateWebhookData, UpdateWebhookError, UpdateWebhookResponse, ValidatePipelineData, ValidatePipelineError, ValidatePipelineResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -790,3 +790,107 @@ export const listAuditLogOptions = (options?: Options<ListAuditLogData>) => quer
     },
     queryKey: listAuditLogQueryKey(options)
 });
+
+export const getCostStatsQueryKey = (options: Options<GetCostStatsData>) => createQueryKey('getCostStats', options);
+
+/**
+ * Ingest volume per customer (items + estimated bytes, daily buckets)
+ */
+export const getCostStatsOptions = (options: Options<GetCostStatsData>) => queryOptions<GetCostStatsResponse, GetCostStatsError, GetCostStatsResponse, ReturnType<typeof getCostStatsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getCostStats({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getCostStatsQueryKey(options)
+});
+
+export const listWebhooksQueryKey = (options?: Options<ListWebhooksData>) => createQueryKey('listWebhooks', options);
+
+/**
+ * List alerting webhooks (admin only, secrets never returned)
+ */
+export const listWebhooksOptions = (options?: Options<ListWebhooksData>) => queryOptions<ListWebhooksResponse, ListWebhooksError, ListWebhooksResponse, ReturnType<typeof listWebhooksQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listWebhooks({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listWebhooksQueryKey(options)
+});
+
+/**
+ * Add an alerting webhook (HMAC-SHA256-signed when a secret is set)
+ */
+export const createWebhookMutation = (options?: Partial<Options<CreateWebhookData>>): UseMutationOptions<CreateWebhookResponse, CreateWebhookError, Options<CreateWebhookData>> => {
+    const mutationOptions: UseMutationOptions<CreateWebhookResponse, CreateWebhookError, Options<CreateWebhookData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createWebhook({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete a webhook
+ */
+export const deleteWebhookMutation = (options?: Partial<Options<DeleteWebhookData>>): UseMutationOptions<DeleteWebhookResponse, DeleteWebhookError, Options<DeleteWebhookData>> => {
+    const mutationOptions: UseMutationOptions<DeleteWebhookResponse, DeleteWebhookError, Options<DeleteWebhookData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteWebhook({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Update a webhook; omit secret to keep the stored one
+ */
+export const updateWebhookMutation = (options?: Partial<Options<UpdateWebhookData>>): UseMutationOptions<UpdateWebhookResponse, UpdateWebhookError, Options<UpdateWebhookData>> => {
+    const mutationOptions: UseMutationOptions<UpdateWebhookResponse, UpdateWebhookError, Options<UpdateWebhookData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateWebhook({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Send a signed test event to the webhook URL
+ */
+export const testWebhookMutation = (options?: Partial<Options<TestWebhookData>>): UseMutationOptions<TestWebhookResponse, TestWebhookError, Options<TestWebhookData>> => {
+    const mutationOptions: UseMutationOptions<TestWebhookResponse, TestWebhookError, Options<TestWebhookData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await testWebhook({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};

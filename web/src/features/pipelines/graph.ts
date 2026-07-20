@@ -69,6 +69,23 @@ export function moveNode(
   return { ...graph, [section]: nodes }
 }
 
+/**
+ * Reorder a section by an explicit permutation of current indices
+ * (e.g. [2, 0, 1] puts the third node first). Non-permutations are no-ops
+ * so a bad drag result can never lose nodes.
+ */
+export function reorderNodes(
+  graph: PipelineGraph,
+  section: NodeSection,
+  order: number[],
+): PipelineGraph {
+  const nodes = graph[section]
+  if (order.length !== nodes.length) return graph
+  if ([...order].sort((a, b) => a - b).some((value, i) => value !== i)) return graph
+  const reordered = order.map((i) => nodes[i]!)
+  return { ...graph, [section]: reordered }
+}
+
 export function updateNodeConfig(
   graph: PipelineGraph,
   section: NodeSection,

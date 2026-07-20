@@ -155,8 +155,39 @@ func TestAuthenticateValidKeySetsAuthData(t *testing.T) {
 	assert.Equal(t, "client-1", info.Auth.GetAttribute("tenant.id"))
 	assert.Equal(t, "client-1", info.Auth.GetAttribute("client.id"))
 	assert.Equal(t, "customer-1", info.Auth.GetAttribute("customer.id"))
+	assert.Equal(t, int64(0), info.Auth.GetAttribute("rate_limit_items_per_sec"), "absent limit must surface as int64 0 (unlimited)")
 	assert.Nil(t, info.Auth.GetAttribute("unknown"))
-	assert.ElementsMatch(t, []string{"tenant.id", "client.id", "customer.id"}, info.Auth.GetAttributeNames())
+	assert.ElementsMatch(t, []string{"tenant.id", "client.id", "customer.id", "rate_limit_items_per_sec"}, info.Auth.GetAttributeNames())
+}
+
+func TestAuthenticateRateLimitAttribute(t *testing.T) {
+	resp := validKeyResponse("client-1", "customer-1")
+	resp.RateLimitItemsPerSec = 50
+	fake := &fakeAuthServer{keys: map[string]*authv1.ValidateAPIKeyResponse{"otm_limited": resp}}
+	a, now := newTestAuthenticator(t, startFakeServer(t, fake), nil)
+	headers := map[string][]string{"x-api-key": {"otm_limited"}}
+
+	ctx, err := a.Authenticate(context.Background(), headers)
+	require.NoError(t, err)
+	assert.Equal(t, int64(50), client.FromContext(ctx).Auth.GetAttribute(AttrRateLimitItemsPerSec))
+
+	// Served from cache: the limit must ride the cache entry.
+	ctx, err = a.Authenticate(context.Background(), headers)
+	require.NoError(t, err)
+	assert.Equal(t, int64(50), client.FromContext(ctx).Auth.GetAttribute(AttrRateLimitItemsPerSec))
+	assert.Equal(t, 1, fake.callCount())
+
+	// Limit changes propagate once the fresh TTL expires (<=30s default).
+	updated := validKeyResponse("client-1", "customer-1")
+	updated.RateLimitItemsPerSec = 200
+	fake.mu.Lock()
+	fake.keys["otm_limited"] = updated
+	fake.mu.Unlock()
+	*now = now.Add(defaultTTL + time.Second)
+	ctx, err = a.Authenticate(context.Background(), headers)
+	require.NoError(t, err)
+	assert.Equal(t, int64(200), client.FromContext(ctx).Auth.GetAttribute(AttrRateLimitItemsPerSec))
+	assert.Equal(t, 2, fake.callCount())
 }
 
 func TestAuthenticateCacheHit(t *testing.T) {

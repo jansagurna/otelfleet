@@ -88,6 +88,15 @@ gateway:
     enabled: false      # PVC-backed sending queue for the clickhouse exporter
     size: 5Gi
     storageClassName: ""
+  # KEDA autoscaling (requires the KEDA operator; keda.enabled below). When
+  # off, replicas above is the fixed count.
+  autoscaling:
+    minReplicas: 2
+    maxReplicas: 10
+    cpuUtilization: 70   # scale on CPU %
+    # Optional: also scale on ingest rate per pod (needs the Prometheus
+    # scaler pointed at the metrics store). 0 disables this trigger.
+    ingestRatePerReplica: 0
 
 forwarding:
   enabled: true
@@ -100,6 +109,23 @@ forwarding:
   resources:
     requests: { cpu: 250m, memory: 256Mi }
     limits: { memory: 512Mi }
+  # KEDA autoscaling for the forwarding tier (deployment mode only). The
+  # right signal is exporter queue utilization — needs the Prometheus scaler.
+  autoscaling:
+    minReplicas: 1        # can scale to 0 when no tenant has forwarding pipelines
+    maxReplicas: 6
+    cpuUtilization: 70
+    # Prometheus scaler on max exporter queue fill ratio across the tier.
+    queueUtilization: 0.7
+
+# KEDA-based autoscaling. Requires the KEDA operator installed in the cluster
+# (https://keda.sh). When disabled, the tiers run at their fixed replica counts.
+keda:
+  enabled: false
+  # PromQL endpoint for the Prometheus scaler (VictoriaMetrics is compatible).
+  prometheusAddress: "http://victoriametrics:8428"
+  pollingInterval: 30
+  cooldownPeriod: 300
 
 serviceAccount:
   create: true
