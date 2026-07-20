@@ -21,6 +21,7 @@ prefixed `OTELFLEET_`. Source of truth: `internal/config/config.go`.
 | `OTELFLEET_HTTP_ADDR` | `:8080` | REST API + embedded web UI. |
 | `OTELFLEET_GRPC_ADDR` | `:9443` | Internal gRPC (`otelfleet.auth.v1.AuthService`) used by gateway collectors to validate API keys. Plaintext — keep it cluster-internal. |
 | `OTELFLEET_OPS_ADDR` | `:9090` | Ops listener: `/metrics`, `/healthz`, `/readyz`, and `GET /internal/v1/collector-config/forwarding` (the rendered forwarding-tier config). Plaintext — keep it cluster-internal. |
+| `OTELFLEET_ROLE` | `all` | Process role: `all` (everything, single process), `api` (HTTP + gRPC + ops, scale to N), or `opamp` (OpAMP WebSockets + edge-config listener + webhooks + retention, singleton). See Helm `controlPlane.mode`. |
 | `OTELFLEET_OPAMP_ADDR` | `:4320` | OpAMP WebSocket server (`/v1/opamp`) for edge agents. Plaintext `ws://` — terminate TLS in front for internet exposure. |
 | `OTELFLEET_OPAMP_PUBLIC_ENDPOINT` | _(empty)_ | Externally reachable OpAMP URL (e.g. `wss://opamp.example.com/v1/opamp`) offered to edge agents alongside their per-agent token. Empty = offer only the new auth header and let agents keep their current endpoint. |
 

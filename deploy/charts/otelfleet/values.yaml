@@ -34,8 +34,14 @@ external:
     remoteWriteUrl: "http://victoriametrics:8428/api/v1/write"
 
 controlPlane:
-  replicas: 1          # OpAMP WebSockets are process-sticky; keep 1 until the
-                       # multi-replica story (OpAMP gateway) lands.
+  # all:   one deployment runs every role (simplest; OpAMP is a SPOF).
+  # split: a stateless API tier (HTTP + gRPC, scale to api.replicas) plus a
+  #        singleton OpAMP tier (WebSockets + background workers). Recommended
+  #        for production — the request path is no longer a single replica.
+  mode: all
+  replicas: 1          # mode=all only: single combined replica
+  api:
+    replicas: 2        # mode=split only: stateless API tier replica count
   adminEmails: []      # e.g. ["ops@example.com"] — get role admin on first login
   devLogin: false
   baseUrl: ""          # external URL, required for OIDC redirects
