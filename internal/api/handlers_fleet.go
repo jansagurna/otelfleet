@@ -138,8 +138,14 @@ func (s *Server) ListAgents(ctx context.Context, request apigen.ListAgentsReques
 	if err != nil {
 		return nil, err
 	}
+	allowed, scoped := customerScope(ctx)
 	out := make([]apigen.Agent, 0, len(agents))
 	for _, a := range agents {
+		// Scoped users see only their customers' agents; gateway agents (no
+		// customer) are visible to unscoped users only.
+		if scoped && (a.CustomerID == nil || !allowed[*a.CustomerID]) {
+			continue
+		}
 		out = append(out, toAgent(a))
 	}
 	return apigen.ListAgents200JSONResponse{Agents: out}, nil
@@ -151,6 +157,9 @@ func (s *Server) GetAgent(ctx context.Context, request apigen.GetAgentRequestObj
 		return apigen.GetAgent404JSONResponse{NotFoundJSONResponse: apigen.NotFoundJSONResponse{Code: codeNotFound, Message: "agent not found"}}, nil
 	}
 	if err != nil {
+		return nil, err
+	}
+	if err := requireCustomerAccess(ctx, a.CustomerID); err != nil {
 		return nil, err
 	}
 	detail, err := toAgentDetail(a)
@@ -166,6 +175,9 @@ func (s *Server) DeleteAgent(ctx context.Context, request apigen.DeleteAgentRequ
 		return apigen.DeleteAgent404JSONResponse{NotFoundJSONResponse: apigen.NotFoundJSONResponse{Code: codeNotFound, Message: "agent not found"}}, nil
 	}
 	if err != nil {
+		return nil, err
+	}
+	if err := requireCustomerAccess(ctx, a.CustomerID); err != nil {
 		return nil, err
 	}
 	// Refuse deleting a live agent. The `connected` column is written by the
@@ -197,6 +209,9 @@ func (s *Server) UpdateAgent(ctx context.Context, request apigen.UpdateAgentRequ
 		return apigen.UpdateAgent404JSONResponse{NotFoundJSONResponse: apigen.NotFoundJSONResponse{Code: codeNotFound, Message: "agent not found"}}, nil
 	}
 	if err != nil {
+		return nil, err
+	}
+	if err := requireCustomerAccess(ctx, a.CustomerID); err != nil {
 		return nil, err
 	}
 
@@ -244,6 +259,9 @@ func (s *Server) SyncAgent(ctx context.Context, request apigen.SyncAgentRequestO
 	if err != nil {
 		return nil, err
 	}
+	if err := requireCustomerAccess(ctx, a.CustomerID); err != nil {
+		return nil, err
+	}
 	if a.Class != store.AgentClassEdge || a.CustomerID == nil {
 		return apigen.SyncAgent400JSONResponse{BadRequestJSONResponse: apigen.BadRequestJSONResponse{Code: codeBadRequest, Message: "re-sync applies to edge agents only; gateway configs are managed outside OpAMP"}}, nil
 	}
@@ -272,6 +290,9 @@ func (s *Server) GetAgentConfig(ctx context.Context, request apigen.GetAgentConf
 	if err != nil {
 		return nil, err
 	}
+	if err := requireCustomerAccess(ctx, a.CustomerID); err != nil {
+		return nil, err
+	}
 
 	// Assigned = the current desired config, re-rendered from database state.
 	// Gateway replicas are managed outside OpAMP: "".
@@ -290,6 +311,16 @@ func (s *Server) GetAgentConfig(ctx context.Context, request apigen.GetAgentConf
 }
 
 func (s *Server) ListAgentEvents(ctx context.Context, request apigen.ListAgentEventsRequestObject) (apigen.ListAgentEventsResponseObject, error) {
+	a, err := s.store.GetAgent(ctx, request.AgentId)
+	if errors.Is(err, store.ErrNotFound) {
+		return apigen.ListAgentEvents404JSONResponse{NotFoundJSONResponse: apigen.NotFoundJSONResponse{Code: codeNotFound, Message: "agent not found"}}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := requireCustomerAccess(ctx, a.CustomerID); err != nil {
+		return nil, err
+	}
 	limit := 50
 	if request.Params.Limit != nil {
 		limit = *request.Params.Limit
@@ -329,6 +360,9 @@ func (s *Server) ListAgentEvents(ctx context.Context, request apigen.ListAgentEv
 // --- bootstrap tokens ---
 
 func (s *Server) ListBootstrapTokens(ctx context.Context, request apigen.ListBootstrapTokensRequestObject) (apigen.ListBootstrapTokensResponseObject, error) {
+	if err := requireCustomerAccess(ctx, &request.CustomerId); err != nil {
+		return nil, err
+	}
 	toks, err := s.store.ListBootstrapTokens(ctx, request.CustomerId)
 	if errors.Is(err, store.ErrNotFound) {
 		return apigen.ListBootstrapTokens404JSONResponse{NotFoundJSONResponse: apigen.NotFoundJSONResponse{Code: codeNotFound, Message: "customer not found"}}, nil
@@ -344,6 +378,9 @@ func (s *Server) ListBootstrapTokens(ctx context.Context, request apigen.ListBoo
 }
 
 func (s *Server) CreateBootstrapToken(ctx context.Context, request apigen.CreateBootstrapTokenRequestObject) (apigen.CreateBootstrapTokenResponseObject, error) {
+	if err := requireCustomerAccess(ctx, &request.CustomerId); err != nil {
+		return nil, err
+	}
 	maxUses := 0
 	if request.Body.MaxUses != nil {
 		maxUses = *request.Body.MaxUses
@@ -375,6 +412,9 @@ func (s *Server) CreateBootstrapToken(ctx context.Context, request apigen.Create
 }
 
 func (s *Server) RevokeBootstrapToken(ctx context.Context, request apigen.RevokeBootstrapTokenRequestObject) (apigen.RevokeBootstrapTokenResponseObject, error) {
+	if err := requireCustomerAccess(ctx, &request.CustomerId); err != nil {
+		return nil, err
+	}
 	err := s.tenants.RevokeBootstrapToken(ctx, actorID(ctx), request.CustomerId, request.TokenId)
 	if errors.Is(err, store.ErrNotFound) {
 		return apigen.RevokeBootstrapToken404JSONResponse{NotFoundJSONResponse: apigen.NotFoundJSONResponse{Code: codeNotFound, Message: "bootstrap token not found"}}, nil

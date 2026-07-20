@@ -29,6 +29,21 @@ const (
 type Principal struct {
 	User      store.User
 	CSRFToken string
+	// Tenant-scoped RBAC. AllCustomers grants access to every customer (admins,
+	// API tokens, and non-admins with no grants). Otherwise the user is limited
+	// to AllowedCustomers.
+	AllCustomers     bool
+	AllowedCustomers map[uuid.UUID]bool
+}
+
+// CanAccessCustomer reports whether this principal may act on the given
+// customer. A nil id (a resource with no customer, e.g. a gateway agent)
+// requires unscoped access.
+func (p Principal) CanAccessCustomer(id *uuid.UUID) bool {
+	if p.AllCustomers {
+		return true
+	}
+	return id != nil && p.AllowedCustomers[*id]
 }
 
 type ctxKey int

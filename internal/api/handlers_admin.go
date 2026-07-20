@@ -30,6 +30,10 @@ func toUserAccount(u store.UserWithIdentities) apigen.UserAccount {
 	if identities == nil {
 		identities = []string{}
 	}
+	customerIDs := u.CustomerIDs
+	if customerIDs == nil {
+		customerIDs = []uuid.UUID{}
+	}
 	return apigen.UserAccount{
 		Id:          u.ID,
 		Email:       openapi_types.Email(u.Email),
@@ -38,6 +42,7 @@ func toUserAccount(u store.UserWithIdentities) apigen.UserAccount {
 		Disabled:    u.DisabledAt != nil,
 		Invited:     len(identities) == 0,
 		Identities:  identities,
+		CustomerIds: &customerIDs,
 		LastLoginAt: u.LastLoginAt,
 		CreatedAt:   u.CreatedAt,
 	}
@@ -80,7 +85,32 @@ func (s *Server) InviteUser(ctx context.Context, request apigen.InviteUserReques
 	if err != nil {
 		return nil, err
 	}
-	return apigen.InviteUser201JSONResponse(toUserAccount(store.UserWithIdentities{User: user})), nil
+
+	acct := store.UserWithIdentities{User: user}
+	// Grants only apply to non-admins (admins always access all customers).
+	if role != authz.RoleAdmin && request.Body.CustomerIds != nil && len(*request.Body.CustomerIds) > 0 {
+		if err := s.setUserGrants(ctx, id, *request.Body.CustomerIds); err != nil {
+			return nil, err
+		}
+		acct.CustomerIDs = *request.Body.CustomerIds
+	}
+	return apigen.InviteUser201JSONResponse(toUserAccount(acct)), nil
+}
+
+// setUserGrants replaces a user's tenant-scope grants, mapping an unknown
+// customer id to a 400 rather than a 500.
+func (s *Server) setUserGrants(ctx context.Context, userID uuid.UUID, customerIDs []uuid.UUID) error {
+	err := s.store.SetUserCustomerGrants(ctx, userID, customerIDs, []audit.Entry{{
+		ActorUserID: actorID(ctx),
+		Action:      "user.grants",
+		EntityType:  "user",
+		EntityID:    userID.String(),
+		Payload:     map[string]any{"customerCount": len(customerIDs)},
+	}})
+	if errors.Is(err, store.ErrNotFound) {
+		return badRequestError{errors.New("unknown user or customer in customerIds")}
+	}
+	return err
 }
 
 func (s *Server) UpdateUser(ctx context.Context, request apigen.UpdateUserRequestObject) (apigen.UpdateUserResponseObject, error) {
@@ -102,8 +132,9 @@ func (s *Server) UpdateUser(ctx context.Context, request apigen.UpdateUserReques
 	if request.Body.Disabled != nil {
 		payload["disabled"] = *request.Body.Disabled
 	}
-	if upd.Role == nil && upd.Disabled == nil {
-		return apigen.UpdateUser400JSONResponse{BadRequestJSONResponse: apigen.BadRequestJSONResponse{Code: codeBadRequest, Message: "nothing to update: provide role and/or disabled"}}, nil
+	hasGrantUpdate := request.Body.CustomerIds != nil
+	if upd.Role == nil && upd.Disabled == nil && !hasGrantUpdate {
+		return apigen.UpdateUser400JSONResponse{BadRequestJSONResponse: apigen.BadRequestJSONResponse{Code: codeBadRequest, Message: "nothing to update: provide role, disabled and/or customerIds"}}, nil
 	}
 
 	// Admins never demote or disable themselves; someone else has to.
@@ -116,22 +147,43 @@ func (s *Server) UpdateUser(ctx context.Context, request apigen.UpdateUserReques
 		}
 	}
 
-	user, err := s.store.UpdateUserAdmin(ctx, request.UserId, upd, []audit.Entry{{
-		ActorUserID: actorID(ctx),
-		Action:      "user.update",
-		EntityType:  "user",
-		EntityID:    request.UserId.String(),
-		Payload:     payload,
-	}})
-	switch {
-	case errors.Is(err, store.ErrNotFound):
+	// Apply grants first so a subsequent read reflects the new scope. Empty
+	// slice clears all grants (unscoped); a non-empty slice replaces them.
+	if hasGrantUpdate {
+		if err := s.setUserGrants(ctx, request.UserId, *request.Body.CustomerIds); err != nil {
+			return nil, err
+		}
+	}
+
+	// Role/disabled change: UpdateUserAdmin re-reads and returns fresh grants.
+	if upd.Role != nil || upd.Disabled != nil {
+		user, err := s.store.UpdateUserAdmin(ctx, request.UserId, upd, []audit.Entry{{
+			ActorUserID: actorID(ctx),
+			Action:      "user.update",
+			EntityType:  "user",
+			EntityID:    request.UserId.String(),
+			Payload:     payload,
+		}})
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			return apigen.UpdateUser404JSONResponse{NotFoundJSONResponse: apigen.NotFoundJSONResponse{Code: codeNotFound, Message: "user not found"}}, nil
+		case errors.Is(err, store.ErrLastAdmin):
+			return apigen.UpdateUser409JSONResponse{ConflictJSONResponse: apigen.ConflictJSONResponse{Code: codeConflict, Message: "this change would leave no enabled admin"}}, nil
+		case err != nil:
+			return nil, err
+		}
+		return apigen.UpdateUser200JSONResponse(toUserAccount(user)), nil
+	}
+
+	// Grants-only update: return the refreshed user.
+	u, err := s.store.GetUserWithIdentities(ctx, request.UserId)
+	if errors.Is(err, store.ErrNotFound) {
 		return apigen.UpdateUser404JSONResponse{NotFoundJSONResponse: apigen.NotFoundJSONResponse{Code: codeNotFound, Message: "user not found"}}, nil
-	case errors.Is(err, store.ErrLastAdmin):
-		return apigen.UpdateUser409JSONResponse{ConflictJSONResponse: apigen.ConflictJSONResponse{Code: codeConflict, Message: "this change would leave no enabled admin"}}, nil
-	case err != nil:
+	}
+	if err != nil {
 		return nil, err
 	}
-	return apigen.UpdateUser200JSONResponse(toUserAccount(user)), nil
+	return apigen.UpdateUser200JSONResponse(toUserAccount(u)), nil
 }
 
 func (s *Server) DeleteUser(ctx context.Context, request apigen.DeleteUserRequestObject) (apigen.DeleteUserResponseObject, error) {

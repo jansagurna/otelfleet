@@ -39,7 +39,7 @@ describe('/customers', () => {
     renderApp('/customers')
     expect(await screen.findByRole('link', { name: 'ACME Corp' })).toBeInTheDocument()
     expect(screen.getByText('cust_7f3a9b2c')).toBeInTheDocument()
-    expect(screen.getByText('Active')).toBeInTheDocument()
+    expect(screen.getAllByText('Active').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByRole('button', { name: /new customer/i })).toBeInTheDocument()
   })
 })

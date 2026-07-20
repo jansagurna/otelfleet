@@ -42,9 +42,10 @@ func isAdminOnlyPath(path string) bool {
 }
 
 // GuardStore is the store subset the Guard middleware needs: the session user
-// load plus management-API token validation.
+// load, per-customer grants, plus management-API token validation.
 type GuardStore interface {
 	GetUser(ctx context.Context, id uuid.UUID) (store.User, error)
+	ListUserCustomerIDs(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error)
 	tokenStore
 }
 
@@ -91,7 +92,8 @@ func Guard(sessions *auth.Sessions, users GuardStore) func(http.Handler) http.Ha
 				if createdBy != nil {
 					tokenUser.ID = *createdBy // audit attributes to the token's creator
 				}
-				ctx = auth.WithPrincipal(ctx, auth.Principal{User: tokenUser})
+				// Management-API tokens are unscoped (automation acts fleet-wide).
+				ctx = auth.WithPrincipal(ctx, auth.Principal{User: tokenUser, AllCustomers: true})
 				next.ServeHTTP(w, r.WithContext(ctx))
 				return
 			}
@@ -131,10 +133,32 @@ func Guard(sessions *auth.Sessions, users GuardStore) func(http.Handler) http.Ha
 				}
 			}
 
-			ctx = auth.WithPrincipal(ctx, auth.Principal{
+			p := auth.Principal{
 				User:      user,
 				CSRFToken: sessions.CSRFToken(ctx),
-			})
+			}
+			// Tenant scoping: admins are always unscoped. A non-admin is limited
+			// to their granted customers; a non-admin with no grants stays
+			// unscoped (backward compatible).
+			if authz.AtLeast(user.Role, authz.RoleAdmin) {
+				p.AllCustomers = true
+			} else {
+				grants, err := users.ListUserCustomerIDs(ctx, user.ID)
+				if err != nil {
+					writeError(w, http.StatusInternalServerError, codeInternal, "internal server error")
+					return
+				}
+				if len(grants) == 0 {
+					p.AllCustomers = true
+				} else {
+					p.AllowedCustomers = make(map[uuid.UUID]bool, len(grants))
+					for _, id := range grants {
+						p.AllowedCustomers[id] = true
+					}
+				}
+			}
+
+			ctx = auth.WithPrincipal(ctx, p)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

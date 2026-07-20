@@ -11,17 +11,69 @@ import (
 	"github.com/jansagurna/otelfleet/internal/audit"
 )
 
-// userWithIdentitiesQuery aggregates identity provider names per user.
+// userWithIdentitiesQuery aggregates identity provider names and customer
+// grants per user. Grants use a correlated subquery to avoid a cross-product
+// with the identities join.
 const userWithIdentitiesQuery = `
 	SELECT u.id, u.email, u.display_name, u.role, u.disabled_at, u.last_login_at, u.created_at,
-	       COALESCE(array_agg(i.provider ORDER BY i.provider) FILTER (WHERE i.provider IS NOT NULL), '{}')
+	       COALESCE(array_agg(i.provider ORDER BY i.provider) FILTER (WHERE i.provider IS NOT NULL), '{}'),
+	       COALESCE((SELECT array_agg(g.customer_id) FROM user_customer_grants g WHERE g.user_id = u.id), '{}')
 	FROM users u
 	LEFT JOIN user_identities i ON i.user_id = u.id`
 
 func scanUserWithIdentities(row pgx.Row) (UserWithIdentities, error) {
 	var u UserWithIdentities
-	err := row.Scan(&u.ID, &u.Email, &u.DisplayName, &u.Role, &u.DisabledAt, &u.LastLoginAt, &u.CreatedAt, &u.Identities)
+	err := row.Scan(&u.ID, &u.Email, &u.DisplayName, &u.Role, &u.DisabledAt, &u.LastLoginAt, &u.CreatedAt, &u.Identities, &u.CustomerIDs)
 	return u, err
+}
+
+// ListUserCustomerIDs returns the customer grants of one user (empty when
+// unscoped). Called by the Guard on every session request.
+func (s *PG) ListUserCustomerIDs(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := s.pool.Query(ctx, `SELECT customer_id FROM user_customer_grants WHERE user_id = $1`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
+// SetUserCustomerGrants replaces a user's full grant set in one transaction.
+// An empty/nil slice clears all grants (unscoped). Returns ErrNotFound if the
+// user or any customer id does not exist.
+func (s *PG) SetUserCustomerGrants(ctx context.Context, userID uuid.UUID, customerIDs []uuid.UUID, entries []audit.Entry) error {
+	return s.inTx(ctx, func(tx pgx.Tx) error {
+		var exists bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)`, userID).Scan(&exists); err != nil {
+			return fmt.Errorf("check user: %w", err)
+		}
+		if !exists {
+			return ErrNotFound
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM user_customer_grants WHERE user_id = $1`, userID); err != nil {
+			return fmt.Errorf("clear grants: %w", err)
+		}
+		for _, cid := range customerIDs {
+			_, err := tx.Exec(ctx, `
+				INSERT INTO user_customer_grants (user_id, customer_id) VALUES ($1, $2)
+				ON CONFLICT DO NOTHING`, userID, cid)
+			if isForeignKeyViolation(err, "user_customer_grants_customer_id_fkey") {
+				return ErrNotFound
+			}
+			if err != nil {
+				return fmt.Errorf("insert grant: %w", err)
+			}
+		}
+		return audit.Write(ctx, tx, entries...)
+	})
 }
 
 // ListUsers returns all users with their linked identity provider names.
@@ -41,6 +93,16 @@ func (s *PG) ListUsers(ctx context.Context) ([]UserWithIdentities, error) {
 		out = append(out, u)
 	}
 	return out, rows.Err()
+}
+
+// GetUserWithIdentities returns one user with identities and customer grants.
+func (s *PG) GetUserWithIdentities(ctx context.Context, id uuid.UUID) (UserWithIdentities, error) {
+	u, err := scanUserWithIdentities(s.pool.QueryRow(ctx, userWithIdentitiesQuery+`
+		WHERE u.id = $1 GROUP BY u.id`, id))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return UserWithIdentities{}, ErrNotFound
+	}
+	return u, err
 }
 
 // CreateInvitedUser inserts a user without any identity; the identity is

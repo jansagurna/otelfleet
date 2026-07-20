@@ -166,14 +166,21 @@ func (s *Server) ListPipelines(ctx context.Context, _ apigen.ListPipelinesReques
 	if err != nil {
 		return nil, err
 	}
+	allowed, scoped := customerScope(ctx)
 	out := make([]apigen.Pipeline, 0, len(ps))
 	for _, p := range ps {
+		if scoped && !allowed[p.CustomerID] {
+			continue
+		}
 		out = append(out, toPipeline(p))
 	}
 	return apigen.ListPipelines200JSONResponse{Pipelines: out}, nil
 }
 
 func (s *Server) ListCustomerPipelines(ctx context.Context, request apigen.ListCustomerPipelinesRequestObject) (apigen.ListCustomerPipelinesResponseObject, error) {
+	if err := requireCustomerAccess(ctx, &request.CustomerId); err != nil {
+		return nil, err
+	}
 	if _, err := s.store.GetCustomer(ctx, request.CustomerId); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			return apigen.ListCustomerPipelines404JSONResponse{NotFoundJSONResponse: apigen.NotFoundJSONResponse{Code: codeNotFound, Message: "customer not found"}}, nil
@@ -193,6 +200,9 @@ func (s *Server) ListCustomerPipelines(ctx context.Context, request apigen.ListC
 }
 
 func (s *Server) CreatePipeline(ctx context.Context, request apigen.CreatePipelineRequestObject) (apigen.CreatePipelineResponseObject, error) {
+	if err := requireCustomerAccess(ctx, &request.CustomerId); err != nil {
+		return nil, err
+	}
 	targetClass := pipelines.ClassForwarding
 	if request.Body.TargetClass != nil {
 		targetClass = string(*request.Body.TargetClass)
@@ -224,6 +234,9 @@ func (s *Server) GetPipeline(ctx context.Context, request apigen.GetPipelineRequ
 	if err != nil {
 		return nil, err
 	}
+	if err := requireCustomerAccess(ctx, &p.CustomerID); err != nil {
+		return nil, err
+	}
 	versions, err := s.store.ListPipelineVersions(ctx, request.PipelineId)
 	if err != nil {
 		return nil, err
@@ -247,6 +260,9 @@ func (s *Server) GetPipeline(ctx context.Context, request apigen.GetPipelineRequ
 }
 
 func (s *Server) DeletePipeline(ctx context.Context, request apigen.DeletePipelineRequestObject) (apigen.DeletePipelineResponseObject, error) {
+	if err := s.requirePipelineAccess(ctx, request.PipelineId); err != nil {
+		return nil, err
+	}
 	err := s.pipelines.Delete(ctx, actorID(ctx), request.PipelineId)
 	if errors.Is(err, store.ErrNotFound) {
 		return apigen.DeletePipeline404JSONResponse{NotFoundJSONResponse: apigen.NotFoundJSONResponse{Code: codeNotFound, Message: "pipeline not found"}}, nil
@@ -269,6 +285,9 @@ func (s *Server) ValidatePipeline(ctx context.Context, request apigen.ValidatePi
 }
 
 func (s *Server) CreatePipelineVersion(ctx context.Context, request apigen.CreatePipelineVersionRequestObject) (apigen.CreatePipelineVersionResponseObject, error) {
+	if err := s.requirePipelineAccess(ctx, request.PipelineId); err != nil {
+		return nil, err
+	}
 	ver, res, err := s.pipelines.CreateVersion(ctx, actorID(ctx), request.PipelineId, fromAPIGraph(request.Body.Graph))
 	if errors.Is(err, store.ErrNotFound) {
 		return apigen.CreatePipelineVersion404JSONResponse{NotFoundJSONResponse: apigen.NotFoundJSONResponse{Code: codeNotFound, Message: "pipeline not found"}}, nil
@@ -287,6 +306,9 @@ func (s *Server) CreatePipelineVersion(ctx context.Context, request apigen.Creat
 }
 
 func (s *Server) GetPipelineVersion(ctx context.Context, request apigen.GetPipelineVersionRequestObject) (apigen.GetPipelineVersionResponseObject, error) {
+	if err := s.requirePipelineAccess(ctx, request.PipelineId); err != nil {
+		return nil, err
+	}
 	v, err := s.store.GetPipelineVersion(ctx, request.PipelineId, request.Version)
 	if errors.Is(err, store.ErrNotFound) {
 		return apigen.GetPipelineVersion404JSONResponse{NotFoundJSONResponse: apigen.NotFoundJSONResponse{Code: codeNotFound, Message: "version not found"}}, nil
@@ -302,6 +324,9 @@ func (s *Server) GetPipelineVersion(ctx context.Context, request apigen.GetPipel
 }
 
 func (s *Server) ActivatePipelineVersion(ctx context.Context, request apigen.ActivatePipelineVersionRequestObject) (apigen.ActivatePipelineVersionResponseObject, error) {
+	if err := s.requirePipelineAccess(ctx, request.PipelineId); err != nil {
+		return nil, err
+	}
 	_, state, detail, err := s.pipelines.Activate(ctx, actorID(ctx), request.PipelineId, request.Version)
 	switch {
 	case errors.Is(err, store.ErrNotFound):
@@ -330,6 +355,9 @@ func (s *Server) GetPipelineStageStats(ctx context.Context, request apigen.GetPi
 		return apigen.GetPipelineStageStats404JSONResponse{NotFoundJSONResponse: apigen.NotFoundJSONResponse{Code: codeNotFound, Message: "pipeline not found"}}, nil
 	}
 	if err != nil {
+		return nil, err
+	}
+	if err := requireCustomerAccess(ctx, &p.CustomerID); err != nil {
 		return nil, err
 	}
 

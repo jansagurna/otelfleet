@@ -748,6 +748,13 @@ paths:
               properties:
                 email: { type: string, format: email }
                 role: { $ref: "#/components/schemas/Role" }
+                customerIds:
+                  type: array
+                  items: { type: string, format: uuid }
+                  description: >-
+                    Tenant-scope grants. When set, a non-admin user is limited
+                    to these customers; omit or empty = access to all customers.
+                    Ignored for admins.
       responses:
         "201":
           description: Invited user
@@ -774,6 +781,13 @@ paths:
               properties:
                 role: { $ref: "#/components/schemas/Role" }
                 disabled: { type: boolean }
+                customerIds:
+                  type: array
+                  items: { type: string, format: uuid }
+                  description: >-
+                    Replaces the user's full tenant-scope grant set. Empty array
+                    clears all grants (access to all customers); omit to leave
+                    grants unchanged. Ignored for admins.
       responses:
         "200":
           description: Updated user
@@ -1231,7 +1245,7 @@ components:
 
     Me:
       type: object
-      required: [id, email, role, csrfToken]
+      required: [id, email, role, csrfToken, allCustomers]
       properties:
         id: { type: string, format: uuid }
         email: { type: string, format: email }
@@ -1240,6 +1254,15 @@ components:
         csrfToken:
           type: string
           description: Send as X-CSRF-Token header on all mutating requests.
+        allCustomers:
+          type: boolean
+          description: >-
+            True when the user may access every customer (admins, and non-admins
+            with no grants). When false, access is limited to scopedCustomerIds.
+        scopedCustomerIds:
+          type: array
+          items: { type: string, format: uuid }
+          description: Customers this user is limited to (present only when allCustomers is false).
 
     AuthProvider:
       type: object
@@ -1537,6 +1560,12 @@ components:
           type: array
           description: Linked login identities (provider names).
           items: { type: string }
+        customerIds:
+          type: array
+          description: >-
+            Tenant-scope grants (empty = access to all customers). Ignored for
+            admins, who always access every customer.
+          items: { type: string, format: uuid }
         lastLoginAt: { type: string, format: date-time, nullable: true }
         createdAt: { type: string, format: date-time }
 

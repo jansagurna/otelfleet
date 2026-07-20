@@ -1,14 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { canMutate, isAdmin } from '@/hooks/use-me'
+import { canMutate, hasAllCustomers, isAdmin, scopedCustomerCount } from '@/hooks/use-me'
 import type { Me } from '@/api/generated'
 
-function me(role: Me['role']): Me {
+function me(role: Me['role'], scope: Partial<Me> = {}): Me {
   return {
     id: '4f2c7a1e-0000-4000-8000-000000000001',
     email: 'someone@example.com',
     displayName: null,
     role,
+    allCustomers: true,
     csrfToken: 'token',
+    ...scope,
   }
 }
 
@@ -30,5 +32,26 @@ describe('canMutate', () => {
     expect(canMutate(me('operator'))).toBe(true)
     expect(canMutate(me('viewer'))).toBe(false)
     expect(canMutate(undefined)).toBe(false)
+  })
+})
+
+describe('hasAllCustomers', () => {
+  it('follows the allCustomers flag from the session', () => {
+    expect(hasAllCustomers(me('admin', { allCustomers: true }))).toBe(true)
+    expect(
+      hasAllCustomers(me('operator', { allCustomers: false, scopedCustomerIds: ['c1'] })),
+    ).toBe(false)
+    // Unknown session is treated as unrestricted (nothing to narrow yet).
+    expect(hasAllCustomers(undefined)).toBe(true)
+  })
+})
+
+describe('scopedCustomerCount', () => {
+  it('counts the grants for a scoped user, else zero', () => {
+    expect(
+      scopedCustomerCount(me('operator', { allCustomers: false, scopedCustomerIds: ['c1', 'c2'] })),
+    ).toBe(2)
+    expect(scopedCustomerCount(me('admin'))).toBe(0)
+    expect(scopedCustomerCount(undefined)).toBe(0)
   })
 })

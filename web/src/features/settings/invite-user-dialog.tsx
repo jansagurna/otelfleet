@@ -1,12 +1,14 @@
 import { useState, type FormEvent } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Info } from 'lucide-react'
 import {
   inviteUserMutation,
+  listCustomersOptions,
   listUsersQueryKey,
 } from '@/api/generated/@tanstack/react-query.gen'
 import { apiErrorMessage } from '@/lib/api-error'
 import { toast } from '@/components/toaster'
+import { CustomerMultiSelect } from '@/features/settings/customer-multi-select'
 import {
   Dialog,
   DialogClose,
@@ -38,7 +40,10 @@ export function InviteUserDialog({
 }) {
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<Role>('operator')
+  const [customerIds, setCustomerIds] = useState<string[]>([])
   const queryClient = useQueryClient()
+
+  const customersQuery = useQuery(listCustomersOptions())
 
   const invite = useMutation({
     ...inviteUserMutation(),
@@ -46,6 +51,7 @@ export function InviteUserDialog({
       void queryClient.invalidateQueries({ queryKey: listUsersQueryKey() })
       setEmail('')
       setRole('operator')
+      setCustomerIds([])
       onOpenChange(false)
       toast(`Invited ${user.email}`)
     },
@@ -54,7 +60,9 @@ export function InviteUserDialog({
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (email.trim() === '') return
-    invite.mutate({ body: { email: email.trim(), role } })
+    // Admins access every customer, so grants are never sent for them.
+    const customerScope = role === 'admin' ? {} : { customerIds }
+    invite.mutate({ body: { email: email.trim(), role, ...customerScope } })
   }
 
   return (
@@ -107,6 +115,28 @@ export function InviteUserDialog({
               ))}
             </div>
           </fieldset>
+
+          {role === 'admin' ? (
+            <p className="text-xs text-ink-3">Admins access all customers.</p>
+          ) : (
+            <fieldset className="flex flex-col gap-1.5">
+              <legend className="text-xs font-medium text-ink-2 select-none">
+                Customer access
+              </legend>
+              <div className="mt-1.5">
+                <CustomerMultiSelect
+                  namePrefix="invite"
+                  customers={customersQuery.data?.customers ?? []}
+                  selected={customerIds}
+                  onChange={setCustomerIds}
+                  disabled={invite.isPending}
+                  isLoading={customersQuery.isPending}
+                  isError={customersQuery.isError}
+                />
+              </div>
+              <p className="text-xs text-ink-3">Leave empty for access to all customers.</p>
+            </fieldset>
+          )}
 
           <p className="flex items-start gap-1.5 text-xs text-ink-3">
             <Info aria-hidden className="mt-px size-3.5 shrink-0" />

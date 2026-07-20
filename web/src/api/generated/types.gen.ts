@@ -22,6 +22,14 @@ export type Me = {
      * Send as X-CSRF-Token header on all mutating requests.
      */
     csrfToken: string;
+    /**
+     * True when the user may access every customer (admins, and non-admins with no grants). When false, access is limited to scopedCustomerIds.
+     */
+    allCustomers: boolean;
+    /**
+     * Customers this user is limited to (present only when allCustomers is false).
+     */
+    scopedCustomerIds?: Array<string>;
 };
 
 export type AuthProvider = {
@@ -273,6 +281,10 @@ export type UserAccount = {
      * Linked login identities (provider names).
      */
     identities: Array<string>;
+    /**
+     * Tenant-scope grants (empty = access to all customers). Ignored for admins, who always access every customer.
+     */
+    customerIds?: Array<string>;
     lastLoginAt?: string | null;
     createdAt: string;
 };
@@ -1814,6 +1826,10 @@ export type InviteUserData = {
     body: {
         email: string;
         role: Role;
+        /**
+         * Tenant-scope grants. When set, a non-admin user is limited to these customers; omit or empty = access to all customers. Ignored for admins.
+         */
+        customerIds?: Array<string>;
     };
     path?: never;
     query?: never;
@@ -1889,6 +1905,10 @@ export type UpdateUserData = {
     body: {
         role?: Role;
         disabled?: boolean;
+        /**
+         * Replaces the user's full tenant-scope grant set. Empty array clears all grants (access to all customers); omit to leave grants unchanged. Ignored for admins.
+         */
+        customerIds?: Array<string>;
     };
     path: {
         userId: string;

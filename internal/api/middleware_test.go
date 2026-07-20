@@ -35,6 +35,12 @@ func (f *fakeUsers) ActiveAPITokensByPrefix(_ context.Context, _ string) ([]stor
 	return nil, nil
 }
 
+// ListUserCustomerIDs: no tenant-scope grants in the middleware session tests
+// (every user is unscoped / all-customers).
+func (f *fakeUsers) ListUserCustomerIDs(_ context.Context, _ uuid.UUID) ([]uuid.UUID, error) {
+	return nil, nil
+}
+
 // guardEnv is a small HTTP app: test-only /login and /csrf plus a guarded
 // catch-all that answers 200 "ok" for any /api/v1 path.
 func guardEnv(t *testing.T) (*httptest.Server, *http.Client, map[string]uuid.UUID) {

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderApp, stubApi, testViewerMe } from '@/test/render-app'
 import { setCsrfToken } from '@/lib/api-client'
@@ -38,7 +38,7 @@ describe('/settings?tab=users', () => {
     expect(await screen.findByText('ops@example.com')).toBeInTheDocument()
     expect(screen.getByText('newbie@example.com')).toBeInTheDocument()
     // Status chips: active admin, invited operator.
-    expect(screen.getByText('Active')).toBeInTheDocument()
+    expect(screen.getAllByText('Active').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('Invited')).toBeInTheDocument()
     // Own row: role select disabled, no delete button.
     expect(screen.getByRole('combobox', { name: 'Role for ops@example.com' })).toBeDisabled()
@@ -51,6 +51,44 @@ describe('/settings?tab=users', () => {
     ).not.toBeDisabled()
     expect(screen.getByRole('button', { name: 'Delete newbie@example.com' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /invite user/i })).toBeInTheDocument()
+  })
+
+  it('shows customer access: all-customers for admin/unscoped, chips for scoped users', async () => {
+    renderApp('/settings?tab=users')
+    // Scoped operator row is present.
+    expect(await screen.findByText('scoped@example.com')).toBeInTheDocument()
+    // Admin (ops) and the unscoped operator (newbie) both read "All customers".
+    expect(screen.getAllByText('All customers').length).toBeGreaterThanOrEqual(2)
+    // The scoped operator shows a chip with the customer name resolved from its id.
+    expect(screen.getByText('ACME Corp')).toBeInTheDocument()
+    // Non-admin rows expose an "Edit access" action; the admin row does not.
+    expect(
+      screen.getByRole('button', { name: 'Edit access for scoped@example.com' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Edit access for ops@example.com' }),
+    ).not.toBeInTheDocument()
+  })
+})
+
+describe('invite dialog customer access', () => {
+  it('shows the customer multi-select only for non-admin roles', async () => {
+    const user = userEvent.setup()
+    renderApp('/settings?tab=users')
+    await user.click(await screen.findByRole('button', { name: /invite user/i }))
+    const dialog = await screen.findByRole('dialog')
+    // Default role is operator → the customer access picker is shown.
+    expect(within(dialog).getByText('Customer access')).toBeInTheDocument()
+    expect(
+      within(dialog).getByText('Leave empty for access to all customers.'),
+    ).toBeInTheDocument()
+    expect(within(dialog).getByRole('checkbox', { name: /ACME Corp/i })).toBeInTheDocument()
+    // Switching to admin hides the picker and shows the muted note.
+    await user.click(within(dialog).getByRole('radio', { name: /admin/i }))
+    expect(
+      within(dialog).queryByText('Leave empty for access to all customers.'),
+    ).not.toBeInTheDocument()
+    expect(within(dialog).getByText('Admins access all customers.')).toBeInTheDocument()
   })
 })
 

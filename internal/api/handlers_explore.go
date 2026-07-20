@@ -11,6 +11,9 @@ import (
 )
 
 func (s *Server) QueryLogs(ctx context.Context, request apigen.QueryLogsRequestObject) (apigen.QueryLogsResponseObject, error) {
+	if err := requireCustomerAccess(ctx, &request.CustomerId); err != nil {
+		return nil, err
+	}
 	p := request.Params
 	if !p.To.After(p.From) {
 		return queryLogsErr(http.StatusBadRequest, codeBadRequest, "'to' must be after 'from'"), nil
@@ -61,6 +64,9 @@ func (s *Server) QueryLogs(ctx context.Context, request apigen.QueryLogsRequestO
 }
 
 func (s *Server) QueryTraces(ctx context.Context, request apigen.QueryTracesRequestObject) (apigen.QueryTracesResponseObject, error) {
+	if err := requireCustomerAccess(ctx, &request.CustomerId); err != nil {
+		return nil, err
+	}
 	p := request.Params
 	if !p.To.After(p.From) {
 		return queryTracesErr(http.StatusBadRequest, codeBadRequest, "'to' must be after 'from'"), nil
@@ -108,6 +114,9 @@ func (s *Server) QueryTraces(ctx context.Context, request apigen.QueryTracesRequ
 }
 
 func (s *Server) GetTrace(ctx context.Context, request apigen.GetTraceRequestObject) (apigen.GetTraceResponseObject, error) {
+	if err := requireCustomerAccess(ctx, &request.CustomerId); err != nil {
+		return nil, err
+	}
 	spans, err := s.query.GetTrace(ctx, request.CustomerId, request.TraceId)
 	switch {
 	case errors.Is(err, store.ErrNotFound):

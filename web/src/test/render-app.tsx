@@ -26,6 +26,7 @@ export const testMe: Me = {
   email: 'ops@example.com',
   displayName: 'Ops Admin',
   role: 'admin',
+  allCustomers: true,
   csrfToken: 'csrf-test-token',
 }
 
@@ -36,6 +37,15 @@ export const testCustomer: Customer = {
   clientId: 'cust_7f3a9b2c',
   status: 'active',
   createdAt: '2026-07-01T09:00:00Z',
+}
+
+export const testCustomer2: Customer = {
+  id: '4f2c7a1e-0000-4000-8000-000000000005',
+  slug: 'globex',
+  name: 'Globex Inc',
+  clientId: 'cust_2b1a9f3c',
+  status: 'active',
+  createdAt: '2026-07-03T09:00:00Z',
 }
 
 export const testApiKey: ApiKey = {
@@ -142,6 +152,7 @@ export const testViewerMe: Me = {
   email: 'viewer@example.com',
   displayName: 'Read Only',
   role: 'viewer',
+  allCustomers: true,
   csrfToken: 'csrf-test-token',
 }
 
@@ -167,6 +178,18 @@ export const testUsers: UserAccount[] = [
     identities: [],
     lastLoginAt: null,
     createdAt: '2026-07-14T09:00:00Z',
+  },
+  {
+    id: '4f2c7a1e-0000-4000-8000-000000000023',
+    email: 'scoped@example.com',
+    displayName: 'Scoped Operator',
+    role: 'operator',
+    disabled: false,
+    invited: false,
+    identities: ['google'],
+    customerIds: [testCustomer.id],
+    lastLoginAt: '2026-07-15T08:00:00Z',
+    createdAt: '2026-07-12T09:00:00Z',
   },
 ]
 
@@ -329,7 +352,7 @@ export function stubApi(overrides: { me?: Me } = {}): void {
         case '/api/v1/stats/overview':
           return json(testOverview)
         case '/api/v1/customers':
-          return json({ customers: [testCustomer] })
+          return json({ customers: [testCustomer, testCustomer2] })
         case `/api/v1/customers/${testCustomer.id}`:
           return json(testCustomer)
         case `/api/v1/customers/${testCustomer.id}/api-keys`:

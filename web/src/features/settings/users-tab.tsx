@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Trash2, UserPlus } from 'lucide-react'
 import {
   deleteUserMutation,
+  listCustomersOptions,
   listUsersOptions,
   listUsersQueryKey,
   updateUserMutation,
@@ -11,6 +12,7 @@ import { apiErrorMessage } from '@/lib/api-error'
 import { formatRelative } from '@/lib/format'
 import { useMe } from '@/hooks/use-me'
 import { InviteUserDialog } from '@/features/settings/invite-user-dialog'
+import { EditAccessDialog } from '@/features/settings/edit-access-dialog'
 import { toast } from '@/components/toaster'
 import { ErrorState } from '@/components/error-state'
 import { ConfirmDialog } from '@/components/confirm-dialog'
@@ -36,8 +38,13 @@ export function UsersTab() {
   const [inviteOpen, setInviteOpen] = useState(false)
   const [disableTarget, setDisableTarget] = useState<UserAccount | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<UserAccount | null>(null)
+  const [accessTarget, setAccessTarget] = useState<UserAccount | null>(null)
 
   const usersQuery = useQuery(listUsersOptions())
+  const customersQuery = useQuery(listCustomersOptions())
+  const customerNames = new Map(
+    (customersQuery.data?.customers ?? []).map((c) => [c.id, c.name]),
+  )
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: listUsersQueryKey() })
 
@@ -99,6 +106,7 @@ export function UsersTab() {
           users={usersQuery.data.users}
           selfId={me?.id}
           pending={update.isPending}
+          customerName={(id) => customerNames.get(id)}
           onRoleChange={(user, role) =>
             update.mutate({ path: { userId: user.id }, body: { role } })
           }
@@ -107,10 +115,12 @@ export function UsersTab() {
           }
           onDisable={setDisableTarget}
           onDelete={setDeleteTarget}
+          onEditAccess={setAccessTarget}
         />
       )}
 
       <InviteUserDialog open={inviteOpen} onOpenChange={setInviteOpen} />
+      <EditAccessDialog user={accessTarget} onClose={() => setAccessTarget(null)} />
       <ConfirmDialog
         open={disableTarget !== null}
         onOpenChange={(open) => {
@@ -145,6 +155,40 @@ export function UsersTab() {
   )
 }
 
+const MAX_ACCESS_CHIPS = 3
+
+function CustomerAccessCell({
+  user,
+  customerName,
+}: {
+  user: UserAccount
+  customerName: (id: string) => string | undefined
+}) {
+  // Admins reach every customer regardless of any stored grants; a non-admin
+  // with no grants is likewise unrestricted (backward compatible).
+  const grants = user.customerIds ?? []
+  if (user.role === 'admin' || grants.length === 0) {
+    return (
+      <Badge variant="neutral" className="text-ink-3">
+        All customers
+      </Badge>
+    )
+  }
+
+  const shown = grants.slice(0, MAX_ACCESS_CHIPS)
+  const overflow = grants.length - shown.length
+  return (
+    <span className="flex flex-wrap gap-1">
+      {shown.map((id) => (
+        <Badge key={id} variant="neutral">
+          {customerName(id) ?? id}
+        </Badge>
+      ))}
+      {overflow > 0 && <Badge variant="neutral">{`+${overflow}`}</Badge>}
+    </span>
+  )
+}
+
 function userStatus(user: UserAccount): { label: string; variant: 'ok' | 'warn' | 'neutral' } {
   if (user.disabled) return { label: 'Disabled', variant: 'neutral' }
   if (user.invited) return { label: 'Invited', variant: 'warn' }
@@ -155,18 +199,22 @@ function UsersTable({
   users,
   selfId,
   pending,
+  customerName,
   onRoleChange,
   onEnable,
   onDisable,
   onDelete,
+  onEditAccess,
 }: {
   users: UserAccount[]
   selfId: string | undefined
   pending: boolean
+  customerName: (id: string) => string | undefined
   onRoleChange: (user: UserAccount, role: Role) => void
   onEnable: (user: UserAccount) => void
   onDisable: (user: UserAccount) => void
   onDelete: (user: UserAccount) => void
+  onEditAccess: (user: UserAccount) => void
 }) {
   return (
     <section className="rounded-lg border border-line bg-surface">
@@ -176,6 +224,7 @@ function UsersTable({
             <TableHead>Email</TableHead>
             <TableHead>Name</TableHead>
             <TableHead>Role</TableHead>
+            <TableHead>Customer access</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Identities</TableHead>
             <TableHead>Last login</TableHead>
@@ -220,6 +269,9 @@ function UsersTable({
                   </span>
                 </TableCell>
                 <TableCell>
+                  <CustomerAccessCell user={user} customerName={customerName} />
+                </TableCell>
+                <TableCell>
                   <Badge dot variant={status.variant}>
                     {status.label}
                   </Badge>
@@ -251,6 +303,16 @@ function UsersTable({
                     <span className="text-xs text-ink-3">—</span>
                   ) : (
                     <div className="flex items-center justify-end gap-1">
+                      {user.role !== 'admin' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-label={`Edit access for ${user.email}`}
+                          onClick={() => onEditAccess(user)}
+                        >
+                          Edit access
+                        </Button>
+                      )}
                       {user.disabled ? (
                         <Button variant="ghost" size="sm" onClick={() => onEnable(user)}>
                           Enable

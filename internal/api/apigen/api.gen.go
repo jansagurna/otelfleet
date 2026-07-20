@@ -811,12 +811,18 @@ type LogRecord struct {
 
 // Me defines model for Me.
 type Me struct {
+	// AllCustomers True when the user may access every customer (admins, and non-admins with no grants). When false, access is limited to scopedCustomerIds.
+	AllCustomers bool `json:"allCustomers"`
+
 	// CsrfToken Send as X-CSRF-Token header on all mutating requests.
 	CsrfToken   string              `json:"csrfToken"`
 	DisplayName *string             `json:"displayName,omitempty"`
 	Email       openapi_types.Email `json:"email"`
 	Id          openapi_types.UUID  `json:"id"`
 	Role        Role                `json:"role"`
+
+	// ScopedCustomerIds Customers this user is limited to (present only when allCustomers is false).
+	ScopedCustomerIds *[]openapi_types.UUID `json:"scopedCustomerIds,omitempty"`
 }
 
 // Pipeline defines model for Pipeline.
@@ -1014,11 +1020,14 @@ type TraceSummary struct {
 
 // UserAccount defines model for UserAccount.
 type UserAccount struct {
-	CreatedAt   time.Time           `json:"createdAt"`
-	Disabled    bool                `json:"disabled"`
-	DisplayName *string             `json:"displayName,omitempty"`
-	Email       openapi_types.Email `json:"email"`
-	Id          openapi_types.UUID  `json:"id"`
+	CreatedAt time.Time `json:"createdAt"`
+
+	// CustomerIds Tenant-scope grants (empty = access to all customers). Ignored for admins, who always access every customer.
+	CustomerIds *[]openapi_types.UUID `json:"customerIds,omitempty"`
+	Disabled    bool                  `json:"disabled"`
+	DisplayName *string               `json:"displayName,omitempty"`
+	Email       openapi_types.Email   `json:"email"`
+	Id          openapi_types.UUID    `json:"id"`
 
 	// Identities Linked login identities (provider names).
 	Identities []string `json:"identities"`
@@ -1266,14 +1275,18 @@ type GetStatsOverviewParams struct {
 
 // InviteUserJSONBody defines parameters for InviteUser.
 type InviteUserJSONBody struct {
-	Email openapi_types.Email `json:"email"`
-	Role  Role                `json:"role"`
+	// CustomerIds Tenant-scope grants. When set, a non-admin user is limited to these customers; omit or empty = access to all customers. Ignored for admins.
+	CustomerIds *[]openapi_types.UUID `json:"customerIds,omitempty"`
+	Email       openapi_types.Email   `json:"email"`
+	Role        Role                  `json:"role"`
 }
 
 // UpdateUserJSONBody defines parameters for UpdateUser.
 type UpdateUserJSONBody struct {
-	Disabled *bool `json:"disabled,omitempty"`
-	Role     *Role `json:"role,omitempty"`
+	// CustomerIds Replaces the user's full tenant-scope grant set. Empty array clears all grants (access to all customers); omit to leave grants unchanged. Ignored for admins.
+	CustomerIds *[]openapi_types.UUID `json:"customerIds,omitempty"`
+	Disabled    *bool                 `json:"disabled,omitempty"`
+	Role        *Role                 `json:"role,omitempty"`
 }
 
 // UpdateAgentJSONRequestBody defines body for UpdateAgent for application/json ContentType.

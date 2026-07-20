@@ -76,12 +76,12 @@ type Overview struct {
 const topCustomersLimit = 5
 
 // GetOverview aggregates the fleet-wide stats for [from, to).
-func (s *Service) GetOverview(ctx context.Context, from, to time.Time) (Overview, error) {
-	active, err := s.store.CountActiveCustomers(ctx)
-	if err != nil {
-		return Overview{}, fmt.Errorf("count active customers: %w", err)
-	}
-
+// GetOverview aggregates fleet-wide ingest. allowed limits the result to a set
+// of customer IDs for a tenant-scoped caller; nil means unscoped (all
+// customers). When scoped, totals/leaderboard/active-count cover only the
+// allowed customers, and refused-request counts (fleet-wide, from VM) are
+// suppressed to avoid leaking other tenants' volume.
+func (s *Service) GetOverview(ctx context.Context, from, to time.Time, allowed map[uuid.UUID]bool) (Overview, error) {
 	rows, err := s.ch.Query(ctx, `
 		SELECT TenantId, Signal, sum(Items) AS items
 		FROM ingest_counts_1m
@@ -93,16 +93,19 @@ func (s *Service) GetOverview(ctx context.Context, from, to time.Time) (Overview
 	}
 	defer rows.Close()
 
-	totals := map[string]int64{"logs": 0, "traces": 0, "metrics": 0}
-	perTenant := map[string]int64{}
+	// Accumulate per tenant and signal so a scoped caller's totals can be
+	// recomputed from only the allowed customers.
+	perTenantSignal := map[string]map[string]int64{}
 	for rows.Next() {
 		var tenantID, signal string
 		var items uint64
 		if err := rows.Scan(&tenantID, &signal, &items); err != nil {
 			return Overview{}, fmt.Errorf("%w: clickhouse scan: %v", ErrUpstreamUnavailable, err)
 		}
-		totals[signal] += int64(items)
-		perTenant[tenantID] += int64(items)
+		if perTenantSignal[tenantID] == nil {
+			perTenantSignal[tenantID] = map[string]int64{}
+		}
+		perTenantSignal[tenantID][signal] += int64(items)
 	}
 	if err := rows.Err(); err != nil {
 		return Overview{}, fmt.Errorf("%w: clickhouse: %v", ErrUpstreamUnavailable, err)
@@ -117,11 +120,21 @@ func (s *Service) GetOverview(ctx context.Context, from, to time.Time) (Overview
 	for _, r := range refs {
 		byClientID[r.ClientID] = r
 	}
-	top := make([]TopCustomer, 0, len(perTenant))
-	for tenantID, items := range perTenant {
+
+	totals := map[string]int64{"logs": 0, "traces": 0, "metrics": 0}
+	top := make([]TopCustomer, 0, len(perTenantSignal))
+	for tenantID, bySignal := range perTenantSignal {
 		ref, ok := byClientID[tenantID]
 		if !ok {
 			continue // data from tenants unknown to the control plane
+		}
+		if allowed != nil && !allowed[ref.ID] {
+			continue // out of the caller's scope
+		}
+		var items int64
+		for sig, n := range bySignal {
+			totals[sig] += n
+			items += n
 		}
 		top = append(top, TopCustomer{CustomerID: ref.ID, Name: ref.Name, Items: items})
 	}
@@ -135,10 +148,19 @@ func (s *Service) GetOverview(ctx context.Context, from, to time.Time) (Overview
 		top = top[:topCustomersLimit]
 	}
 
+	active := len(allowed)
+	refused := int64(0)
+	if allowed == nil {
+		if active, err = s.store.CountActiveCustomers(ctx); err != nil {
+			return Overview{}, fmt.Errorf("count active customers: %w", err)
+		}
+		refused = s.refusedRequests(ctx, from, to)
+	}
+
 	return Overview{
 		ActiveCustomers: active,
 		Totals:          totals,
-		RefusedRequests: s.refusedRequests(ctx, from, to),
+		RefusedRequests: refused,
 		TopCustomers:    top,
 	}, nil
 }

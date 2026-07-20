@@ -20,3 +20,16 @@ export function canMutate(me: Me | undefined): boolean {
 export function isAdmin(me: Me | undefined): boolean {
   return me !== undefined && me.role === 'admin'
 }
+
+/**
+ * True when the user reaches every customer — admins always, and non-admins
+ * with no tenant-scope grants. A scoped user only sees `scopedCustomerIds`.
+ */
+export function hasAllCustomers(me: Me | undefined): boolean {
+  return me === undefined || me.allCustomers
+}
+
+/** How many customers a scoped (non-all-access) user is limited to. */
+export function scopedCustomerCount(me: Me | undefined): number {
+  return me?.scopedCustomerIds?.length ?? 0
+}

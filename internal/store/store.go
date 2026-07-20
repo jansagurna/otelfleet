@@ -73,6 +73,9 @@ type User struct {
 type UserWithIdentities struct {
 	User
 	Identities []string
+	// CustomerIDs are the customer grants scoping this user (empty = all
+	// customers; ignored for admins). See user_customer_grants.
+	CustomerIDs []uuid.UUID
 }
 
 // UserUpdate carries the admin PATCH fields; nil means unchanged.
@@ -535,9 +538,17 @@ type Store interface {
 	// User administration (admin endpoints). Mutations enforce the
 	// last-enabled-admin invariant transactionally (ErrLastAdmin).
 	ListUsers(ctx context.Context) ([]UserWithIdentities, error)
+	GetUserWithIdentities(ctx context.Context, id uuid.UUID) (UserWithIdentities, error)
 	CreateInvitedUser(ctx context.Context, id uuid.UUID, email, role string, entries []audit.Entry) (User, error)
 	UpdateUserAdmin(ctx context.Context, id uuid.UUID, upd UserUpdate, entries []audit.Entry) (UserWithIdentities, error)
 	DeleteUser(ctx context.Context, id uuid.UUID, entries []audit.Entry) error
+
+	// Per-customer grants (tenant-scoped RBAC). ListUserCustomerIDs is on the
+	// request hot path (Guard); SetUserCustomerGrants replaces a user's full
+	// grant set (empty = unscoped) and returns ErrNotFound for a missing user
+	// or an unknown customer id.
+	ListUserCustomerIDs(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error)
+	SetUserCustomerGrants(ctx context.Context, userID uuid.UUID, customerIDs []uuid.UUID, entries []audit.Entry) error
 
 	// Auth providers (database-managed SSO). Secrets arrive/leave encrypted.
 	ListAuthProviders(ctx context.Context, enabledOnly bool) ([]AuthProvider, error)

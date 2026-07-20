@@ -108,13 +108,22 @@ func (s *Server) GetMe(ctx context.Context, _ apigen.GetMeRequestObject) (apigen
 	if !ok { // unreachable: Guard rejects unauthenticated requests first
 		return apigen.GetMe401JSONResponse{UnauthorizedJSONResponse: apigen.UnauthorizedJSONResponse{Code: codeUnauthorized, Message: "authentication required"}}, nil
 	}
-	return apigen.GetMe200JSONResponse{
-		Id:          p.User.ID,
-		Email:       openapi_types.Email(p.User.Email),
-		DisplayName: p.User.DisplayName,
-		Role:        apigen.Role(p.User.Role),
-		CsrfToken:   p.CSRFToken,
-	}, nil
+	me := apigen.GetMe200JSONResponse{
+		Id:           p.User.ID,
+		Email:        openapi_types.Email(p.User.Email),
+		DisplayName:  p.User.DisplayName,
+		Role:         apigen.Role(p.User.Role),
+		CsrfToken:    p.CSRFToken,
+		AllCustomers: p.AllCustomers,
+	}
+	if !p.AllCustomers {
+		ids := make([]openapi_types.UUID, 0, len(p.AllowedCustomers))
+		for id := range p.AllowedCustomers {
+			ids = append(ids, id)
+		}
+		me.ScopedCustomerIds = &ids
+	}
+	return me, nil
 }
 
 // ListAuthProviders is public: the login page needs it before any session.
@@ -184,14 +193,23 @@ func (s *Server) ListCustomers(ctx context.Context, request apigen.ListCustomers
 	if err != nil {
 		return nil, err
 	}
+	allowed, scoped := customerScope(ctx)
 	out := make([]apigen.Customer, 0, len(customers))
 	for _, c := range customers {
+		if scoped && !allowed[c.ID] {
+			continue
+		}
 		out = append(out, toCustomer(c))
 	}
 	return apigen.ListCustomers200JSONResponse{Customers: out}, nil
 }
 
 func (s *Server) CreateCustomer(ctx context.Context, request apigen.CreateCustomerRequestObject) (apigen.CreateCustomerResponseObject, error) {
+	// Managing the customer roster is a fleet-wide action; a tenant-scoped user
+	// cannot create customers (they would then be outside their own scope).
+	if err := requireUnscoped(ctx); err != nil {
+		return nil, err
+	}
 	created, err := s.tenants.CreateCustomer(ctx, actorID(ctx), request.Body.Name, request.Body.Slug)
 	switch {
 	case errors.Is(err, tenants.ErrInvalidName), errors.Is(err, tenants.ErrInvalidSlug):
@@ -208,6 +226,9 @@ func (s *Server) CreateCustomer(ctx context.Context, request apigen.CreateCustom
 }
 
 func (s *Server) GetCustomer(ctx context.Context, request apigen.GetCustomerRequestObject) (apigen.GetCustomerResponseObject, error) {
+	if err := requireCustomerAccess(ctx, &request.CustomerId); err != nil {
+		return nil, err
+	}
 	c, err := s.store.GetCustomer(ctx, request.CustomerId)
 	if errors.Is(err, store.ErrNotFound) {
 		return apigen.GetCustomer404JSONResponse{NotFoundJSONResponse: apigen.NotFoundJSONResponse{Code: codeNotFound, Message: "customer not found"}}, nil
@@ -219,6 +240,9 @@ func (s *Server) GetCustomer(ctx context.Context, request apigen.GetCustomerRequ
 }
 
 func (s *Server) UpdateCustomer(ctx context.Context, request apigen.UpdateCustomerRequestObject) (apigen.UpdateCustomerResponseObject, error) {
+	if err := requireCustomerAccess(ctx, &request.CustomerId); err != nil {
+		return nil, err
+	}
 	upd := store.CustomerUpdate{Name: request.Body.Name}
 	if request.Body.Status != nil {
 		v := string(*request.Body.Status)
@@ -251,6 +275,9 @@ func (s *Server) UpdateCustomer(ctx context.Context, request apigen.UpdateCustom
 }
 
 func (s *Server) DeleteCustomer(ctx context.Context, request apigen.DeleteCustomerRequestObject) (apigen.DeleteCustomerResponseObject, error) {
+	if err := requireCustomerAccess(ctx, &request.CustomerId); err != nil {
+		return nil, err
+	}
 	err := s.tenants.DeleteCustomer(ctx, actorID(ctx), request.CustomerId)
 	if errors.Is(err, store.ErrNotFound) {
 		return apigen.DeleteCustomer404JSONResponse{NotFoundJSONResponse: apigen.NotFoundJSONResponse{Code: codeNotFound, Message: "customer not found"}}, nil
@@ -264,6 +291,9 @@ func (s *Server) DeleteCustomer(ctx context.Context, request apigen.DeleteCustom
 // --- api keys ---
 
 func (s *Server) ListApiKeys(ctx context.Context, request apigen.ListApiKeysRequestObject) (apigen.ListApiKeysResponseObject, error) {
+	if err := requireCustomerAccess(ctx, &request.CustomerId); err != nil {
+		return nil, err
+	}
 	keys, err := s.store.ListAPIKeys(ctx, request.CustomerId)
 	if errors.Is(err, store.ErrNotFound) {
 		return apigen.ListApiKeys404JSONResponse{NotFoundJSONResponse: apigen.NotFoundJSONResponse{Code: codeNotFound, Message: "customer not found"}}, nil
@@ -279,6 +309,9 @@ func (s *Server) ListApiKeys(ctx context.Context, request apigen.ListApiKeysRequ
 }
 
 func (s *Server) CreateApiKey(ctx context.Context, request apigen.CreateApiKeyRequestObject) (apigen.CreateApiKeyResponseObject, error) {
+	if err := requireCustomerAccess(ctx, &request.CustomerId); err != nil {
+		return nil, err
+	}
 	created, err := s.tenants.CreateAPIKey(ctx, actorID(ctx), request.CustomerId, request.Body.Name, request.Body.ExpiresAt)
 	switch {
 	case errors.Is(err, tenants.ErrInvalidName):
@@ -292,6 +325,9 @@ func (s *Server) CreateApiKey(ctx context.Context, request apigen.CreateApiKeyRe
 }
 
 func (s *Server) RevokeApiKey(ctx context.Context, request apigen.RevokeApiKeyRequestObject) (apigen.RevokeApiKeyResponseObject, error) {
+	if err := requireCustomerAccess(ctx, &request.CustomerId); err != nil {
+		return nil, err
+	}
 	err := s.tenants.RevokeAPIKey(ctx, actorID(ctx), request.CustomerId, request.KeyId)
 	if errors.Is(err, store.ErrNotFound) {
 		return apigen.RevokeApiKey404JSONResponse{NotFoundJSONResponse: apigen.NotFoundJSONResponse{Code: codeNotFound, Message: "api key not found"}}, nil
@@ -309,7 +345,8 @@ func (s *Server) GetStatsOverview(ctx context.Context, request apigen.GetStatsOv
 	if !to.After(from) {
 		return statsOverviewErrResponse{errResp(http.StatusBadRequest, codeBadRequest, "'to' must be after 'from'")}, nil
 	}
-	ov, err := s.stats.GetOverview(ctx, from, to)
+	allowed, _ := customerScope(ctx)
+	ov, err := s.stats.GetOverview(ctx, from, to, allowed)
 	if errors.Is(err, stats.ErrUpstreamUnavailable) {
 		return statsOverviewErrResponse{errResp(http.StatusServiceUnavailable, codeUpstream, "stats backend unavailable")}, nil
 	}
@@ -355,8 +392,12 @@ func (s *Server) GetCostStats(ctx context.Context, request apigen.GetCostStatsRe
 		return nil, err
 	}
 
+	allowed, scoped := customerScope(ctx)
 	resp := apigen.GetCostStats200JSONResponse{Customers: make([]apigen.CustomerCost, 0, len(costs))}
 	for _, c := range costs {
+		if scoped && !allowed[c.CustomerID] {
+			continue
+		}
 		days := make([]struct {
 			Bytes int64              `json:"bytes"`
 			Date  openapi_types.Date `json:"date"`
@@ -381,6 +422,9 @@ func (s *Server) GetCostStats(ctx context.Context, request apigen.GetCostStatsRe
 }
 
 func (s *Server) GetCustomerThroughput(ctx context.Context, request apigen.GetCustomerThroughputRequestObject) (apigen.GetCustomerThroughputResponseObject, error) {
+	if err := requireCustomerAccess(ctx, &request.CustomerId); err != nil {
+		return nil, err
+	}
 	from, to := request.Params.From, request.Params.To
 	if !to.After(from) {
 		return throughputErrResponse{errResp(http.StatusBadRequest, codeBadRequest, "'to' must be after 'from'")}, nil
@@ -450,3 +494,10 @@ type badRequestError struct{ err error }
 
 func (e badRequestError) Error() string { return e.err.Error() }
 func (e badRequestError) Unwrap() error { return e.err }
+
+// forbiddenError marks handler errors that must surface as 403 (tenant-scope
+// violations); the router's ResponseErrorHandlerFunc unwraps it.
+type forbiddenError struct{ err error }
+
+func (e forbiddenError) Error() string { return e.err.Error() }
+func (e forbiddenError) Unwrap() error { return e.err }

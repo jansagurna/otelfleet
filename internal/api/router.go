@@ -49,6 +49,11 @@ func NewRouter(d RouterDeps) http.Handler {
 				writeError(w, http.StatusBadRequest, codeBadRequest, bad.Error())
 				return
 			}
+			var forbidden forbiddenError
+			if errors.As(err, &forbidden) {
+				writeError(w, http.StatusForbidden, codeForbidden, forbidden.Error())
+				return
+			}
 			d.Log.Error("handler failed", "method", r.Method, "path", r.URL.Path, "err", err)
 			writeError(w, http.StatusInternalServerError, codeInternal, "internal server error")
 		},
