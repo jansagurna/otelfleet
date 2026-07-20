@@ -35,6 +35,13 @@ type Config struct {
 
 	VictoriaMetricsURL string
 
+	// Role selects which listeners/workers this process runs:
+	//   all   — everything in one process (default; dev and small deployments)
+	//   api   — stateless request tier: HTTP + internal gRPC + ops (scale to N)
+	//   opamp — singleton worker tier: OpAMP WebSockets + edge-config listener +
+	//           webhook dispatcher + retention sweep + ops
+	Role string
+
 	HTTPAddr  string
 	GRPCAddr  string
 	OpsAddr   string
@@ -80,6 +87,7 @@ type Config struct {
 // Load reads the configuration from the process environment.
 func Load() (*Config, error) {
 	cfg := &Config{
+		Role:                env("ROLE", "all"),
 		DatabaseURL:         env("DATABASE_URL", "postgres://otelfleet:otelfleet@localhost:5432/otelfleet"),
 		ClickHouseAddr:      env("CLICKHOUSE_ADDR", "localhost:9000"),
 		ClickHouseDatabase:  env("CLICKHOUSE_DATABASE", "otel"),
@@ -101,6 +109,9 @@ func Load() (*Config, error) {
 	}
 	if cfg.Distributor != "publish" && cfg.Distributor != "k8s" {
 		return nil, fmt.Errorf("OTELFLEET_DISTRIBUTOR must be 'publish' or 'k8s', got %q", cfg.Distributor)
+	}
+	if cfg.Role != "all" && cfg.Role != "api" && cfg.Role != "opamp" {
+		return nil, fmt.Errorf("OTELFLEET_ROLE must be 'all', 'api' or 'opamp', got %q", cfg.Role)
 	}
 
 	if raw := env("RETENTION_INTERVAL", "24h"); raw != "" {
@@ -141,6 +152,13 @@ func Load() (*Config, error) {
 
 	return cfg, nil
 }
+
+// RunsAPI reports whether this process serves the HTTP/gRPC request tier.
+func (c *Config) RunsAPI() bool { return c.Role == "all" || c.Role == "api" }
+
+// RunsOpAMP reports whether this process runs the OpAMP server and the
+// singleton background workers (edge-config listener, webhooks, retention).
+func (c *Config) RunsOpAMP() bool { return c.Role == "all" || c.Role == "opamp" }
 
 // IsAdminEmail reports whether email is listed in OTELFLEET_ADMIN_EMAILS.
 func (c *Config) IsAdminEmail(email string) bool {

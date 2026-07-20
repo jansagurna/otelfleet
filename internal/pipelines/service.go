@@ -23,13 +23,13 @@ var (
 	ErrSlugTaken = errors.New("a pipeline with an equivalent name already exists")
 )
 
-// EdgeNotifier is how the pipeline service tells the OpAMP module that the
-// desired edge config of a customer changed (edge pipeline activated or
-// deleted). Implemented by the opamp package; pipelines only knows this
-// interface to avoid an import cycle. It returns how many connected agents
-// received the push and how many known edge agents were offline.
+// EdgeNotifier signals that a customer's desired edge config changed (edge
+// pipeline activated or deleted). It is fire-and-forget: in a split
+// deployment the actual push happens on the OpAMP tier, which consumes the
+// signal over PostgreSQL LISTEN/NOTIFY. The API tier reports rollout progress
+// from the agents table, not from a live push count.
 type EdgeNotifier interface {
-	EdgeConfigChanged(ctx context.Context, customerID uuid.UUID) (pushed, offline int, err error)
+	EdgeConfigChanged(ctx context.Context, customerID uuid.UUID) error
 }
 
 // Service orchestrates pipeline management: validation, versioning,
@@ -398,13 +398,34 @@ func (s *Service) distribute(ctx context.Context) (string, string, error) {
 // reconnect (the OpAMP handler compares hashes on every connect), so the
 // rollout state is 'applied'.
 func (s *Service) notifyEdge(ctx context.Context, customerID uuid.UUID) (string, string, error) {
-	if s.edge == nil {
-		return StateApplied, "no OpAMP module attached; agents update on reconnect", nil
+	if s.edge != nil {
+		if err := s.edge.EdgeConfigChanged(ctx, customerID); err != nil {
+			return "", "", err
+		}
 	}
-	pushed, offline, err := s.edge.EdgeConfigChanged(ctx, customerID)
-	if err != nil {
-		return "", "", err
-	}
-	detail := fmt.Sprintf("pushed to %d connected agents (%d offline agents update on reconnect)", pushed, offline)
+	// Report rollout scope from the agents table (the OpAMP tier does the
+	// actual push out of band). connected agents get it within moments;
+	// offline ones on reconnect via the handler's hash comparison.
+	connected, offline := s.countEdgeAgents(ctx, customerID)
+	detail := fmt.Sprintf("rollout queued: %d connected agent(s) update now, %d offline update on reconnect", connected, offline)
 	return StateApplied, detail, nil
+}
+
+// countEdgeAgents returns how many of the customer's edge agents are currently
+// connected vs offline (best-effort; a store error yields zeros).
+func (s *Service) countEdgeAgents(ctx context.Context, customerID uuid.UUID) (connected, offline int) {
+	edge := store.ClassEdge
+	agents, err := s.store.ListAgents(ctx, store.AgentFilter{Class: &edge, CustomerID: &customerID})
+	if err != nil {
+		s.log.Warn("count edge agents failed", "customer", customerID, "err", err)
+		return 0, 0
+	}
+	for _, a := range agents {
+		if a.Connected {
+			connected++
+		} else {
+			offline++
+		}
+	}
+	return connected, offline
 }

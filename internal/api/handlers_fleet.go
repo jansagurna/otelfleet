@@ -149,7 +149,10 @@ func (s *Server) DeleteAgent(ctx context.Context, request apigen.DeleteAgentRequ
 	if err != nil {
 		return nil, err
 	}
-	if s.agents != nil && s.agents.IsConnected(a.InstanceUID) {
+	// Refuse deleting a live agent. The `connected` column is written by the
+	// OpAMP tier on connect/disconnect transitions, so this check works across
+	// process boundaries (the API tier need not reach the OpAMP registry).
+	if a.Connected {
 		return apigen.DeleteAgent409JSONResponse{ConflictJSONResponse: apigen.ConflictJSONResponse{Code: codeConflict, Message: "agent is currently connected"}}, nil
 	}
 	err = s.store.DeleteAgent(ctx, request.AgentId, []audit.Entry{{

@@ -21,12 +21,6 @@ import (
 	"github.com/jansagurna/otelfleet/internal/tenants"
 )
 
-// AgentConnections is the OpAMP-server subset the fleet handlers need (live
-// connection check for the delete-agent 409). Implemented by *opamp.Server.
-type AgentConnections interface {
-	IsConnected(instanceUID []byte) bool
-}
-
 // Server implements the OpenAPI strict-server interface.
 type Server struct {
 	cfg       *config.Config
@@ -36,9 +30,8 @@ type Server struct {
 	stats     *stats.Service
 	sessions  *auth.Sessions
 	authReg   *auth.Registry
-	cipher    *crypto.Cipher   // nil: master key not configured
-	agents    AgentConnections // nil: no OpAMP server (treated as disconnected)
-	webhooks  WebhookTester    // nil: no dispatcher wired
+	cipher    *crypto.Cipher // nil: master key not configured
+	webhooks  WebhookTester  // nil: no dispatcher wired
 	log       *slog.Logger
 }
 
@@ -50,8 +43,8 @@ type WebhookTester interface {
 var _ apigen.StrictServerInterface = (*Server)(nil)
 
 // NewServer wires the REST handlers.
-func NewServer(cfg *config.Config, st store.Store, ten *tenants.Service, pipes *pipelines.Service, sts *stats.Service, sessions *auth.Sessions, authReg *auth.Registry, cipher *crypto.Cipher, agents AgentConnections, webhooks WebhookTester, log *slog.Logger) *Server {
-	return &Server{cfg: cfg, store: st, tenants: ten, pipelines: pipes, stats: sts, sessions: sessions, authReg: authReg, cipher: cipher, agents: agents, webhooks: webhooks, log: log}
+func NewServer(cfg *config.Config, st store.Store, ten *tenants.Service, pipes *pipelines.Service, sts *stats.Service, sessions *auth.Sessions, authReg *auth.Registry, cipher *crypto.Cipher, webhooks WebhookTester, log *slog.Logger) *Server {
+	return &Server{cfg: cfg, store: st, tenants: ten, pipelines: pipes, stats: sts, sessions: sessions, authReg: authReg, cipher: cipher, webhooks: webhooks, log: log}
 }
 
 func actorID(ctx context.Context) *openapi_types.UUID {

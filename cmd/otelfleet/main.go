@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
@@ -30,12 +31,13 @@ import (
 	"github.com/jansagurna/otelfleet/internal/ingestauth"
 	"github.com/jansagurna/otelfleet/internal/ingestauth/authv1"
 	"github.com/jansagurna/otelfleet/internal/opamp"
+	"github.com/jansagurna/otelfleet/internal/pgnotify"
 	"github.com/jansagurna/otelfleet/internal/pipelines"
 	"github.com/jansagurna/otelfleet/internal/retention"
 	"github.com/jansagurna/otelfleet/internal/stats"
-	"github.com/jansagurna/otelfleet/internal/webhooks"
 	"github.com/jansagurna/otelfleet/internal/store"
 	"github.com/jansagurna/otelfleet/internal/tenants"
+	"github.com/jansagurna/otelfleet/internal/webhooks"
 )
 
 func main() {
@@ -125,48 +127,25 @@ func run(log *slog.Logger) error {
 	}
 	pipelinesSvc := pipelines.NewService(st, validator, distributor, cipher, log)
 
-	// OpAMP server (edge-agent fleet management on :4320). The pipeline
-	// service pushes edge-config changes through it; the OpAMP server renders
-	// desired configs through the pipeline service.
-	opampSrv := opamp.NewServer(st, pipelinesSvc, cfg.OpAMPAddr, cfg.OpAMPPublicEndpoint, log)
-	pipelinesSvc.SetEdgeNotifier(opampSrv)
+	// Edge-config changes travel over PostgreSQL LISTEN/NOTIFY so the stateless
+	// API tier and the singleton OpAMP tier can run as separate processes: the
+	// API tier publishes, the OpAMP tier listens and pushes to connected agents.
+	notifier := pgnotify.NewNotifier(pool)
+	pipelinesSvc.SetEdgeNotifier(edgeNotifier{notifier})
 
-	// Alerting webhooks: the dispatcher consumes fleet events from the OpAMP
-	// module through a bounded queue and delivers signed POSTs out of band.
+	// OpAMP server, webhook dispatcher and retention sweep run on the OpAMP
+	// tier. They are constructed unconditionally (cheap) and only started when
+	// this process runs that role.
+	opampSrv := opamp.NewServer(st, pipelinesSvc, cfg.OpAMPAddr, cfg.OpAMPPublicEndpoint, log)
 	webhookDispatcher := webhooks.New(st, cipher, log)
 	opampSrv.Handler().SetEventSink(webhookDispatcher)
-
-	// Per-customer telemetry retention sweep.
 	retentionSvc := retention.New(chConn, st, cfg.RetentionInterval, log)
 
 	// Login provider registry: database providers + the OTELFLEET_OIDC_* env
 	// provider, resolved per request under /auth/{name}/...
 	authRegistry := auth.NewRegistry(cfg, st, cipher, sessions, log)
 
-	// REST API server.
-	server := api.NewServer(cfg, st, tenantsSvc, pipelinesSvc, statsSvc, sessions, authRegistry, cipher, opampSrv, webhookDispatcher, log)
-	httpSrv := &http.Server{
-		Addr: cfg.HTTPAddr,
-		Handler: api.NewRouter(api.RouterDeps{
-			Config:   cfg,
-			Store:    st,
-			Sessions: sessions,
-			Server:   server,
-			Auth:     authRegistry,
-			Log:      log,
-		}),
-		ReadHeaderTimeout: 10 * time.Second,
-	}
-
-	// Internal gRPC server (plaintext in dev; cluster-internal only).
-	grpcSrv := grpc.NewServer()
-	authv1.RegisterAuthServiceServer(grpcSrv, ingestAuth)
-	grpcLis, err := net.Listen("tcp", cfg.GRPCAddr)
-	if err != nil {
-		return fmt.Errorf("listen grpc %s: %w", cfg.GRPCAddr, err)
-	}
-
-	// Ops server.
+	// Ops server (metrics + health) runs on every tier.
 	opsSrv := &http.Server{
 		Addr:              cfg.OpsAddr,
 		Handler:           api.NewOpsHandler(reg, st.Ping, pipelinesSvc.RenderCurrent),
@@ -174,20 +153,8 @@ func run(log *slog.Logger) error {
 	}
 
 	g, gctx := errgroup.WithContext(ctx)
-	g.Go(func() error {
-		log.Info("http server listening", "addr", cfg.HTTPAddr, "dev_login", cfg.DevLogin)
-		if err := httpSrv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-			return fmt.Errorf("http server: %w", err)
-		}
-		return nil
-	})
-	g.Go(func() error {
-		log.Info("grpc server listening", "addr", cfg.GRPCAddr)
-		if err := grpcSrv.Serve(grpcLis); err != nil {
-			return fmt.Errorf("grpc server: %w", err)
-		}
-		return nil
-	})
+	log.Info("starting", "role", cfg.Role, "api", cfg.RunsAPI(), "opamp", cfg.RunsOpAMP())
+
 	g.Go(func() error {
 		log.Info("ops server listening", "addr", cfg.OpsAddr)
 		if err := opsSrv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
@@ -195,47 +162,123 @@ func run(log *slog.Logger) error {
 		}
 		return nil
 	})
-	g.Go(func() error {
-		ingestAuth.Run(gctx) // flushes batched last_used_at updates; final flush on cancel
-		return nil
-	})
-	g.Go(func() error {
-		webhookDispatcher.Run(gctx) // drains the event queue; stops on cancel
-		return nil
-	})
-	g.Go(func() error {
-		retentionSvc.Run(gctx) // nightly per-customer retention sweep
-		return nil
-	})
-	g.Go(func() error {
-		log.Info("opamp server listening", "addr", cfg.OpAMPAddr, "path", opamp.Path)
-		if err := opampSrv.Start(); err != nil {
-			return err
+
+	// --- API tier: HTTP + internal gRPC (stateless, scale to N replicas) ---
+	var httpSrv *http.Server
+	var grpcSrv *grpc.Server
+	if cfg.RunsAPI() {
+		server := api.NewServer(cfg, st, tenantsSvc, pipelinesSvc, statsSvc, sessions, authRegistry, cipher, webhookDispatcher, log)
+		httpSrv = &http.Server{
+			Addr: cfg.HTTPAddr,
+			Handler: api.NewRouter(api.RouterDeps{
+				Config:   cfg,
+				Store:    st,
+				Sessions: sessions,
+				Server:   server,
+				Auth:     authRegistry,
+				Log:      log,
+			}),
+			ReadHeaderTimeout: 10 * time.Second,
 		}
-		opampSrv.Run(gctx) // flushes write-behind heartbeat state; final flush on cancel
-		return nil
-	})
+		grpcSrv = grpc.NewServer()
+		authv1.RegisterAuthServiceServer(grpcSrv, ingestAuth)
+		grpcLis, err := net.Listen("tcp", cfg.GRPCAddr)
+		if err != nil {
+			return fmt.Errorf("listen grpc %s: %w", cfg.GRPCAddr, err)
+		}
+		g.Go(func() error {
+			log.Info("http server listening", "addr", cfg.HTTPAddr, "dev_login", cfg.DevLogin)
+			if err := httpSrv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+				return fmt.Errorf("http server: %w", err)
+			}
+			return nil
+		})
+		g.Go(func() error {
+			log.Info("grpc server listening", "addr", cfg.GRPCAddr)
+			if err := grpcSrv.Serve(grpcLis); err != nil {
+				return fmt.Errorf("grpc server: %w", err)
+			}
+			return nil
+		})
+		g.Go(func() error {
+			ingestAuth.Run(gctx) // flushes batched last_used_at updates
+			return nil
+		})
+	}
+
+	// --- OpAMP tier: WebSockets + singleton background workers ---
+	if cfg.RunsOpAMP() {
+		g.Go(func() error {
+			log.Info("opamp server listening", "addr", cfg.OpAMPAddr, "path", opamp.Path)
+			if err := opampSrv.Start(); err != nil {
+				return err
+			}
+			opampSrv.Run(gctx) // flushes write-behind heartbeat state
+			return nil
+		})
+		g.Go(func() error {
+			// Consume edge-config change signals and push to connected agents.
+			pgnotify.Listen(gctx, pool, pgnotify.EdgeConfigChannel, log, func(payload string) {
+				cid, err := uuid.Parse(payload)
+				if err != nil {
+					log.Warn("opamp: bad edge-config notification payload", "payload", payload)
+					return
+				}
+				pushed, offline, err := opampSrv.EdgeConfigChanged(gctx, cid)
+				if err != nil {
+					log.Error("opamp: edge config push failed", "customer", cid, "err", err)
+					return
+				}
+				log.Info("opamp: edge config pushed", "customer", cid, "pushed", pushed, "offline", offline)
+			})
+			return nil
+		})
+		g.Go(func() error {
+			webhookDispatcher.Run(gctx) // drains the fleet-event queue
+			return nil
+		})
+		g.Go(func() error {
+			retentionSvc.Run(gctx) // per-customer retention sweep (singleton tier)
+			return nil
+		})
+	}
+
 	g.Go(func() error {
 		<-gctx.Done()
 		log.Info("shutting down")
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
-		if err := httpSrv.Shutdown(shutdownCtx); err != nil {
-			log.Warn("http shutdown", "err", err)
-		}
 		if err := opsSrv.Shutdown(shutdownCtx); err != nil {
 			log.Warn("ops shutdown", "err", err)
 		}
-		if err := opampSrv.Stop(shutdownCtx); err != nil {
-			log.Warn("opamp shutdown", "err", err)
+		if httpSrv != nil {
+			if err := httpSrv.Shutdown(shutdownCtx); err != nil {
+				log.Warn("http shutdown", "err", err)
+			}
 		}
-		grpcSrv.GracefulStop()
+		if grpcSrv != nil {
+			grpcSrv.GracefulStop()
+		}
+		if cfg.RunsOpAMP() {
+			if err := opampSrv.Stop(shutdownCtx); err != nil {
+				log.Warn("opamp shutdown", "err", err)
+			}
+		}
 		return nil
 	})
 
 	err = g.Wait()
 	log.Info("otelfleet stopped")
 	return err
+}
+
+// edgeNotifier adapts the LISTEN/NOTIFY publisher to pipelines.EdgeNotifier:
+// activating or deleting an edge pipeline publishes the customer UUID on the
+// edge-config channel, which the OpAMP tier consumes.
+type edgeNotifier struct{ n *pgnotify.Notifier }
+
+func (e edgeNotifier) EdgeConfigChanged(ctx context.Context, customerID uuid.UUID) error {
+	return e.n.Notify(ctx, pgnotify.EdgeConfigChannel, customerID.String())
 }
 
 // waitForDB pings until the database answers or the timeout elapses; dev
