@@ -28,6 +28,7 @@ const logoutPath = "/api/v1/auth/logout"
 var adminPathPrefixes = []string{
 	"/api/v1/users",
 	"/api/v1/settings/auth-providers",
+	"/api/v1/settings/api-tokens",
 	"/api/v1/audit",
 }
 
@@ -40,9 +41,11 @@ func isAdminOnlyPath(path string) bool {
 	return false
 }
 
-// UserGetter is the store subset the Guard middleware needs.
-type UserGetter interface {
+// GuardStore is the store subset the Guard middleware needs: the session user
+// load plus management-API token validation.
+type GuardStore interface {
 	GetUser(ctx context.Context, id uuid.UUID) (store.User, error)
+	tokenStore
 }
 
 func isMutating(method string) bool {
@@ -58,7 +61,7 @@ func isMutating(method string) bool {
 // require operator or admin (403). The resolved principal is attached to the
 // request context. The per-request user load doubles as the disabled check:
 // a disabled user's next request fails even if a session row survived.
-func Guard(sessions *auth.Sessions, users UserGetter) func(http.Handler) http.Handler {
+func Guard(sessions *auth.Sessions, users GuardStore) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if _, ok := publicPaths[r.URL.Path]; ok {
@@ -66,6 +69,32 @@ func Guard(sessions *auth.Sessions, users UserGetter) func(http.Handler) http.Ha
 				return
 			}
 			ctx := r.Context()
+
+			// Management-API token (otm_pat_) auth: for programmatic clients
+			// (CLI/CI). Not cookie-based, so it is exempt from CSRF; the token's
+			// own role drives RBAC. Falls through to session auth otherwise.
+			if looksLikeAPIToken(r.Header.Get("Authorization")) {
+				role, createdBy, ok := authenticateAPIToken(ctx, users, r.Header.Get("Authorization"))
+				if !ok {
+					writeError(w, http.StatusUnauthorized, codeUnauthorized, "invalid API token")
+					return
+				}
+				if isAdminOnlyPath(r.URL.Path) && !authz.AtLeast(role, authz.RoleAdmin) {
+					writeError(w, http.StatusForbidden, codeForbidden, "requires admin role")
+					return
+				}
+				if isMutating(r.Method) && r.URL.Path != logoutPath && !authz.CanMutate(role) {
+					writeError(w, http.StatusForbidden, codeForbidden, "requires operator or admin role")
+					return
+				}
+				tokenUser := store.User{Role: role, Email: "api-token"}
+				if createdBy != nil {
+					tokenUser.ID = *createdBy // audit attributes to the token's creator
+				}
+				ctx = auth.WithPrincipal(ctx, auth.Principal{User: tokenUser})
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
 
 			userID, ok := sessions.UserID(ctx)
 			if !ok {

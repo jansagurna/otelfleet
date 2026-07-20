@@ -30,6 +30,11 @@ func (f *fakeUsers) GetUser(_ context.Context, id uuid.UUID) (store.User, error)
 	return u, nil
 }
 
+// ActiveAPITokensByPrefix: no API tokens in the middleware session tests.
+func (f *fakeUsers) ActiveAPITokensByPrefix(_ context.Context, _ string) ([]store.APITokenAuth, error) {
+	return nil, nil
+}
+
 // guardEnv is a small HTTP app: test-only /login and /csrf plus a guarded
 // catch-all that answers 200 "ok" for any /api/v1 path.
 func guardEnv(t *testing.T) (*httptest.Server, *http.Client, map[string]uuid.UUID) {

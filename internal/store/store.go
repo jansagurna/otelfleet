@@ -355,6 +355,42 @@ type EnrollToken struct {
 	CustomerStatus string
 }
 
+// APIToken is a management-API access token (programmatic clients). The
+// secret is never stored, only its SHA-256.
+type APIToken struct {
+	ID             uuid.UUID
+	Name           string
+	TokenPrefix    string
+	Role           string
+	CreatedBy      *uuid.UUID
+	CreatedByEmail *string
+	CreatedAt      time.Time
+	ExpiresAt      *time.Time
+	RevokedAt      *time.Time
+	LastUsedAt     *time.Time
+}
+
+// NewAPIToken is the insert payload for a management-API token.
+type NewAPIToken struct {
+	ID          uuid.UUID
+	Name        string
+	TokenPrefix string
+	TokenHash   []byte
+	Role        string
+	CreatedBy   *uuid.UUID
+	ExpiresAt   *time.Time
+}
+
+// APITokenAuth is what the auth middleware needs to validate a presented
+// management-API token (non-revoked only; expiry checked by the caller).
+type APITokenAuth struct {
+	ID        uuid.UUID
+	Role      string
+	CreatedBy *uuid.UUID
+	TokenHash []byte
+	ExpiresAt *time.Time
+}
+
 // AgentAuth is what the OpAMP auth path needs to validate a presented
 // per-agent token (customer status is checked by the caller).
 type AgentAuth struct {
@@ -482,6 +518,12 @@ type Store interface {
 	RevokeAPIKey(ctx context.Context, customerID, keyID uuid.UUID, entries []audit.Entry) error
 	ActiveKeysByPrefix(ctx context.Context, prefix string) ([]AuthKey, error)
 	TouchAPIKeys(ctx context.Context, usages map[uuid.UUID]time.Time) error
+
+	// Management-API tokens
+	CreateAPIToken(ctx context.Context, t NewAPIToken, entries []audit.Entry) (APIToken, error)
+	ListAPITokens(ctx context.Context) ([]APIToken, error)
+	RevokeAPIToken(ctx context.Context, id uuid.UUID, entries []audit.Entry) error
+	ActiveAPITokensByPrefix(ctx context.Context, prefix string) ([]APITokenAuth, error)
 
 	// Users
 	GetUser(ctx context.Context, id uuid.UUID) (User, error)

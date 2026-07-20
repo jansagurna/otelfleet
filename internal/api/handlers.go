@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"github.com/jansagurna/otelfleet/internal/api/apigen"
@@ -50,10 +51,12 @@ func NewServer(cfg *config.Config, st store.Store, ten *tenants.Service, pipes *
 }
 
 func actorID(ctx context.Context) *openapi_types.UUID {
-	if p, ok := auth.PrincipalFrom(ctx); ok {
+	if p, ok := auth.PrincipalFrom(ctx); ok && p.User.ID != uuid.Nil {
 		id := p.User.ID
 		return &id
 	}
+	// No real user (e.g. an API token without a recorded creator): leave the
+	// audit actor NULL rather than violating the users FK.
 	return nil
 }
 

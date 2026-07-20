@@ -841,6 +841,63 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/v1/settings/api-tokens:
+    get:
+      tags: [admin]
+      operationId: listApiTokens
+      summary: List management-API tokens (admin only, secrets never returned)
+      responses:
+        "200":
+          description: Tokens
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tokens]
+                properties:
+                  tokens:
+                    type: array
+                    items: { $ref: "#/components/schemas/ApiToken" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [admin]
+      operationId: createApiToken
+      summary: Create a management-API token (secret returned exactly once)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, role]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 200 }
+                role: { $ref: "#/components/schemas/Role" }
+                expiresAt: { type: string, format: date-time, nullable: true, description: Defaults to no expiry }
+      responses:
+        "201":
+          description: Token including the one-time secret
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiTokenCreated" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/settings/api-tokens/{tokenId}:
+    parameters:
+      - { name: tokenId, in: path, required: true, schema: { type: string, format: uuid } }
+    delete:
+      tags: [admin]
+      operationId: revokeApiToken
+      summary: Revoke a management-API token
+      responses:
+        "204": { description: Revoked }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /api/v1/audit:
     get:
       tags: [admin]
@@ -1391,6 +1448,30 @@ components:
             applied = distributor confirmed rollout (Kubernetes operator);
             pending_restart = config published, forwarding collector restart required (compose dev).
         detail: { type: string, nullable: true }
+
+    ApiToken:
+      type: object
+      required: [id, name, tokenPrefix, role, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        tokenPrefix: { type: string, example: otm_pat_a1b2c3d4 }
+        role: { $ref: "#/components/schemas/Role" }
+        createdBy: { type: string, nullable: true, description: Creator email }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time, nullable: true }
+        lastUsedAt: { type: string, format: date-time, nullable: true }
+        revokedAt: { type: string, format: date-time, nullable: true }
+
+    ApiTokenCreated:
+      allOf:
+        - $ref: "#/components/schemas/ApiToken"
+        - type: object
+          required: [secret]
+          properties:
+            secret:
+              type: string
+              description: "Full token (otm_pat_…). Shown once; send as an Authorization: Bearer header."
 
     UserAccount:
       type: object

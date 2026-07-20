@@ -552,6 +552,39 @@ type ApiKeyCreated struct {
 	Secret string `json:"secret"`
 }
 
+// ApiToken defines model for ApiToken.
+type ApiToken struct {
+	CreatedAt time.Time `json:"createdAt"`
+
+	// CreatedBy Creator email
+	CreatedBy   *string            `json:"createdBy,omitempty"`
+	ExpiresAt   *time.Time         `json:"expiresAt,omitempty"`
+	Id          openapi_types.UUID `json:"id"`
+	LastUsedAt  *time.Time         `json:"lastUsedAt,omitempty"`
+	Name        string             `json:"name"`
+	RevokedAt   *time.Time         `json:"revokedAt,omitempty"`
+	Role        Role               `json:"role"`
+	TokenPrefix string             `json:"tokenPrefix"`
+}
+
+// ApiTokenCreated defines model for ApiTokenCreated.
+type ApiTokenCreated struct {
+	CreatedAt time.Time `json:"createdAt"`
+
+	// CreatedBy Creator email
+	CreatedBy  *string            `json:"createdBy,omitempty"`
+	ExpiresAt  *time.Time         `json:"expiresAt,omitempty"`
+	Id         openapi_types.UUID `json:"id"`
+	LastUsedAt *time.Time         `json:"lastUsedAt,omitempty"`
+	Name       string             `json:"name"`
+	RevokedAt  *time.Time         `json:"revokedAt,omitempty"`
+	Role       Role               `json:"role"`
+
+	// Secret Full token (otm_pat_…). Shown once; send as an Authorization: Bearer header.
+	Secret      string `json:"secret"`
+	TokenPrefix string `json:"tokenPrefix"`
+}
+
 // AuditEntry defines model for AuditEntry.
 type AuditEntry struct {
 	Action       string                  `json:"action"`
@@ -1190,6 +1223,14 @@ type CreatePipelineVersionJSONBody struct {
 	Graph PipelineGraph `json:"graph"`
 }
 
+// CreateApiTokenJSONBody defines parameters for CreateApiToken.
+type CreateApiTokenJSONBody struct {
+	// ExpiresAt Defaults to no expiry
+	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
+	Name      string     `json:"name"`
+	Role      Role       `json:"role"`
+}
+
 // GetCostStatsParams defines parameters for GetCostStats.
 type GetCostStatsParams struct {
 	From time.Time `form:"from" json:"from"`
@@ -1237,6 +1278,9 @@ type ValidatePipelineJSONRequestBody ValidatePipelineJSONBody
 
 // CreatePipelineVersionJSONRequestBody defines body for CreatePipelineVersion for application/json ContentType.
 type CreatePipelineVersionJSONRequestBody CreatePipelineVersionJSONBody
+
+// CreateApiTokenJSONRequestBody defines body for CreateApiToken for application/json ContentType.
+type CreateApiTokenJSONRequestBody CreateApiTokenJSONBody
 
 // CreateAuthProviderConfigJSONRequestBody defines body for CreateAuthProviderConfig for application/json ContentType.
 type CreateAuthProviderConfigJSONRequestBody = AuthProviderConfigCreate
@@ -1366,6 +1410,15 @@ type ServerInterface interface {
 	// Activate a version (deploys it to the forwarding tier; also used for rollback)
 	// (POST /api/v1/pipelines/{pipelineId}/versions/{version}/activate)
 	ActivatePipelineVersion(w http.ResponseWriter, r *http.Request, pipelineId openapi_types.UUID, version int)
+	// List management-API tokens (admin only, secrets never returned)
+	// (GET /api/v1/settings/api-tokens)
+	ListApiTokens(w http.ResponseWriter, r *http.Request)
+	// Create a management-API token (secret returned exactly once)
+	// (POST /api/v1/settings/api-tokens)
+	CreateApiToken(w http.ResponseWriter, r *http.Request)
+	// Revoke a management-API token
+	// (DELETE /api/v1/settings/api-tokens/{tokenId})
+	RevokeApiToken(w http.ResponseWriter, r *http.Request, tokenId openapi_types.UUID)
 	// Configured SSO providers incl. env-defined ones (admin only, no secrets)
 	// (GET /api/v1/settings/auth-providers)
 	ListAuthProviderConfigs(w http.ResponseWriter, r *http.Request)
@@ -1633,6 +1686,24 @@ func (_ Unimplemented) GetPipelineVersion(w http.ResponseWriter, r *http.Request
 // Activate a version (deploys it to the forwarding tier; also used for rollback)
 // (POST /api/v1/pipelines/{pipelineId}/versions/{version}/activate)
 func (_ Unimplemented) ActivatePipelineVersion(w http.ResponseWriter, r *http.Request, pipelineId openapi_types.UUID, version int) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List management-API tokens (admin only, secrets never returned)
+// (GET /api/v1/settings/api-tokens)
+func (_ Unimplemented) ListApiTokens(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create a management-API token (secret returned exactly once)
+// (POST /api/v1/settings/api-tokens)
+func (_ Unimplemented) CreateApiToken(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Revoke a management-API token
+// (DELETE /api/v1/settings/api-tokens/{tokenId})
+func (_ Unimplemented) RevokeApiToken(w http.ResponseWriter, r *http.Request, tokenId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3065,6 +3136,60 @@ func (siw *ServerInterfaceWrapper) ActivatePipelineVersion(w http.ResponseWriter
 	handler.ServeHTTP(w, r)
 }
 
+// ListApiTokens operation middleware
+func (siw *ServerInterfaceWrapper) ListApiTokens(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListApiTokens(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateApiToken operation middleware
+func (siw *ServerInterfaceWrapper) CreateApiToken(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateApiToken(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevokeApiToken operation middleware
+func (siw *ServerInterfaceWrapper) RevokeApiToken(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tokenId" -------------
+	var tokenId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tokenId", chi.URLParam(r, "tokenId"), &tokenId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tokenId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokeApiToken(w, r, tokenId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListAuthProviderConfigs operation middleware
 func (siw *ServerInterfaceWrapper) ListAuthProviderConfigs(w http.ResponseWriter, r *http.Request) {
 
@@ -3669,6 +3794,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/pipelines/{pipelineId}/versions/{version}/activate", wrapper.ActivatePipelineVersion)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/settings/api-tokens", wrapper.ListApiTokens)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/settings/api-tokens", wrapper.CreateApiToken)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/settings/api-tokens/{tokenId}", wrapper.RevokeApiToken)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/settings/auth-providers", wrapper.ListAuthProviderConfigs)
@@ -5643,6 +5777,179 @@ func (response ActivatePipelineVersion404JSONResponse) VisitActivatePipelineVers
 	return err
 }
 
+type ListApiTokensRequestObject struct {
+}
+
+type ListApiTokensResponseObject interface {
+	VisitListApiTokensResponse(w http.ResponseWriter) error
+}
+
+type ListApiTokens200JSONResponse struct {
+	Tokens []ApiToken `json:"tokens"`
+}
+
+func (response ListApiTokens200JSONResponse) VisitListApiTokensResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListApiTokens401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListApiTokens401JSONResponse) VisitListApiTokensResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListApiTokens403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListApiTokens403JSONResponse) VisitListApiTokensResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateApiTokenRequestObject struct {
+	Body *CreateApiTokenJSONRequestBody
+}
+
+type CreateApiTokenResponseObject interface {
+	VisitCreateApiTokenResponse(w http.ResponseWriter) error
+}
+
+type CreateApiToken201JSONResponse ApiTokenCreated
+
+func (response CreateApiToken201JSONResponse) VisitCreateApiTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateApiToken400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateApiToken400JSONResponse) VisitCreateApiTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateApiToken401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateApiToken401JSONResponse) VisitCreateApiTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateApiToken403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateApiToken403JSONResponse) VisitCreateApiTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokeApiTokenRequestObject struct {
+	TokenId openapi_types.UUID `json:"tokenId"`
+}
+
+type RevokeApiTokenResponseObject interface {
+	VisitRevokeApiTokenResponse(w http.ResponseWriter) error
+}
+
+type RevokeApiToken204Response struct {
+}
+
+func (response RevokeApiToken204Response) VisitRevokeApiTokenResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type RevokeApiToken401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response RevokeApiToken401JSONResponse) VisitRevokeApiTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokeApiToken403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RevokeApiToken403JSONResponse) VisitRevokeApiTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokeApiToken404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response RevokeApiToken404JSONResponse) VisitRevokeApiTokenResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListAuthProviderConfigsRequestObject struct {
 }
 
@@ -6760,6 +7067,15 @@ type StrictServerInterface interface {
 	// Activate a version (deploys it to the forwarding tier; also used for rollback)
 	// (POST /api/v1/pipelines/{pipelineId}/versions/{version}/activate)
 	ActivatePipelineVersion(ctx context.Context, request ActivatePipelineVersionRequestObject) (ActivatePipelineVersionResponseObject, error)
+	// List management-API tokens (admin only, secrets never returned)
+	// (GET /api/v1/settings/api-tokens)
+	ListApiTokens(ctx context.Context, request ListApiTokensRequestObject) (ListApiTokensResponseObject, error)
+	// Create a management-API token (secret returned exactly once)
+	// (POST /api/v1/settings/api-tokens)
+	CreateApiToken(ctx context.Context, request CreateApiTokenRequestObject) (CreateApiTokenResponseObject, error)
+	// Revoke a management-API token
+	// (DELETE /api/v1/settings/api-tokens/{tokenId})
+	RevokeApiToken(ctx context.Context, request RevokeApiTokenRequestObject) (RevokeApiTokenResponseObject, error)
 	// Configured SSO providers incl. env-defined ones (admin only, no secrets)
 	// (GET /api/v1/settings/auth-providers)
 	ListAuthProviderConfigs(ctx context.Context, request ListAuthProviderConfigsRequestObject) (ListAuthProviderConfigsResponseObject, error)
@@ -7818,6 +8134,87 @@ func (sh *strictHandler) ActivatePipelineVersion(w http.ResponseWriter, r *http.
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ActivatePipelineVersionResponseObject); ok {
 		if err := validResponse.VisitActivatePipelineVersionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListApiTokens operation middleware
+func (sh *strictHandler) ListApiTokens(w http.ResponseWriter, r *http.Request) {
+	var request ListApiTokensRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListApiTokens(ctx, request.(ListApiTokensRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListApiTokens")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListApiTokensResponseObject); ok {
+		if err := validResponse.VisitListApiTokensResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateApiToken operation middleware
+func (sh *strictHandler) CreateApiToken(w http.ResponseWriter, r *http.Request) {
+	var request CreateApiTokenRequestObject
+
+	var body CreateApiTokenJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateApiToken(ctx, request.(CreateApiTokenRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateApiToken")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateApiTokenResponseObject); ok {
+		if err := validResponse.VisitCreateApiTokenResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RevokeApiToken operation middleware
+func (sh *strictHandler) RevokeApiToken(w http.ResponseWriter, r *http.Request, tokenId openapi_types.UUID) {
+	var request RevokeApiTokenRequestObject
+
+	request.TokenId = tokenId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RevokeApiToken(ctx, request.(RevokeApiTokenRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RevokeApiToken")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RevokeApiTokenResponseObject); ok {
+		if err := validResponse.VisitRevokeApiTokenResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
