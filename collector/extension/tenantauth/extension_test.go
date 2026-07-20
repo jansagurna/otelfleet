@@ -19,7 +19,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/sag-solutions/otelfleet/collector/extension/tenantauth/internal/authv1"
+	"github.com/jansagurna/otelfleet/collector/extension/tenantauth/internal/authv1"
 )
 
 // fakeAuthServer is an in-process AuthService implementation.

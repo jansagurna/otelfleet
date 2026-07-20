@@ -1,7 +1,7 @@
 // Copyright The otelfleet Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package tenantquota // import "github.com/sag-solutions/otelfleet/collector/processor/tenantquota"
+package tenantquota // import "github.com/jansagurna/otelfleet/collector/processor/tenantquota"
 
 import "errors"
 

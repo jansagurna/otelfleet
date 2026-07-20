@@ -4,8 +4,8 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/sag-solutions/otelfleet/internal/crypto"
-	"github.com/sag-solutions/otelfleet/internal/pipelines/catalog"
+	"github.com/jansagurna/otelfleet/internal/crypto"
+	"github.com/jansagurna/otelfleet/internal/pipelines/catalog"
 )
 
 // RedactedSentinel is what password-marked fields look like whenever a graph

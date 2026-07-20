@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/sag-solutions/otelfleet/internal/audit"
+	"github.com/jansagurna/otelfleet/internal/audit"
 )
 
 // --- bootstrap tokens ---

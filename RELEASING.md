@@ -8,17 +8,17 @@ everything: the binary, the three container images and the Helm chart.
 | Artifact | Where | Built by |
 | --- | --- | --- |
 | `otelfleet` binaries (linux/darwin × amd64/arm64) + checksums + GitHub release with conventional-commit changelog | GitHub Releases | `goreleaser` job (`.goreleaser.yaml`) |
-| `ghcr.io/sag-solutions/otelfleet:{X.Y.Z, latest}` (control plane) | GHCR | `images` job, `Dockerfile` |
-| `ghcr.io/sag-solutions/otelfleet-collector:{X.Y.Z, latest}` | GHCR | `images` job, `Dockerfile.collector` |
-| `ghcr.io/sag-solutions/otelfleet-supervisor:{X.Y.Z, latest}` | GHCR | `images` job, `Dockerfile.supervisor` |
-| Helm chart `oci://ghcr.io/sag-solutions/charts/otelfleet:X.Y.Z` | GHCR | `helm-chart` job |
+| `ghcr.io/jansagurna/otelfleet:{X.Y.Z, latest}` (control plane) | GHCR | `images` job, `Dockerfile` |
+| `ghcr.io/jansagurna/otelfleet-collector:{X.Y.Z, latest}` | GHCR | `images` job, `Dockerfile.collector` |
+| `ghcr.io/jansagurna/otelfleet-supervisor:{X.Y.Z, latest}` | GHCR | `images` job, `Dockerfile.supervisor` |
+| Helm chart `oci://ghcr.io/jansagurna/charts/otelfleet:X.Y.Z` | GHCR | `helm-chart` job |
 
 Images (multi-arch, linux/amd64 + linux/arm64) and the chart are signed with
 cosign keyless (GitHub OIDC). Verify with:
 
 ```sh
-cosign verify ghcr.io/sag-solutions/otelfleet:X.Y.Z \
-  --certificate-identity-regexp 'https://github.com/sag-solutions/otelfleet/.*' \
+cosign verify ghcr.io/jansagurna/otelfleet:X.Y.Z \
+  --certificate-identity-regexp 'https://github.com/jansagurna/otelfleet/.*' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
@@ -52,8 +52,8 @@ jobs (`goreleaser`, `images`, `helm-chart`) in the Actions tab.
 ### 3. Sanity-check
 
 ```sh
-docker pull ghcr.io/sag-solutions/otelfleet:X.Y.Z
-helm show chart oci://ghcr.io/sag-solutions/charts/otelfleet --version X.Y.Z
+docker pull ghcr.io/jansagurna/otelfleet:X.Y.Z
+helm show chart oci://ghcr.io/jansagurna/charts/otelfleet --version X.Y.Z
 ```
 
 Skim the generated release notes; edit the GitHub release text if the

@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/sag-solutions/otelfleet/internal/audit"
+	"github.com/jansagurna/otelfleet/internal/audit"
 )
 
 // Sentinel errors returned by Store implementations.

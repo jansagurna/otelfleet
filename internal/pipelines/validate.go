@@ -16,7 +16,7 @@ import (
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 
-	"github.com/sag-solutions/otelfleet/internal/pipelines/catalog"
+	"github.com/jansagurna/otelfleet/internal/pipelines/catalog"
 )
 
 // Issue is one validation finding. Path points into the graph

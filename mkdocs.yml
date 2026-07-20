@@ -1,9 +1,9 @@
 site_name: otelfleet
 site_description: >-
   Self-hosted, multi-tenant OpenTelemetry collector fleet management.
-site_url: https://sag-solutions.github.io/otelfleet/
-repo_url: https://github.com/sag-solutions/otelfleet
-repo_name: sag-solutions/otelfleet
+site_url: https://jansagurna.github.io/otelfleet/
+repo_url: https://github.com/jansagurna/otelfleet
+repo_name: jansagurna/otelfleet
 edit_uri: edit/main/docs/
 
 theme:

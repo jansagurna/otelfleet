@@ -10,8 +10,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/sag-solutions/otelfleet/internal/audit"
-	"github.com/sag-solutions/otelfleet/internal/store"
+	"github.com/jansagurna/otelfleet/internal/audit"
+	"github.com/jansagurna/otelfleet/internal/store"
 )
 
 // startupDelay is how long after boot the first run happens (lets the rest of

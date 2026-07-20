@@ -1,4 +1,4 @@
-module github.com/sag-solutions/otelfleet/collector/extension/tenantauth
+module github.com/jansagurna/otelfleet/collector/extension/tenantauth
 
 go 1.25.0
 

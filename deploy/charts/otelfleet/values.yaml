@@ -6,11 +6,11 @@
 
 images:
   controlPlane:
-    repository: ghcr.io/sag-solutions/otelfleet
+    repository: ghcr.io/jansagurna/otelfleet
     tag: ""            # defaults to .Chart.AppVersion
     pullPolicy: IfNotPresent
   collector:
-    repository: ghcr.io/sag-solutions/otelfleet-collector
+    repository: ghcr.io/jansagurna/otelfleet-collector
     tag: ""            # defaults to .Chart.AppVersion
     pullPolicy: IfNotPresent
 

@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/sag-solutions/otelfleet/internal/audit"
+	"github.com/jansagurna/otelfleet/internal/audit"
 )
 
 // PG implements Store on top of a pgx connection pool.

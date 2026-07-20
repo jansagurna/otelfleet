@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sag-solutions/otelfleet/internal/store"
+	"github.com/jansagurna/otelfleet/internal/store"
 )
 
 func TestGenerateBootstrapTokenRoundtrip(t *testing.T) {

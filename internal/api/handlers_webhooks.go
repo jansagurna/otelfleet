@@ -6,10 +6,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/sag-solutions/otelfleet/internal/api/apigen"
-	"github.com/sag-solutions/otelfleet/internal/audit"
-	"github.com/sag-solutions/otelfleet/internal/store"
-	"github.com/sag-solutions/otelfleet/internal/webhooks"
+	"github.com/jansagurna/otelfleet/internal/api/apigen"
+	"github.com/jansagurna/otelfleet/internal/audit"
+	"github.com/jansagurna/otelfleet/internal/store"
+	"github.com/jansagurna/otelfleet/internal/webhooks"
 )
 
 func toWebhook(w store.Webhook) apigen.Webhook {

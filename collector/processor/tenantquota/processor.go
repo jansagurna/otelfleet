@@ -15,7 +15,7 @@
 // Placement: after tenantstamp (which requires the per-request auth context
 // and drops unauthenticated data) and before batch (which discards that
 // context and would also decouple the client from the rejection).
-package tenantquota // import "github.com/sag-solutions/otelfleet/collector/processor/tenantquota"
+package tenantquota // import "github.com/jansagurna/otelfleet/collector/processor/tenantquota"
 
 import (
 	"context"
@@ -52,7 +52,7 @@ type quota struct {
 }
 
 func newQuota(cfg *Config, telemetry component.TelemetrySettings) (*quota, error) {
-	meter := telemetry.MeterProvider.Meter("github.com/sag-solutions/otelfleet/collector/processor/tenantquota")
+	meter := telemetry.MeterProvider.Meter("github.com/jansagurna/otelfleet/collector/processor/tenantquota")
 	decisionsTotal, err := meter.Int64Counter(
 		"otelfleet_quota_decisions_total",
 		metric.WithDescription("Quota admission decisions per tenant, by decision (allowed|rejected). Batches without a limit are not counted."),

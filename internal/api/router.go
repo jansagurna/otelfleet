@@ -9,10 +9,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
 
-	"github.com/sag-solutions/otelfleet/internal/api/apigen"
-	"github.com/sag-solutions/otelfleet/internal/auth"
-	"github.com/sag-solutions/otelfleet/internal/config"
-	"github.com/sag-solutions/otelfleet/internal/store"
+	"github.com/jansagurna/otelfleet/internal/api/apigen"
+	"github.com/jansagurna/otelfleet/internal/auth"
+	"github.com/jansagurna/otelfleet/internal/config"
+	"github.com/jansagurna/otelfleet/internal/store"
 )
 
 // RouterDeps carries everything the HTTP router needs.

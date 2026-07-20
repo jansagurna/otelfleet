@@ -7,12 +7,12 @@ description: >
   consumed via endpoints (bring your own); optional in-cluster dependencies
   land in a later release.
 type: application
-version: 0.3.0
-appVersion: "0.3.0"
+version: 0.5.0
+appVersion: "0.5.0"
 kubeVersion: ">=1.27.0"
-home: https://github.com/sag-solutions/otelfleet
+home: https://github.com/jansagurna/otelfleet
 sources:
-  - https://github.com/sag-solutions/otelfleet
+  - https://github.com/jansagurna/otelfleet
 maintainers:
   - name: SAG Solutions
     email: js@sag-solutions.com

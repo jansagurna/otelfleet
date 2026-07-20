@@ -68,8 +68,8 @@ release:
 
     **Container images** (multi-arch, cosign-signed):
 
-    - `ghcr.io/sag-solutions/otelfleet:{{ .Version }}` — control plane (binary + web UI + collector for validation)
-    - `ghcr.io/sag-solutions/otelfleet-collector:{{ .Version }}` — gateway/forwarding collector distro
-    - `ghcr.io/sag-solutions/otelfleet-supervisor:{{ .Version }}` — edge agent (OpAMP supervisor + collector)
+    - `ghcr.io/jansagurna/otelfleet:{{ .Version }}` — control plane (binary + web UI + collector for validation)
+    - `ghcr.io/jansagurna/otelfleet-collector:{{ .Version }}` — gateway/forwarding collector distro
+    - `ghcr.io/jansagurna/otelfleet-supervisor:{{ .Version }}` — edge agent (OpAMP supervisor + collector)
 
-    **Helm chart**: `helm install otelfleet oci://ghcr.io/sag-solutions/charts/otelfleet --version {{ .Version }}`
+    **Helm chart**: `helm install otelfleet oci://ghcr.io/jansagurna/charts/otelfleet --version {{ .Version }}`

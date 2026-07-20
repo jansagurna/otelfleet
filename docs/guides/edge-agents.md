@@ -29,7 +29,7 @@ network needs to be reachable from outside.
    rendered config (the customer's active edge pipelines — or a safe empty-state
    config if there are none).
 
-For your own deployments, run the `ghcr.io/sag-solutions/otelfleet-supervisor`
+For your own deployments, run the `ghcr.io/jansagurna/otelfleet-supervisor`
 image with a supervisor config modeled on `deploy/compose/supervisor.yaml`,
 pointing at your control plane:
 

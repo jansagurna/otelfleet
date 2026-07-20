@@ -14,8 +14,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"github.com/sag-solutions/otelfleet/internal/auth"
-	"github.com/sag-solutions/otelfleet/internal/store"
+	"github.com/jansagurna/otelfleet/internal/auth"
+	"github.com/jansagurna/otelfleet/internal/store"
 )
 
 type fakeUsers struct {

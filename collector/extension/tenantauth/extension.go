@@ -6,7 +6,7 @@
 // (otelfleet.auth.v1.AuthService) and attaches the resolved tenant identity
 // to client.Info so downstream processors (tenantstamp) can stamp it onto
 // telemetry resources.
-package tenantauth // import "github.com/sag-solutions/otelfleet/collector/extension/tenantauth"
+package tenantauth // import "github.com/jansagurna/otelfleet/collector/extension/tenantauth"
 
 import (
 	"context"
@@ -28,7 +28,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/sag-solutions/otelfleet/collector/extension/tenantauth/internal/authv1"
+	"github.com/jansagurna/otelfleet/collector/extension/tenantauth/internal/authv1"
 )
 
 // validateTimeout bounds a single control-plane ValidateAPIKey call so a slow
@@ -75,7 +75,7 @@ func newAuthenticator(cfg *Config, telemetry component.TelemetrySettings) (*auth
 		cache:     newKeyCache(cfg.Cache.MaxEntries),
 		now:       time.Now,
 	}
-	meter := telemetry.MeterProvider.Meter("github.com/sag-solutions/otelfleet/collector/extension/tenantauth")
+	meter := telemetry.MeterProvider.Meter("github.com/jansagurna/otelfleet/collector/extension/tenantauth")
 	var err error
 	a.requestsTotal, err = meter.Int64Counter(
 		"otelfleet_auth_requests_total",

@@ -21,7 +21,7 @@ owned by this repository.
 ## Install
 
 ```sh
-helm install otelfleet oci://ghcr.io/sag-solutions/charts/otelfleet \
+helm install otelfleet oci://ghcr.io/jansagurna/charts/otelfleet \
   --namespace otelfleet --create-namespace \
   --values my-values.yaml
 ```
@@ -55,9 +55,9 @@ ingress:
 
 | Component | Image | Contents |
 | --- | --- | --- |
-| Control plane | `ghcr.io/sag-solutions/otelfleet` | Go binary + embedded web UI + bundled collector binary (used for `otelcol validate`) |
-| Gateway / forwarding collector | `ghcr.io/sag-solutions/otelfleet-collector` | custom OCB distro (`tenantauth`, `tenantstamp`, routing connector, …) |
-| Edge agent | `ghcr.io/sag-solutions/otelfleet-supervisor` | OpAMP supervisor + the same collector distro (runs at customer sites, not deployed by this chart) |
+| Control plane | `ghcr.io/jansagurna/otelfleet` | Go binary + embedded web UI + bundled collector binary (used for `otelcol validate`) |
+| Gateway / forwarding collector | `ghcr.io/jansagurna/otelfleet-collector` | custom OCB distro (`tenantauth`, `tenantstamp`, routing connector, …) |
+| Edge agent | `ghcr.io/jansagurna/otelfleet-supervisor` | OpAMP supervisor + the same collector distro (runs at customer sites, not deployed by this chart) |
 
 Tags default to the chart's `appVersion`; override with `images.*.tag`.
 

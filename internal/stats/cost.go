@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/sag-solutions/otelfleet/internal/store"
+	"github.com/jansagurna/otelfleet/internal/store"
 )
 
 // CostDay is one daily ingest-volume bucket of a customer. Days without data

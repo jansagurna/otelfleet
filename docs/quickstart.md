@@ -12,7 +12,7 @@ Two ways to get a running otelfleet in about five minutes:
 Requirements: Docker with Compose v2.23.1+ (the demo file uses inline `configs`).
 
 ```sh
-git clone https://github.com/sag-solutions/otelfleet
+git clone https://github.com/jansagurna/otelfleet
 cd otelfleet
 docker compose -f deploy/compose/docker-compose.demo.yaml up -d --build
 ```

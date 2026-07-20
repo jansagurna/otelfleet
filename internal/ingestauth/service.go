@@ -14,9 +14,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/sag-solutions/otelfleet/internal/ingestauth/authv1"
-	"github.com/sag-solutions/otelfleet/internal/store"
-	"github.com/sag-solutions/otelfleet/internal/tenants"
+	"github.com/jansagurna/otelfleet/internal/ingestauth/authv1"
+	"github.com/jansagurna/otelfleet/internal/store"
+	"github.com/jansagurna/otelfleet/internal/tenants"
 )
 
 // Validation outcomes recorded in otelfleet_validate_requests_total.

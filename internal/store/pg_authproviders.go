@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/sag-solutions/otelfleet/internal/audit"
+	"github.com/jansagurna/otelfleet/internal/audit"
 )
 
 const authProviderCols = `id, type, name, display_name, client_id, client_secret_enc, issuer, enabled, created_at, updated_at`

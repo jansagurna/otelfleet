@@ -9,9 +9,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/sag-solutions/otelfleet/internal/audit"
-	"github.com/sag-solutions/otelfleet/internal/crypto"
-	"github.com/sag-solutions/otelfleet/internal/store"
+	"github.com/jansagurna/otelfleet/internal/audit"
+	"github.com/jansagurna/otelfleet/internal/crypto"
+	"github.com/jansagurna/otelfleet/internal/store"
 )
 
 func testCipher(t *testing.T) *crypto.Cipher {

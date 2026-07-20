@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/sag-solutions/otelfleet/internal/authz"
+	"github.com/jansagurna/otelfleet/internal/authz"
 )
 
 // loginFinisher is the provider-independent tail of every browser login:

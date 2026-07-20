@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sag-solutions/otelfleet/internal/config"
-	"github.com/sag-solutions/otelfleet/internal/crypto"
-	"github.com/sag-solutions/otelfleet/internal/store"
+	"github.com/jansagurna/otelfleet/internal/config"
+	"github.com/jansagurna/otelfleet/internal/crypto"
+	"github.com/jansagurna/otelfleet/internal/store"
 )
 
 // Provider types (mirror the auth_providers.type check).

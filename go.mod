@@ -1,4 +1,4 @@
-module github.com/sag-solutions/otelfleet
+module github.com/jansagurna/otelfleet
 
 go 1.26.0
 

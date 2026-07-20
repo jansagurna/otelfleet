@@ -79,7 +79,7 @@ missing, mirroring the server's behavior).
   v0.156.0 and bumped in lockstep across `collector/Makefile`,
   `builder-config.yaml`, both Dockerfiles and the component go.mods.
 - Conventional commits, DCO sign-off — see
-  [CONTRIBUTING.md](https://github.com/sag-solutions/otelfleet/blob/main/CONTRIBUTING.md).
+  [CONTRIBUTING.md](https://github.com/jansagurna/otelfleet/blob/main/CONTRIBUTING.md).
 
 ## Docs site
 

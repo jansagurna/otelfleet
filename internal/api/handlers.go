@@ -10,15 +10,15 @@ import (
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
-	"github.com/sag-solutions/otelfleet/internal/api/apigen"
-	"github.com/sag-solutions/otelfleet/internal/auth"
-	"github.com/sag-solutions/otelfleet/internal/authz"
-	"github.com/sag-solutions/otelfleet/internal/config"
-	"github.com/sag-solutions/otelfleet/internal/crypto"
-	"github.com/sag-solutions/otelfleet/internal/pipelines"
-	"github.com/sag-solutions/otelfleet/internal/stats"
-	"github.com/sag-solutions/otelfleet/internal/store"
-	"github.com/sag-solutions/otelfleet/internal/tenants"
+	"github.com/jansagurna/otelfleet/internal/api/apigen"
+	"github.com/jansagurna/otelfleet/internal/auth"
+	"github.com/jansagurna/otelfleet/internal/authz"
+	"github.com/jansagurna/otelfleet/internal/config"
+	"github.com/jansagurna/otelfleet/internal/crypto"
+	"github.com/jansagurna/otelfleet/internal/pipelines"
+	"github.com/jansagurna/otelfleet/internal/stats"
+	"github.com/jansagurna/otelfleet/internal/store"
+	"github.com/jansagurna/otelfleet/internal/tenants"
 )
 
 // AgentConnections is the OpAMP-server subset the fleet handlers need (live

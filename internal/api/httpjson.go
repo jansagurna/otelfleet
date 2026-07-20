@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/sag-solutions/otelfleet/internal/api/apigen"
+	"github.com/jansagurna/otelfleet/internal/api/apigen"
 )
 
 // Error codes used across the API.

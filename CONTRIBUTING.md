@@ -14,9 +14,9 @@ OTELFLEET_DEV_LOGIN=true OTELFLEET_MASTER_KEY=$(openssl rand -base64 32) make ru
 cd web && pnpm install && pnpm dev
 ```
 
-See the [quickstart](https://sag-solutions.github.io/otelfleet/quickstart/) for
+See the [quickstart](https://jansagurna.github.io/otelfleet/quickstart/) for
 the full walkthrough and
-[development docs](https://sag-solutions.github.io/otelfleet/development/) for
+[development docs](https://jansagurna.github.io/otelfleet/development/) for
 the repository layout and all make targets.
 
 ## Before you push

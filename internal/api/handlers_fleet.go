@@ -7,10 +7,10 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/sag-solutions/otelfleet/internal/api/apigen"
-	"github.com/sag-solutions/otelfleet/internal/audit"
-	"github.com/sag-solutions/otelfleet/internal/store"
-	"github.com/sag-solutions/otelfleet/internal/tenants"
+	"github.com/jansagurna/otelfleet/internal/api/apigen"
+	"github.com/jansagurna/otelfleet/internal/audit"
+	"github.com/jansagurna/otelfleet/internal/store"
+	"github.com/jansagurna/otelfleet/internal/tenants"
 )
 
 // --- mapping helpers ---

@@ -13,8 +13,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/sag-solutions/otelfleet/internal/audit"
-	"github.com/sag-solutions/otelfleet/internal/store"
+	"github.com/jansagurna/otelfleet/internal/audit"
+	"github.com/jansagurna/otelfleet/internal/store"
 )
 
 // Validation errors returned by the service (mapped to 400 by the API layer).

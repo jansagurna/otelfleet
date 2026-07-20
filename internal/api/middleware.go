@@ -8,9 +8,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/sag-solutions/otelfleet/internal/auth"
-	"github.com/sag-solutions/otelfleet/internal/authz"
-	"github.com/sag-solutions/otelfleet/internal/store"
+	"github.com/jansagurna/otelfleet/internal/auth"
+	"github.com/jansagurna/otelfleet/internal/authz"
+	"github.com/jansagurna/otelfleet/internal/store"
 )
 
 // Paths reachable without a session.

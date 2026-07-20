@@ -1,6 +1,6 @@
 # REST API
 
-The API is **OpenAPI-first**: [`api/openapi.yaml`](https://github.com/sag-solutions/otelfleet/blob/main/api/openapi.yaml)
+The API is **OpenAPI-first**: [`api/openapi.yaml`](https://github.com/jansagurna/otelfleet/blob/main/api/openapi.yaml)
 is the source of truth, and both the Go server interfaces and the TypeScript
 client are generated from it (`make gen`). The spec is the authoritative,
 complete reference — this page is a tour.

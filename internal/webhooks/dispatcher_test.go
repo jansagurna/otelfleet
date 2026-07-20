@@ -16,8 +16,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/sag-solutions/otelfleet/internal/crypto"
-	"github.com/sag-solutions/otelfleet/internal/store"
+	"github.com/jansagurna/otelfleet/internal/crypto"
+	"github.com/jansagurna/otelfleet/internal/store"
 )
 
 func testLogger() *slog.Logger {

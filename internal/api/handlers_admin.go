@@ -12,12 +12,12 @@ import (
 	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
-	"github.com/sag-solutions/otelfleet/internal/api/apigen"
-	"github.com/sag-solutions/otelfleet/internal/audit"
-	"github.com/sag-solutions/otelfleet/internal/auth"
-	"github.com/sag-solutions/otelfleet/internal/authz"
-	"github.com/sag-solutions/otelfleet/internal/crypto"
-	"github.com/sag-solutions/otelfleet/internal/store"
+	"github.com/jansagurna/otelfleet/internal/api/apigen"
+	"github.com/jansagurna/otelfleet/internal/audit"
+	"github.com/jansagurna/otelfleet/internal/auth"
+	"github.com/jansagurna/otelfleet/internal/authz"
+	"github.com/jansagurna/otelfleet/internal/crypto"
+	"github.com/jansagurna/otelfleet/internal/store"
 )
 
 // All handlers in this file sit behind the Guard middleware's admin-only path

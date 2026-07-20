@@ -1,8 +1,8 @@
 # otelfleet
 
-[![CI](https://github.com/sag-solutions/otelfleet/actions/workflows/ci.yaml/badge.svg)](https://github.com/sag-solutions/otelfleet/actions/workflows/ci.yaml)
+[![CI](https://github.com/jansagurna/otelfleet/actions/workflows/ci.yaml/badge.svg)](https://github.com/jansagurna/otelfleet/actions/workflows/ci.yaml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![Docs](https://img.shields.io/badge/docs-sag--solutions.github.io%2Fotelfleet-8A2BE2)](https://sag-solutions.github.io/otelfleet/)
+[![Docs](https://img.shields.io/badge/docs-sag--solutions.github.io%2Fotelfleet-8A2BE2)](https://jansagurna.github.io/otelfleet/)
 
 **Self-hosted, multi-tenant OpenTelemetry collector fleet management.** Receive
 logs, traces and metrics from multiple customers via OTLP, attribute every
@@ -12,7 +12,7 @@ customer's own backends — managed through a web UI.
 > **Status: pre-1.0.** Under active development, not yet production-ready:
 > single control-plane replica (OpAMP is process-sticky), plaintext internal
 > listeners, and possible breaking changes between minors. The
-> [docs](https://sag-solutions.github.io/otelfleet/) are honest about the
+> [docs](https://jansagurna.github.io/otelfleet/) are honest about the
 > limitations.
 
 ## Features
@@ -55,7 +55,7 @@ One Go binary serves the REST API + embedded React SPA, the internal gRPC
 API-key service, an ops listener (metrics + rendered collector configs) and the
 OpAMP server. The collectors are a custom OCB distribution with two local
 components, `tenantauth` and `tenantstamp`. Full story:
-[architecture docs](https://sag-solutions.github.io/otelfleet/architecture/).
+[architecture docs](https://jansagurna.github.io/otelfleet/architecture/).
 
 ## Quickstart
 
@@ -76,7 +76,7 @@ OTELFLEET_API_KEY=otm_... docker compose \
 **Kubernetes (Helm, bring your own PostgreSQL/ClickHouse/VictoriaMetrics):**
 
 ```sh
-helm install otelfleet oci://ghcr.io/sag-solutions/charts/otelfleet \
+helm install otelfleet oci://ghcr.io/jansagurna/charts/otelfleet \
   --namespace otelfleet --create-namespace --values my-values.yaml
 ```
 
@@ -88,9 +88,9 @@ OTELFLEET_DEV_LOGIN=true OTELFLEET_MASTER_KEY=$(openssl rand -base64 32) make ru
 cd web && pnpm install && pnpm dev
 ```
 
-Full walkthroughs: [quickstart](https://sag-solutions.github.io/otelfleet/quickstart/) ·
-[Helm install](https://sag-solutions.github.io/otelfleet/installation/helm/) ·
-[configuration reference](https://sag-solutions.github.io/otelfleet/installation/configuration/).
+Full walkthroughs: [quickstart](https://jansagurna.github.io/otelfleet/quickstart/) ·
+[Helm install](https://jansagurna.github.io/otelfleet/installation/helm/) ·
+[configuration reference](https://jansagurna.github.io/otelfleet/installation/configuration/).
 
 ## Repository layout
 
@@ -109,7 +109,7 @@ docs/                documentation site (MkDocs Material)
 
 - **Contributing:** [CONTRIBUTING.md](CONTRIBUTING.md) — dev setup,
   conventional commits, DCO, the codegen-drift rule.
-- **Bugs & ideas:** [GitHub issues](https://github.com/sag-solutions/otelfleet/issues)
+- **Bugs & ideas:** [GitHub issues](https://github.com/jansagurna/otelfleet/issues)
   (templates provided).
 - **Security:** privately to security@sag-solutions.com — see
   [SECURITY.md](SECURITY.md).

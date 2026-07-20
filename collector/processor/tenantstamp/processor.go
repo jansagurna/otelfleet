@@ -6,7 +6,7 @@
 // onto every Resource of traces, logs and metrics. Any pre-existing values for
 // those attributes are removed first, so clients cannot spoof another tenant.
 // Batches without authentication data are dropped.
-package tenantstamp // import "github.com/sag-solutions/otelfleet/collector/processor/tenantstamp"
+package tenantstamp // import "github.com/jansagurna/otelfleet/collector/processor/tenantstamp"
 
 import (
 	"context"
@@ -52,7 +52,7 @@ type stamper struct {
 }
 
 func newStamper(telemetry component.TelemetrySettings) (*stamper, error) {
-	meter := telemetry.MeterProvider.Meter("github.com/sag-solutions/otelfleet/collector/processor/tenantstamp")
+	meter := telemetry.MeterProvider.Meter("github.com/jansagurna/otelfleet/collector/processor/tenantstamp")
 	droppedTotal, err := meter.Int64Counter(
 		"otelfleet_tenantstamp_dropped_batches_total",
 		metric.WithDescription("Batches dropped because no authenticated tenant identity was present on the context."),

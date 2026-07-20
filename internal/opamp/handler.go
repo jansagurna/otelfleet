@@ -22,8 +22,8 @@ import (
 	"github.com/open-telemetry/opamp-go/protobufs"
 	"github.com/open-telemetry/opamp-go/server/types"
 
-	"github.com/sag-solutions/otelfleet/internal/store"
-	"github.com/sag-solutions/otelfleet/internal/tenants"
+	"github.com/jansagurna/otelfleet/internal/store"
+	"github.com/jansagurna/otelfleet/internal/tenants"
 )
 
 // Store is the persistence subset the OpAMP module needs.
