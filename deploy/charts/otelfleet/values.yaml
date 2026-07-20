@@ -163,3 +163,25 @@ serviceAccount:
 podLabels: {}
 nodeSelector: {}
 tolerations: []
+
+# Scheduled backups. PostgreSQL holds the irreplaceable control-plane state
+# (customers, keys, pipelines, agents, users) and is backed up by default when
+# enabled; ClickHouse telemetry is TTL-bounded and reconstructable, so its
+# backup is optional. See RECOVERY.md for restore procedures.
+backup:
+  postgres:
+    enabled: false
+    schedule: "0 2 * * *"        # daily 02:00
+    image: postgres:17-alpine
+    retentionDays: 14
+    storage:
+      size: 10Gi
+      storageClassName: ""
+    # DATABASE_URL source: reuse external.databaseUrl / external.databaseUrlSecret.
+  clickhouse:
+    enabled: false
+    schedule: "0 3 * * *"
+    # clickhouse-backup handles full/incremental backups to S3-compatible
+    # storage; configure it via a Secret referenced here (see its docs).
+    image: altinity/clickhouse-backup:latest
+    envSecretName: ""            # Secret with clickhouse-backup S3 + CH creds
