@@ -2,6 +2,7 @@ package opamp
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -23,19 +24,23 @@ const flushEvery = 15 * time.Second
 // Server runs the OpAMP listener on top of opamp-go and delegates all
 // protocol handling to Handler.
 type Server struct {
-	handler *Handler
-	addr    string
-	log     *slog.Logger
-	srv     server.OpAMPServer
+	handler   *Handler
+	addr      string
+	tlsConfig *tls.Config // nil = plaintext ws://
+	log       *slog.Logger
+	srv       server.OpAMPServer
 }
 
-// NewServer wires the OpAMP server (listener started by Start).
-func NewServer(st Store, render ConfigRenderer, addr, publicEndpoint string, log *slog.Logger) *Server {
+// NewServer wires the OpAMP server (listener started by Start). tlsConfig may
+// be nil for plaintext ws:// (dev, or TLS terminated at an ingress); when set,
+// the listener serves wss:// directly.
+func NewServer(st Store, render ConfigRenderer, addr, publicEndpoint string, tlsConfig *tls.Config, log *slog.Logger) *Server {
 	return &Server{
-		handler: NewHandler(st, render, publicEndpoint, log),
-		addr:    addr,
-		log:     log,
-		srv:     server.New(slogAdapter{log}),
+		handler:   NewHandler(st, render, publicEndpoint, log),
+		addr:      addr,
+		tlsConfig: tlsConfig,
+		log:       log,
+		srv:       server.New(slogAdapter{log}),
 	}
 }
 
@@ -61,6 +66,7 @@ func (s *Server) Start() error {
 		},
 		ListenEndpoint: s.addr,
 		ListenPath:     Path,
+		TLSConfig:      s.tlsConfig,
 	}
 	if err := s.srv.Start(settings); err != nil {
 		return fmt.Errorf("start opamp server: %w", err)

@@ -23,6 +23,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
 	"github.com/jansagurna/otelfleet/internal/api"
 	"github.com/jansagurna/otelfleet/internal/auth"
@@ -37,6 +38,7 @@ import (
 	"github.com/jansagurna/otelfleet/internal/stats"
 	"github.com/jansagurna/otelfleet/internal/store"
 	"github.com/jansagurna/otelfleet/internal/tenants"
+	"github.com/jansagurna/otelfleet/internal/tlsconf"
 	"github.com/jansagurna/otelfleet/internal/webhooks"
 )
 
@@ -136,7 +138,19 @@ func run(log *slog.Logger) error {
 	// OpAMP server, webhook dispatcher and retention sweep run on the OpAMP
 	// tier. They are constructed unconditionally (cheap) and only started when
 	// this process runs that role.
-	opampSrv := opamp.NewServer(st, pipelinesSvc, cfg.OpAMPAddr, cfg.OpAMPPublicEndpoint, log)
+	// TLS for the public listeners (HTTP + OpAMP) and the internal gRPC
+	// AuthService (optionally mTLS). All empty = plaintext (dev / ingress-
+	// terminated).
+	publicTLS, err := tlsconf.Server(cfg.TLSCertFile, cfg.TLSKeyFile)
+	if err != nil {
+		return fmt.Errorf("public TLS: %w", err)
+	}
+	grpcTLS, err := tlsconf.MutualServer(cfg.GRPCTLSCertFile, cfg.GRPCTLSKeyFile, cfg.GRPCClientCAFile)
+	if err != nil {
+		return fmt.Errorf("gRPC TLS: %w", err)
+	}
+
+	opampSrv := opamp.NewServer(st, pipelinesSvc, cfg.OpAMPAddr, cfg.OpAMPPublicEndpoint, publicTLS, log)
 	webhookDispatcher := webhooks.New(st, cipher, log)
 	opampSrv.Handler().SetEventSink(webhookDispatcher)
 	retentionSvc := retention.New(chConn, st, cfg.RetentionInterval, log)
@@ -180,15 +194,25 @@ func run(log *slog.Logger) error {
 			}),
 			ReadHeaderTimeout: 10 * time.Second,
 		}
-		grpcSrv = grpc.NewServer()
+		var grpcOpts []grpc.ServerOption
+		if grpcTLS != nil {
+			grpcOpts = append(grpcOpts, grpc.Creds(credentials.NewTLS(grpcTLS)))
+			log.Info("internal gRPC TLS enabled", "mtls", cfg.GRPCClientCAFile != "")
+		}
+		grpcSrv = grpc.NewServer(grpcOpts...)
 		authv1.RegisterAuthServiceServer(grpcSrv, ingestAuth)
 		grpcLis, err := net.Listen("tcp", cfg.GRPCAddr)
 		if err != nil {
 			return fmt.Errorf("listen grpc %s: %w", cfg.GRPCAddr, err)
 		}
+		httpSrv.TLSConfig = publicTLS
 		g.Go(func() error {
-			log.Info("http server listening", "addr", cfg.HTTPAddr, "dev_login", cfg.DevLogin)
-			if err := httpSrv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+			log.Info("http server listening", "addr", cfg.HTTPAddr, "dev_login", cfg.DevLogin, "tls", publicTLS != nil)
+			serve := httpSrv.ListenAndServe
+			if publicTLS != nil {
+				serve = func() error { return httpSrv.ListenAndServeTLS("", "") } // cert from TLSConfig
+			}
+			if err := serve(); !errors.Is(err, http.ErrServerClosed) {
 				return fmt.Errorf("http server: %w", err)
 			}
 			return nil

@@ -51,6 +51,17 @@ type Config struct {
 	// offer only the new auth header (agents keep their current endpoint).
 	OpAMPPublicEndpoint string
 
+	// TLS for the public listeners (HTTP :8080 + OpAMP :4320). Empty = plaintext
+	// (terminate TLS at an ingress in front, or run dev without it).
+	TLSCertFile string
+	TLSKeyFile  string
+	// TLS for the internal gRPC AuthService (:9443). When GRPCClientCAFile is
+	// also set, callers must present a client cert signed by it (mTLS) — this
+	// is how gateway collectors authenticate to the API tier.
+	GRPCTLSCertFile  string
+	GRPCTLSKeyFile   string
+	GRPCClientCAFile string
+
 	BaseURL string
 	WebDir  string
 
@@ -99,6 +110,11 @@ func Load() (*Config, error) {
 		OpsAddr:             env("OPS_ADDR", ":9090"),
 		OpAMPAddr:           env("OPAMP_ADDR", ":4320"),
 		OpAMPPublicEndpoint: env("OPAMP_PUBLIC_ENDPOINT", ""),
+		TLSCertFile:         env("TLS_CERT_FILE", ""),
+		TLSKeyFile:          env("TLS_KEY_FILE", ""),
+		GRPCTLSCertFile:     env("GRPC_TLS_CERT_FILE", ""),
+		GRPCTLSKeyFile:      env("GRPC_TLS_KEY_FILE", ""),
+		GRPCClientCAFile:    env("GRPC_CLIENT_CA_FILE", ""),
 		BaseURL:             strings.TrimSuffix(env("BASE_URL", "http://localhost:8080"), "/"),
 		WebDir:              env("WEB_DIR", ""),
 		OtelcolBin:          env("OTELCOL_BIN", "collector/dist/otelfleet-collector"),
