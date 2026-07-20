@@ -121,8 +121,8 @@ func (s *PG) ActiveBootstrapTokensByPrefix(ctx context.Context, prefix string) (
 // agentCols selects an agent joined with its customer; requires aliases
 // a (agents) and c (customers, LEFT JOIN).
 const agentCols = `
-	a.id, a.instance_uid, a.customer_id, c.name, a.class, a.name, a.agent_version,
-	a.description, a.capabilities, a.assigned_config_hash, a.reported_config_hash,
+	a.id, a.instance_uid, a.customer_id, c.name, a.class, a.name, a.display_name, a.labels, a.agent_version,
+	a.description, a.capabilities, a.assigned_config_hash, a.reported_config_hash, a.acked_config_hash,
 	a.reported_config_yaml, a.remote_config_status, a.remote_config_error,
 	a.health, a.healthy, a.connected, a.last_seen_at, a.enrolled_via, a.created_at`
 
@@ -132,8 +132,8 @@ const agentFrom = `
 
 func scanAgent(row pgx.Row) (Agent, error) {
 	var a Agent
-	err := row.Scan(&a.ID, &a.InstanceUID, &a.CustomerID, &a.CustomerName, &a.Class, &a.Name,
-		&a.AgentVersion, &a.Description, &a.Capabilities, &a.AssignedConfigHash, &a.ReportedConfigHash,
+	err := row.Scan(&a.ID, &a.InstanceUID, &a.CustomerID, &a.CustomerName, &a.Class, &a.Name, &a.DisplayName, &a.Labels,
+		&a.AgentVersion, &a.Description, &a.Capabilities, &a.AssignedConfigHash, &a.ReportedConfigHash, &a.AckedConfigHash,
 		&a.ReportedConfigYAML, &a.RemoteConfigStatus, &a.RemoteConfigError,
 		&a.Health, &a.Healthy, &a.Connected, &a.LastSeenAt, &a.EnrolledVia, &a.CreatedAt)
 	return a, err
@@ -286,6 +286,36 @@ func (s *PG) UpdateAgentDescription(ctx context.Context, id uuid.UUID, name, age
 	return nil
 }
 
+// UpdateAgentMeta sets operator-managed metadata (friendly display name and
+// labels), writes an audit entry, and returns the refreshed agent. Both fields
+// are always written: pass the current value to leave one unchanged.
+func (s *PG) UpdateAgentMeta(ctx context.Context, id uuid.UUID, displayName *string, labels []byte, entries []audit.Entry) (Agent, error) {
+	var out Agent
+	err := s.inTx(ctx, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, `
+			UPDATE agents SET display_name = $2, labels = COALESCE($3, labels) WHERE id = $1`,
+			id, displayName, labels)
+		if err != nil {
+			return fmt.Errorf("update agent meta: %w", err)
+		}
+		if tag.RowsAffected() == 0 {
+			return ErrNotFound
+		}
+		if err := audit.Write(ctx, tx, entries...); err != nil {
+			return err
+		}
+		out, err = scanAgent(tx.QueryRow(ctx, `SELECT`+agentCols+agentFrom+` WHERE a.id = $1`, id))
+		if err != nil {
+			return fmt.Errorf("read back agent: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return Agent{}, err
+	}
+	return out, nil
+}
+
 // SetAgentConnected flips the connected flag and records the transition event
 // in the same transaction.
 func (s *PG) SetAgentConnected(ctx context.Context, id uuid.UUID, connected bool, at time.Time) error {
@@ -312,6 +342,20 @@ func (s *PG) SetAgentAssignedConfig(ctx context.Context, id uuid.UUID, hash []by
 	tag, err := s.pool.Exec(ctx, `UPDATE agents SET assigned_config_hash = $2 WHERE id = $1`, id, hash)
 	if err != nil {
 		return fmt.Errorf("set assigned config hash: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// SetAgentAckedConfig records the config hash the agent confirmed via OpAMP
+// RemoteConfigStatus.last_remote_config_hash — the authoritative in-sync
+// signal (nil clears it, e.g. when the agent reports having no remote config).
+func (s *PG) SetAgentAckedConfig(ctx context.Context, id uuid.UUID, hash []byte) error {
+	tag, err := s.pool.Exec(ctx, `UPDATE agents SET acked_config_hash = $2 WHERE id = $1`, id, hash)
+	if err != nil {
+		return fmt.Errorf("set acked config hash: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
 		return ErrNotFound

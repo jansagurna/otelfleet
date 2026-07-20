@@ -410,11 +410,14 @@ type Agent struct {
 	CustomerName       *string
 	Class              string
 	Name               *string
+	DisplayName        *string           // operator-set friendly name (overrides Name in the UI)
+	Labels             []byte            // JSONB (operator-set label map)
 	AgentVersion       *string
 	Description        []byte // JSONB (full AgentDescription attributes)
 	Capabilities       *int64
 	AssignedConfigHash []byte
 	ReportedConfigHash []byte
+	AckedConfigHash    []byte // hash the agent confirmed via RemoteConfigStatus (authoritative sync signal)
 	ReportedConfigYAML *string
 	RemoteConfigStatus string
 	RemoteConfigError  *string
@@ -586,8 +589,10 @@ type Store interface {
 	ListAgents(ctx context.Context, f AgentFilter) ([]Agent, error)
 	DeleteAgent(ctx context.Context, id uuid.UUID, entries []audit.Entry) error
 	UpdateAgentDescription(ctx context.Context, id uuid.UUID, name, agentVersion *string, description []byte, capabilities *int64) error
+	UpdateAgentMeta(ctx context.Context, id uuid.UUID, displayName *string, labels []byte, entries []audit.Entry) (Agent, error)
 	SetAgentConnected(ctx context.Context, id uuid.UUID, connected bool, at time.Time) error
 	SetAgentAssignedConfig(ctx context.Context, id uuid.UUID, hash []byte) error
+	SetAgentAckedConfig(ctx context.Context, id uuid.UUID, hash []byte) error
 	SetAgentEffectiveConfig(ctx context.Context, id uuid.UUID, yaml string, hash []byte) error
 	SetAgentRemoteConfigStatus(ctx context.Context, id uuid.UUID, status string, errorMessage *string, eventType *string, detail any) error
 	SetAgentHealth(ctx context.Context, id uuid.UUID, health []byte, healthy bool, flipEvent *string) error

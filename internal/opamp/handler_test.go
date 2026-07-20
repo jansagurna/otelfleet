@@ -53,6 +53,7 @@ type fakeStore struct {
 	healthEvents []string
 	effective    []string
 	assigned     [][]byte
+	acked        [][]byte
 	touched      []map[uuid.UUID]time.Time
 
 	agentTokens  map[uuid.UUID]string // agentID -> stored token prefix
@@ -130,6 +131,13 @@ func (f *fakeStore) SetAgentAssignedConfig(_ context.Context, _ uuid.UUID, hash 
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.assigned = append(f.assigned, hash)
+	return nil
+}
+
+func (f *fakeStore) SetAgentAckedConfig(_ context.Context, _ uuid.UUID, hash []byte) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.acked = append(f.acked, hash)
 	return nil
 }
 

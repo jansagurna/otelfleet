@@ -4,6 +4,7 @@ import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/rea
 import { vi } from 'vitest'
 import { routeTree } from '@/routeTree.gen'
 import type {
+  Agent,
   AgentDetail,
   AgentEvent,
   ApiKey,
@@ -67,6 +68,29 @@ export const testAgent: AgentDetail = {
   createdAt: '2026-07-10T09:00:00Z',
   description: { 'host.name': 'edge-host-01', 'service.name': 'otelcol' },
   health: { healthy: true, status: 'StatusOK' },
+}
+
+// A gateway with an operator-set display name + labels and no acknowledged
+// config yet (configInSync=null → the neutral "—" chip).
+export const testGatewayAgent: Agent = {
+  id: '4f2c7a1e-0000-4000-8000-000000000012',
+  instanceUid: '01907800000040008000ffeeddccbbaa',
+  class: 'gateway',
+  customerId: null,
+  customerName: null,
+  name: 'gateway-eu-01',
+  displayName: 'EU Gateway',
+  labels: { region: 'eu', role: 'ingest' },
+  agentVersion: '0.104.0',
+  connected: true,
+  healthy: true,
+  lastSeenAt: '2026-07-15T08:00:00Z',
+  remoteConfigStatus: 'applied',
+  remoteConfigError: null,
+  assignedConfigHash: 'fff000aaa11122233',
+  reportedConfigHash: null,
+  configInSync: null,
+  createdAt: '2026-07-05T09:00:00Z',
 }
 
 export const testAgentEvent: AgentEvent = {
@@ -311,7 +335,7 @@ export function stubApi(overrides: { me?: Me } = {}): void {
         case `/api/v1/customers/${testCustomer.id}/api-keys`:
           return json({ apiKeys: [testApiKey] })
         case '/api/v1/agents':
-          return json({ agents: [testAgent] })
+          return json({ agents: [testAgent, testGatewayAgent] })
         case `/api/v1/agents/${testAgent.id}`:
           return json(testAgent)
         case `/api/v1/agents/${testAgent.id}/config`:

@@ -445,27 +445,33 @@ type Agent struct {
 	AssignedConfigHash *string    `json:"assignedConfigHash,omitempty"`
 	Class              AgentClass `json:"class"`
 
-	// ConfigInSync assigned == reported; null when either side is unknown.
+	// ConfigInSync assigned == the config hash the agent acknowledged via OpAMP; null when the agent has not acknowledged a config yet.
 	ConfigInSync *bool               `json:"configInSync,omitempty"`
 	Connected    bool                `json:"connected"`
 	CreatedAt    time.Time           `json:"createdAt"`
 	CustomerId   *openapi_types.UUID `json:"customerId,omitempty"`
 	CustomerName *string             `json:"customerName,omitempty"`
 
+	// DisplayName Operator-set friendly name; overrides name in the UI.
+	DisplayName *string `json:"displayName,omitempty"`
+
 	// Healthy Last reported ComponentHealth; null when never reported
 	Healthy *bool              `json:"healthy,omitempty"`
 	Id      openapi_types.UUID `json:"id"`
 
 	// InstanceUid OpAMP instance UID (hex)
-	InstanceUid string     `json:"instanceUid"`
-	LastSeenAt  *time.Time `json:"lastSeenAt,omitempty"`
+	InstanceUid string `json:"instanceUid"`
+
+	// Labels Operator-set labels for grouping/filtering (may be empty).
+	Labels     *map[string]string `json:"labels,omitempty"`
+	LastSeenAt *time.Time         `json:"lastSeenAt,omitempty"`
 
 	// Name From AgentDescription (host.name / service.name)
 	Name               *string            `json:"name,omitempty"`
 	RemoteConfigError  *string            `json:"remoteConfigError,omitempty"`
 	RemoteConfigStatus RemoteConfigStatus `json:"remoteConfigStatus"`
 
-	// ReportedConfigHash Hash the agent says it runs
+	// ReportedConfigHash Hash of the effective config the agent reports (re-serialized; not used for sync state)
 	ReportedConfigHash *string `json:"reportedConfigHash,omitempty"`
 }
 
@@ -480,7 +486,7 @@ type AgentDetail struct {
 	AssignedConfigHash *string    `json:"assignedConfigHash,omitempty"`
 	Class              AgentClass `json:"class"`
 
-	// ConfigInSync assigned == reported; null when either side is unknown.
+	// ConfigInSync assigned == the config hash the agent acknowledged via OpAMP; null when the agent has not acknowledged a config yet.
 	ConfigInSync *bool               `json:"configInSync,omitempty"`
 	Connected    bool                `json:"connected"`
 	CreatedAt    time.Time           `json:"createdAt"`
@@ -490,6 +496,9 @@ type AgentDetail struct {
 	// Description Full OpAMP AgentDescription attributes.
 	Description *map[string]interface{} `json:"description,omitempty"`
 
+	// DisplayName Operator-set friendly name; overrides name in the UI.
+	DisplayName *string `json:"displayName,omitempty"`
+
 	// Health Last ComponentHealth tree as reported.
 	Health *map[string]interface{} `json:"health,omitempty"`
 
@@ -498,15 +507,18 @@ type AgentDetail struct {
 	Id      openapi_types.UUID `json:"id"`
 
 	// InstanceUid OpAMP instance UID (hex)
-	InstanceUid string     `json:"instanceUid"`
-	LastSeenAt  *time.Time `json:"lastSeenAt,omitempty"`
+	InstanceUid string `json:"instanceUid"`
+
+	// Labels Operator-set labels for grouping/filtering (may be empty).
+	Labels     *map[string]string `json:"labels,omitempty"`
+	LastSeenAt *time.Time         `json:"lastSeenAt,omitempty"`
 
 	// Name From AgentDescription (host.name / service.name)
 	Name               *string            `json:"name,omitempty"`
 	RemoteConfigError  *string            `json:"remoteConfigError,omitempty"`
 	RemoteConfigStatus RemoteConfigStatus `json:"remoteConfigStatus"`
 
-	// ReportedConfigHash Hash the agent says it runs
+	// ReportedConfigHash Hash of the effective config the agent reports (re-serialized; not used for sync state)
 	ReportedConfigHash *string `json:"reportedConfigHash,omitempty"`
 }
 
@@ -520,6 +532,15 @@ type AgentEvent struct {
 
 // AgentEventEventType defines model for AgentEvent.EventType.
 type AgentEventEventType string
+
+// AgentUpdate defines model for AgentUpdate.
+type AgentUpdate struct {
+	// DisplayName Friendly name; null or empty clears it (falls back to the reported name).
+	DisplayName *string `json:"displayName,omitempty"`
+
+	// Labels Replaces the full label set when present; omit to leave labels unchanged.
+	Labels *map[string]string `json:"labels,omitempty"`
+}
 
 // ApiKey defines model for ApiKey.
 type ApiKey struct {
@@ -1255,6 +1276,9 @@ type UpdateUserJSONBody struct {
 	Role     *Role `json:"role,omitempty"`
 }
 
+// UpdateAgentJSONRequestBody defines body for UpdateAgent for application/json ContentType.
+type UpdateAgentJSONRequestBody = AgentUpdate
+
 // DevLoginJSONRequestBody defines body for DevLogin for application/json ContentType.
 type DevLoginJSONRequestBody DevLoginJSONBody
 
@@ -1311,12 +1335,18 @@ type ServerInterface interface {
 	// Get one agent including its health tree
 	// (GET /api/v1/agents/{agentId})
 	GetAgent(w http.ResponseWriter, r *http.Request, agentId openapi_types.UUID)
+	// Set operator-managed metadata (friendly display name, labels)
+	// (PATCH /api/v1/agents/{agentId})
+	UpdateAgent(w http.ResponseWriter, r *http.Request, agentId openapi_types.UUID)
 	// Assigned (desired) and reported (effective) config for the diff view
 	// (GET /api/v1/agents/{agentId}/config)
 	GetAgentConfig(w http.ResponseWriter, r *http.Request, agentId openapi_types.UUID)
 	// Status transitions of one agent, newest first
 	// (GET /api/v1/agents/{agentId}/events)
 	ListAgentEvents(w http.ResponseWriter, r *http.Request, agentId openapi_types.UUID, params ListAgentEventsParams)
+	// Force a re-push of the current edge config to this agent's fleet
+	// (POST /api/v1/agents/{agentId}/sync)
+	SyncAgent(w http.ResponseWriter, r *http.Request, agentId openapi_types.UUID)
 	// Query the audit log (newest first, cursor-paged)
 	// (GET /api/v1/audit)
 	ListAuditLog(w http.ResponseWriter, r *http.Request, params ListAuditLogParams)
@@ -1491,6 +1521,12 @@ func (_ Unimplemented) GetAgent(w http.ResponseWriter, r *http.Request, agentId 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Set operator-managed metadata (friendly display name, labels)
+// (PATCH /api/v1/agents/{agentId})
+func (_ Unimplemented) UpdateAgent(w http.ResponseWriter, r *http.Request, agentId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Assigned (desired) and reported (effective) config for the diff view
 // (GET /api/v1/agents/{agentId}/config)
 func (_ Unimplemented) GetAgentConfig(w http.ResponseWriter, r *http.Request, agentId openapi_types.UUID) {
@@ -1500,6 +1536,12 @@ func (_ Unimplemented) GetAgentConfig(w http.ResponseWriter, r *http.Request, ag
 // Status transitions of one agent, newest first
 // (GET /api/v1/agents/{agentId}/events)
 func (_ Unimplemented) ListAgentEvents(w http.ResponseWriter, r *http.Request, agentId openapi_types.UUID, params ListAgentEventsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Force a re-push of the current edge config to this agent's fleet
+// (POST /api/v1/agents/{agentId}/sync)
+func (_ Unimplemented) SyncAgent(w http.ResponseWriter, r *http.Request, agentId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1923,6 +1965,32 @@ func (siw *ServerInterfaceWrapper) GetAgent(w http.ResponseWriter, r *http.Reque
 	handler.ServeHTTP(w, r)
 }
 
+// UpdateAgent operation middleware
+func (siw *ServerInterfaceWrapper) UpdateAgent(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "agentId" -------------
+	var agentId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "agentId", chi.URLParam(r, "agentId"), &agentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "agentId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateAgent(w, r, agentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetAgentConfig operation middleware
 func (siw *ServerInterfaceWrapper) GetAgentConfig(w http.ResponseWriter, r *http.Request) {
 
@@ -1982,6 +2050,32 @@ func (siw *ServerInterfaceWrapper) ListAgentEvents(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListAgentEvents(w, r, agentId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SyncAgent operation middleware
+func (siw *ServerInterfaceWrapper) SyncAgent(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "agentId" -------------
+	var agentId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "agentId", chi.URLParam(r, "agentId"), &agentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "agentId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SyncAgent(w, r, agentId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3697,10 +3791,16 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/v1/agents/{agentId}", wrapper.GetAgent)
 	})
 	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/agents/{agentId}", wrapper.UpdateAgent)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/agents/{agentId}/config", wrapper.GetAgentConfig)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/agents/{agentId}/events", wrapper.ListAgentEvents)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/agents/{agentId}/sync", wrapper.SyncAgent)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/audit", wrapper.ListAuditLog)
@@ -4026,6 +4126,85 @@ func (response GetAgent404JSONResponse) VisitGetAgentResponse(w http.ResponseWri
 	return err
 }
 
+type UpdateAgentRequestObject struct {
+	AgentId openapi_types.UUID `json:"agentId"`
+	Body    *UpdateAgentJSONRequestBody
+}
+
+type UpdateAgentResponseObject interface {
+	VisitUpdateAgentResponse(w http.ResponseWriter) error
+}
+
+type UpdateAgent200JSONResponse Agent
+
+func (response UpdateAgent200JSONResponse) VisitUpdateAgentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateAgent400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UpdateAgent400JSONResponse) VisitUpdateAgentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateAgent401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UpdateAgent401JSONResponse) VisitUpdateAgentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateAgent403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UpdateAgent403JSONResponse) VisitUpdateAgentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateAgent404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdateAgent404JSONResponse) VisitUpdateAgentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetAgentConfigRequestObject struct {
 	AgentId openapi_types.UUID `json:"agentId"`
 }
@@ -4124,6 +4303,87 @@ func (response ListAgentEvents401JSONResponse) VisitListAgentEventsResponse(w ht
 type ListAgentEvents404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response ListAgentEvents404JSONResponse) VisitListAgentEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SyncAgentRequestObject struct {
+	AgentId openapi_types.UUID `json:"agentId"`
+}
+
+type SyncAgentResponseObject interface {
+	VisitSyncAgentResponse(w http.ResponseWriter) error
+}
+
+type SyncAgent202JSONResponse struct {
+	// Detail Human-readable rollout scope.
+	Detail string `json:"detail"`
+}
+
+func (response SyncAgent202JSONResponse) VisitSyncAgentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SyncAgent400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response SyncAgent400JSONResponse) VisitSyncAgentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SyncAgent401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response SyncAgent401JSONResponse) VisitSyncAgentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SyncAgent403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response SyncAgent403JSONResponse) VisitSyncAgentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SyncAgent404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response SyncAgent404JSONResponse) VisitSyncAgentResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -6968,12 +7228,18 @@ type StrictServerInterface interface {
 	// Get one agent including its health tree
 	// (GET /api/v1/agents/{agentId})
 	GetAgent(ctx context.Context, request GetAgentRequestObject) (GetAgentResponseObject, error)
+	// Set operator-managed metadata (friendly display name, labels)
+	// (PATCH /api/v1/agents/{agentId})
+	UpdateAgent(ctx context.Context, request UpdateAgentRequestObject) (UpdateAgentResponseObject, error)
 	// Assigned (desired) and reported (effective) config for the diff view
 	// (GET /api/v1/agents/{agentId}/config)
 	GetAgentConfig(ctx context.Context, request GetAgentConfigRequestObject) (GetAgentConfigResponseObject, error)
 	// Status transitions of one agent, newest first
 	// (GET /api/v1/agents/{agentId}/events)
 	ListAgentEvents(ctx context.Context, request ListAgentEventsRequestObject) (ListAgentEventsResponseObject, error)
+	// Force a re-push of the current edge config to this agent's fleet
+	// (POST /api/v1/agents/{agentId}/sync)
+	SyncAgent(ctx context.Context, request SyncAgentRequestObject) (SyncAgentResponseObject, error)
 	// Query the audit log (newest first, cursor-paged)
 	// (GET /api/v1/audit)
 	ListAuditLog(ctx context.Context, request ListAuditLogRequestObject) (ListAuditLogResponseObject, error)
@@ -7233,6 +7499,39 @@ func (sh *strictHandler) GetAgent(w http.ResponseWriter, r *http.Request, agentI
 	}
 }
 
+// UpdateAgent operation middleware
+func (sh *strictHandler) UpdateAgent(w http.ResponseWriter, r *http.Request, agentId openapi_types.UUID) {
+	var request UpdateAgentRequestObject
+
+	request.AgentId = agentId
+
+	var body UpdateAgentJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateAgent(ctx, request.(UpdateAgentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateAgent")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateAgentResponseObject); ok {
+		if err := validResponse.VisitUpdateAgentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetAgentConfig operation middleware
 func (sh *strictHandler) GetAgentConfig(w http.ResponseWriter, r *http.Request, agentId openapi_types.UUID) {
 	var request GetAgentConfigRequestObject
@@ -7279,6 +7578,32 @@ func (sh *strictHandler) ListAgentEvents(w http.ResponseWriter, r *http.Request,
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListAgentEventsResponseObject); ok {
 		if err := validResponse.VisitListAgentEventsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SyncAgent operation middleware
+func (sh *strictHandler) SyncAgent(w http.ResponseWriter, r *http.Request, agentId openapi_types.UUID) {
+	var request SyncAgentRequestObject
+
+	request.AgentId = agentId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SyncAgent(ctx, request.(SyncAgentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SyncAgent")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SyncAgentResponseObject); ok {
+		if err := validResponse.VisitSyncAgentResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

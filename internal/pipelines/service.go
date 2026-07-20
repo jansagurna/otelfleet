@@ -393,6 +393,14 @@ func (s *Service) distribute(ctx context.Context) (string, string, error) {
 	return s.dist.Distribute(ctx, full)
 }
 
+// ResyncEdge forces a re-push of a customer's current edge config to all its
+// connected agents (used by the manual "re-sync" fleet action). It reuses the
+// same LISTEN/NOTIFY path as an activation, so it works across the API/OpAMP
+// tier split. Returns the rollout scope detail.
+func (s *Service) ResyncEdge(ctx context.Context, customerID uuid.UUID) (string, string, error) {
+	return s.notifyEdge(ctx, customerID)
+}
+
 // notifyEdge asks the OpAMP module to push the customer's re-rendered edge
 // config. The push either lands immediately (connected agents) or on
 // reconnect (the OpAMP handler compares hashes on every connect), so the

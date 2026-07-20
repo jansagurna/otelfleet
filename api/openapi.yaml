@@ -547,6 +547,25 @@ paths:
               schema: { $ref: "#/components/schemas/AgentDetail" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [fleet]
+      operationId: updateAgent
+      summary: Set operator-managed metadata (friendly display name, labels)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AgentUpdate" }
+      responses:
+        "200":
+          description: Updated agent
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Agent" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
     delete:
       tags: [fleet]
       operationId: deleteAgent
@@ -557,6 +576,35 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { description: Agent is currently connected, $ref: "#/components/responses/Conflict" }
+
+  /api/v1/agents/{agentId}/sync:
+    parameters:
+      - { name: agentId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [fleet]
+      operationId: syncAgent
+      summary: Force a re-push of the current edge config to this agent's fleet
+      description: >-
+        Re-renders and re-pushes the customer's current edge config to all of
+        that customer's connected edge agents (edge config is per-customer, so
+        all of a customer's agents run the same config). Use this to recover an
+        agent stuck out of sync, or to re-apply after a failed config. The push
+        is asynchronous (handled by the OpAMP tier); offline agents pick it up
+        on reconnect. Not applicable to gateway-class agents.
+      responses:
+        "202":
+          description: Re-sync queued
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [detail]
+                properties:
+                  detail: { type: string, description: Human-readable rollout scope. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /api/v1/agents/{agentId}/config:
     parameters:
@@ -1695,6 +1743,11 @@ components:
         customerId: { type: string, format: uuid, nullable: true }
         customerName: { type: string, nullable: true }
         name: { type: string, nullable: true, description: "From AgentDescription (host.name / service.name)" }
+        displayName: { type: string, nullable: true, description: Operator-set friendly name; overrides name in the UI. }
+        labels:
+          type: object
+          additionalProperties: { type: string }
+          description: Operator-set labels for grouping/filtering (may be empty).
         agentVersion: { type: string, nullable: true }
         connected: { type: boolean }
         healthy: { type: boolean, nullable: true, description: Last reported ComponentHealth; null when never reported }
@@ -1702,12 +1755,27 @@ components:
         remoteConfigStatus: { $ref: "#/components/schemas/RemoteConfigStatus" }
         remoteConfigError: { type: string, nullable: true }
         assignedConfigHash: { type: string, nullable: true, description: SHA-256 hex of the desired config }
-        reportedConfigHash: { type: string, nullable: true, description: Hash the agent says it runs }
+        reportedConfigHash: { type: string, nullable: true, description: Hash of the effective config the agent reports (re-serialized; not used for sync state) }
         configInSync:
           type: boolean
           nullable: true
-          description: assigned == reported; null when either side is unknown.
+          description: >-
+            assigned == the config hash the agent acknowledged via OpAMP;
+            null when the agent has not acknowledged a config yet.
         createdAt: { type: string, format: date-time }
+
+    AgentUpdate:
+      type: object
+      properties:
+        displayName:
+          type: string
+          nullable: true
+          maxLength: 120
+          description: Friendly name; null or empty clears it (falls back to the reported name).
+        labels:
+          type: object
+          additionalProperties: { type: string }
+          description: Replaces the full label set when present; omit to leave labels unchanged.
 
     AgentDetail:
       allOf:

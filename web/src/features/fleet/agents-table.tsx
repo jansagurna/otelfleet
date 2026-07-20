@@ -1,6 +1,6 @@
 import { Link, useNavigate } from '@tanstack/react-router'
-import { agentDisplayName } from '@/features/fleet/agent-status'
-import { AgentClassBadge, ConfigChip, StatusDot } from '@/features/fleet/badges'
+import { agentDisplayName, agentReportedName } from '@/features/fleet/agent-status'
+import { AgentClassBadge, ConfigChip, LabelChips, StatusDot } from '@/features/fleet/badges'
 import { formatDateTime, formatRelative } from '@/lib/format'
 import {
   Table,
@@ -45,13 +45,21 @@ export function AgentsTable({ agents }: { agents: Agent[] }) {
                 <StatusDot agent={agent} />
               </TableCell>
               <TableCell>
-                <Link
-                  to="/fleet/$agentId"
-                  params={{ agentId: agent.id }}
-                  className="rounded font-mono text-xs font-medium text-ink outline-none hover:text-accent hover:underline focus-visible:ring-2 focus-visible:ring-accent/70"
-                >
-                  {agentDisplayName(agent)}
-                </Link>
+                <div className="flex flex-col gap-1">
+                  <Link
+                    to="/fleet/$agentId"
+                    params={{ agentId: agent.id }}
+                    className="rounded font-mono text-xs font-medium text-ink outline-none hover:text-accent hover:underline focus-visible:ring-2 focus-visible:ring-accent/70"
+                  >
+                    {agentDisplayName(agent)}
+                  </Link>
+                  {agent.displayName != null && agent.displayName !== '' && (
+                    <span className="font-mono text-[11px] text-ink-3">
+                      {agentReportedName(agent)}
+                    </span>
+                  )}
+                  <LabelChips labels={agent.labels} />
+                </div>
               </TableCell>
               <TableCell>
                 <AgentClassBadge agentClass={agent.class} />

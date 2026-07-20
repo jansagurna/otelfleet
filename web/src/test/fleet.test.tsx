@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { renderApp, stubApi, testAgent, testCustomer } from '@/test/render-app'
 import { setCsrfToken } from '@/lib/api-client'
 
@@ -25,6 +26,19 @@ describe('/fleet', () => {
     expect(screen.getByLabelText('Customer')).toBeInTheDocument()
     expect(screen.getByLabelText('Connection')).toBeInTheDocument()
   })
+
+  it('shows the display name, reported name, labels, and a neutral chip for an unacknowledged agent', async () => {
+    renderApp('/fleet')
+    // displayName wins in the name column; the reported name shows beneath.
+    expect(await screen.findByRole('link', { name: 'EU Gateway' })).toBeInTheDocument()
+    expect(screen.getByText('gateway-eu-01')).toBeInTheDocument()
+    // Operator labels render as compact key=value chips.
+    expect(screen.getByText('region=eu')).toBeInTheDocument()
+    expect(screen.getByText('role=ingest')).toBeInTheDocument()
+    // configInSync=null → neutral "—" chip, not "out of sync".
+    expect(screen.getByTitle('The agent has not acknowledged a config yet.')).toHaveTextContent('—')
+    expect(screen.queryByText('out of sync')).not.toBeInTheDocument()
+  })
 })
 
 describe('/fleet/$agentId', () => {
@@ -46,6 +60,18 @@ describe('/fleet/$agentId', () => {
     renderApp(`/fleet/${testAgent.id}?tab=events`)
     expect(await screen.findByText('Connected')).toBeInTheDocument()
     expect(screen.getByLabelText('Agent events')).toBeInTheDocument()
+  })
+
+  it('offers re-sync and edit actions, and opens the edit dialog', async () => {
+    const user = userEvent.setup()
+    renderApp(`/fleet/${testAgent.id}`)
+    // Edge agent → re-sync is enabled; edit is always available to operators.
+    expect(await screen.findByRole('button', { name: /re-sync/i })).not.toBeDisabled()
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Edit agent' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Display name')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /add label/i })).toBeInTheDocument()
   })
 })
 

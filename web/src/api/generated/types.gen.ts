@@ -463,6 +463,16 @@ export type Agent = {
      * From AgentDescription (host.name / service.name)
      */
     name?: string | null;
+    /**
+     * Operator-set friendly name; overrides name in the UI.
+     */
+    displayName?: string | null;
+    /**
+     * Operator-set labels for grouping/filtering (may be empty).
+     */
+    labels?: {
+        [key: string]: string;
+    };
     agentVersion?: string | null;
     connected: boolean;
     /**
@@ -477,14 +487,27 @@ export type Agent = {
      */
     assignedConfigHash?: string | null;
     /**
-     * Hash the agent says it runs
+     * Hash of the effective config the agent reports (re-serialized; not used for sync state)
      */
     reportedConfigHash?: string | null;
     /**
-     * assigned == reported; null when either side is unknown.
+     * assigned == the config hash the agent acknowledged via OpAMP; null when the agent has not acknowledged a config yet.
      */
     configInSync?: boolean | null;
     createdAt: string;
+};
+
+export type AgentUpdate = {
+    /**
+     * Friendly name; null or empty clears it (falls back to the reported name).
+     */
+    displayName?: string | null;
+    /**
+     * Replaces the full label set when present; omit to leave labels unchanged.
+     */
+    labels?: {
+        [key: string]: string;
+    };
 };
 
 export type AgentDetail = Agent & {
@@ -1483,6 +1506,89 @@ export type GetAgentResponses = {
 };
 
 export type GetAgentResponse = GetAgentResponses[keyof GetAgentResponses];
+
+export type UpdateAgentData = {
+    body: AgentUpdate;
+    path: {
+        agentId: string;
+    };
+    query?: never;
+    url: '/api/v1/agents/{agentId}';
+};
+
+export type UpdateAgentErrors = {
+    /**
+     * Validation error
+     */
+    400: Error;
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+};
+
+export type UpdateAgentError = UpdateAgentErrors[keyof UpdateAgentErrors];
+
+export type UpdateAgentResponses = {
+    /**
+     * Updated agent
+     */
+    200: Agent;
+};
+
+export type UpdateAgentResponse = UpdateAgentResponses[keyof UpdateAgentResponses];
+
+export type SyncAgentData = {
+    body?: never;
+    path: {
+        agentId: string;
+    };
+    query?: never;
+    url: '/api/v1/agents/{agentId}/sync';
+};
+
+export type SyncAgentErrors = {
+    /**
+     * Validation error
+     */
+    400: Error;
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+};
+
+export type SyncAgentError = SyncAgentErrors[keyof SyncAgentErrors];
+
+export type SyncAgentResponses = {
+    /**
+     * Re-sync queued
+     */
+    202: {
+        /**
+         * Human-readable rollout scope.
+         */
+        detail: string;
+    };
+};
+
+export type SyncAgentResponse = SyncAgentResponses[keyof SyncAgentResponses];
 
 export type GetAgentConfigData = {
     body?: never;

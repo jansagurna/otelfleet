@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"strings"
 
 	"github.com/jansagurna/otelfleet/internal/api/apigen"
 	"github.com/jansagurna/otelfleet/internal/audit"
@@ -23,16 +24,30 @@ func hexPtr(b []byte) *string {
 	return &s
 }
 
-// configInSync is true/false when both hashes are known, nil otherwise.
-func configInSync(assigned, reported []byte) *bool {
-	if len(assigned) == 0 || len(reported) == 0 {
+// configInSync is true/false when the agent has acknowledged a config, nil
+// otherwise. It compares the assigned (desired) hash against the hash the
+// agent confirmed over OpAMP (RemoteConfigStatus.last_remote_config_hash) —
+// NOT the effective-config hash, which is a re-serialization that never
+// matches the assigned hash.
+func configInSync(assigned, acked []byte) *bool {
+	if len(assigned) == 0 || len(acked) == 0 {
 		return nil
 	}
-	v := bytes.Equal(assigned, reported)
+	v := bytes.Equal(assigned, acked)
 	return &v
 }
 
+// agentLabels decodes the JSONB label map, always returning a non-nil map.
+func agentLabels(raw []byte) map[string]string {
+	labels := map[string]string{}
+	if len(raw) > 0 {
+		_ = json.Unmarshal(raw, &labels)
+	}
+	return labels
+}
+
 func toAgent(a store.Agent) apigen.Agent {
+	labels := agentLabels(a.Labels)
 	return apigen.Agent{
 		Id:                 a.ID,
 		InstanceUid:        hex.EncodeToString(a.InstanceUID),
@@ -40,6 +55,8 @@ func toAgent(a store.Agent) apigen.Agent {
 		CustomerId:         a.CustomerID,
 		CustomerName:       a.CustomerName,
 		Name:               a.Name,
+		DisplayName:        a.DisplayName,
+		Labels:             &labels,
 		AgentVersion:       a.AgentVersion,
 		Connected:          a.Connected,
 		Healthy:            a.Healthy,
@@ -48,7 +65,7 @@ func toAgent(a store.Agent) apigen.Agent {
 		RemoteConfigError:  a.RemoteConfigError,
 		AssignedConfigHash: hexPtr(a.AssignedConfigHash),
 		ReportedConfigHash: hexPtr(a.ReportedConfigHash),
-		ConfigInSync:       configInSync(a.AssignedConfigHash, a.ReportedConfigHash),
+		ConfigInSync:       configInSync(a.AssignedConfigHash, a.AckedConfigHash),
 		CreatedAt:          a.CreatedAt,
 	}
 }
@@ -62,6 +79,8 @@ func toAgentDetail(a store.Agent) (apigen.AgentDetail, error) {
 		CustomerId:         base.CustomerId,
 		CustomerName:       base.CustomerName,
 		Name:               base.Name,
+		DisplayName:        base.DisplayName,
+		Labels:             base.Labels,
 		AgentVersion:       base.AgentVersion,
 		Connected:          base.Connected,
 		Healthy:            base.Healthy,
@@ -170,6 +189,79 @@ func (s *Server) DeleteAgent(ctx context.Context, request apigen.DeleteAgentRequ
 		return nil, err
 	}
 	return apigen.DeleteAgent204Response{}, nil
+}
+
+func (s *Server) UpdateAgent(ctx context.Context, request apigen.UpdateAgentRequestObject) (apigen.UpdateAgentResponseObject, error) {
+	a, err := s.store.GetAgent(ctx, request.AgentId)
+	if errors.Is(err, store.ErrNotFound) {
+		return apigen.UpdateAgent404JSONResponse{NotFoundJSONResponse: apigen.NotFoundJSONResponse{Code: codeNotFound, Message: "agent not found"}}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// Display name: null/empty clears the operator override.
+	var displayName *string
+	if request.Body.DisplayName != nil {
+		if trimmed := strings.TrimSpace(*request.Body.DisplayName); trimmed != "" {
+			displayName = &trimmed
+		}
+	}
+	// Labels: only rewritten when the field is present (nil = leave unchanged).
+	var labels []byte
+	if request.Body.Labels != nil {
+		labels, err = json.Marshal(*request.Body.Labels)
+		if err != nil {
+			return apigen.UpdateAgent400JSONResponse{BadRequestJSONResponse: apigen.BadRequestJSONResponse{Code: codeBadRequest, Message: "invalid labels"}}, nil
+		}
+	}
+
+	updated, err := s.store.UpdateAgentMeta(ctx, request.AgentId, displayName, labels, []audit.Entry{{
+		ActorUserID: actorID(ctx),
+		Action:      "agent.update",
+		EntityType:  "agent",
+		EntityID:    request.AgentId.String(),
+		CustomerID:  a.CustomerID,
+		Payload:     map[string]any{"instance_uid": hex.EncodeToString(a.InstanceUID)},
+	}})
+	if errors.Is(err, store.ErrNotFound) {
+		return apigen.UpdateAgent404JSONResponse{NotFoundJSONResponse: apigen.NotFoundJSONResponse{Code: codeNotFound, Message: "agent not found"}}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return apigen.UpdateAgent200JSONResponse(toAgent(updated)), nil
+}
+
+// SyncAgent forces a re-push of the agent's customer edge config. Because edge
+// config is rendered per-customer, this re-syncs every one of that customer's
+// edge agents; the OpAMP tier performs the push out of band (LISTEN/NOTIFY).
+func (s *Server) SyncAgent(ctx context.Context, request apigen.SyncAgentRequestObject) (apigen.SyncAgentResponseObject, error) {
+	a, err := s.store.GetAgent(ctx, request.AgentId)
+	if errors.Is(err, store.ErrNotFound) {
+		return apigen.SyncAgent404JSONResponse{NotFoundJSONResponse: apigen.NotFoundJSONResponse{Code: codeNotFound, Message: "agent not found"}}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if a.Class != store.AgentClassEdge || a.CustomerID == nil {
+		return apigen.SyncAgent400JSONResponse{BadRequestJSONResponse: apigen.BadRequestJSONResponse{Code: codeBadRequest, Message: "re-sync applies to edge agents only; gateway configs are managed outside OpAMP"}}, nil
+	}
+	_, detail, err := s.pipelines.ResyncEdge(ctx, *a.CustomerID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.store.WriteAuditEntries(ctx, []audit.Entry{{
+		ActorUserID: actorID(ctx),
+		Action:      "agent.sync",
+		EntityType:  "agent",
+		EntityID:    request.AgentId.String(),
+		CustomerID:  a.CustomerID,
+		Payload:     map[string]any{"instance_uid": hex.EncodeToString(a.InstanceUID)},
+	}}); err != nil {
+		s.log.Warn("audit write failed for agent.sync", "agent", request.AgentId, "err", err)
+	}
+	return apigen.SyncAgent202JSONResponse{Detail: detail}, nil
 }
 
 func (s *Server) GetAgentConfig(ctx context.Context, request apigen.GetAgentConfigRequestObject) (apigen.GetAgentConfigResponseObject, error) {

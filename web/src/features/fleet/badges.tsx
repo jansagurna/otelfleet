@@ -49,3 +49,24 @@ export function ConfigChip({
 export function AgentClassBadge({ agentClass }: { agentClass: AgentClass }) {
   return <Badge className="font-mono">{agentClass}</Badge>
 }
+
+/** Compact key=value chips for operator-set labels; renders nothing when empty. */
+export function LabelChips({
+  labels,
+  className,
+}: {
+  labels?: Pick<Agent, 'labels'>['labels']
+  className?: string
+}) {
+  const entries = Object.entries(labels ?? {})
+  if (entries.length === 0) return null
+  return (
+    <div className={cn('flex flex-wrap gap-1', className)}>
+      {entries.map(([key, value]) => (
+        <Badge key={key} className="font-mono text-[10px]" title={`${key}=${value}`}>
+          {key}={value}
+        </Badge>
+      ))}
+    </div>
+  )
+}

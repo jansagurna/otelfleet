@@ -37,8 +37,11 @@ export interface ConfigChipSpec {
 type ConfigInput = Pick<Agent, 'remoteConfigStatus' | 'remoteConfigError' | 'configInSync'>
 
 /**
- * Config-state chip: failure and in-flight application win over the hash
- * comparison; "—" when neither side is known.
+ * Config-state chip: failure and in-flight application win over the sync
+ * comparison. `configInSync` compares the assigned config hash against the
+ * hash the agent acknowledged over OpAMP — true = in sync, false = the agent
+ * acknowledged a different config, null = it has not acknowledged one yet
+ * (neutral/unknown, not an error).
  */
 export function configChip(agent: ConfigInput): ConfigChipSpec {
   if (agent.remoteConfigStatus === 'failed') {
@@ -53,15 +56,28 @@ export function configChip(agent: ConfigInput): ConfigChipSpec {
   }
   if (agent.configInSync === true) return { label: 'in sync', variant: 'ok' }
   if (agent.configInSync === false) {
-    return { label: 'out of sync', variant: 'warn', tooltip: 'Reported config differs from the assigned config.' }
+    return {
+      label: 'out of sync',
+      variant: 'warn',
+      tooltip: 'The agent acknowledged a different config than the one assigned.',
+    }
   }
-  return { label: '—', variant: 'neutral', tooltip: 'Config state unknown — nothing reported yet.' }
+  return { label: '—', variant: 'neutral', tooltip: 'The agent has not acknowledged a config yet.' }
 }
 
-/** Display name: reported name, falling back to a shortened instance UID. */
-export function agentDisplayName(agent: Pick<Agent, 'name' | 'instanceUid'>): string {
+/** Reported identity: the agent-reported name, falling back to a shortened UID. */
+export function agentReportedName(agent: Pick<Agent, 'name' | 'instanceUid'>): string {
   if (agent.name != null && agent.name !== '') return agent.name
   return shortId(agent.instanceUid)
+}
+
+/**
+ * Display name: operator-set friendly name, else the reported name, else a
+ * shortened instance UID.
+ */
+export function agentDisplayName(agent: Pick<Agent, 'displayName' | 'name' | 'instanceUid'>): string {
+  if (agent.displayName != null && agent.displayName !== '') return agent.displayName
+  return agentReportedName(agent)
 }
 
 /** First 8 chars of a UID/hash with an ellipsis when truncated. */

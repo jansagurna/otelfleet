@@ -1,17 +1,20 @@
 import { useState } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Trash2 } from 'lucide-react'
+import { ArrowLeft, Pencil, RefreshCw, Trash2 } from 'lucide-react'
 import {
   deleteAgentMutation,
   getAgentOptions,
   listAgentsQueryKey,
+  syncAgentMutation,
 } from '@/api/generated/@tanstack/react-query.gen'
 import { agentDisplayName, configChip, shortHash } from '@/features/fleet/agent-status'
-import { AgentClassBadge, ConfigChip, StatusDot } from '@/features/fleet/badges'
+import { AgentClassBadge, ConfigChip, LabelChips, StatusDot } from '@/features/fleet/badges'
 import { AgentConfigTab } from '@/features/fleet/agent-config'
 import { AgentEventsTab } from '@/features/fleet/agent-events'
+import { EditAgentDialog } from '@/features/fleet/edit-agent-dialog'
 import { formatDateTime, formatRelative } from '@/lib/format'
+import { apiErrorMessage } from '@/lib/api-error'
 import { useMe, canMutate } from '@/hooks/use-me'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -76,6 +79,14 @@ function AgentHeader({ agent }: { agent: AgentDetail }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [confirmForget, setConfirmForget] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const isGateway = agent.class === 'gateway'
+
+  const resync = useMutation({
+    ...syncAgentMutation(),
+    onSuccess: (result) => toast(result.detail),
+    onError: (error) => toast(apiErrorMessage(error, 'Could not re-sync the agent'), 'danger'),
+  })
 
   const forget = useMutation({
     ...deleteAgentMutation(),
@@ -109,24 +120,46 @@ function AgentHeader({ agent }: { agent: AgentDetail }) {
         <AgentClassBadge agentClass={agent.class} />
         <StatusDot agent={agent} showLabel />
         {canMutate(me) && (
-          <span
-            className="ml-auto"
-            title={
-              agent.connected
-                ? 'Connected agents cannot be forgotten — stop the agent first.'
-                : undefined
-            }
-          >
-            <Button
-              variant="danger"
-              size="sm"
-              disabled={agent.connected || forget.isPending}
-              onClick={() => setConfirmForget(true)}
+          <div className="ml-auto flex items-center gap-2">
+            <span
+              title={
+                isGateway
+                  ? 'Gateway agents are not re-synced from here — edge config is per-customer.'
+                  : undefined
+              }
             >
-              <Trash2 aria-hidden />
-              Forget agent
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isGateway || resync.isPending}
+                onClick={() => resync.mutate({ path: { agentId: agent.id } })}
+              >
+                <RefreshCw aria-hidden />
+                {resync.isPending ? 'Re-syncing…' : 'Re-sync'}
+              </Button>
+            </span>
+            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+              <Pencil aria-hidden />
+              Edit
             </Button>
-          </span>
+            <span
+              title={
+                agent.connected
+                  ? 'Connected agents cannot be forgotten — stop the agent first.'
+                  : undefined
+              }
+            >
+              <Button
+                variant="danger"
+                size="sm"
+                disabled={agent.connected || forget.isPending}
+                onClick={() => setConfirmForget(true)}
+              >
+                <Trash2 aria-hidden />
+                Forget agent
+              </Button>
+            </span>
+          </div>
         )}
       </div>
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-ink-2">
@@ -168,6 +201,7 @@ function AgentHeader({ agent }: { agent: AgentDetail }) {
         pending={forget.isPending}
         onConfirm={() => forget.mutate({ path: { agentId: agent.id } })}
       />
+      <EditAgentDialog agent={agent} open={editOpen} onOpenChange={setEditOpen} />
     </div>
   )
 }
@@ -200,8 +234,15 @@ function TabBar({ agentId, active }: { agentId: string; active: Tab }) {
 // ---- overview ---------------------------------------------------------------
 
 function OverviewTab({ agent }: { agent: AgentDetail }) {
+  const hasLabels = Object.keys(agent.labels ?? {}).length > 0
   return (
     <div className="flex flex-col gap-4">
+      {hasLabels && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-ink-3">labels</span>
+          <LabelChips labels={agent.labels} />
+        </div>
+      )}
       <div className="grid items-start gap-4 lg:grid-cols-2">
         <RemoteConfigCard agent={agent} />
         <HealthCard agent={agent} />
@@ -245,13 +286,18 @@ function RemoteConfigCard({ agent }: { agent: AgentDetail }) {
             {shortHash(agent.assignedConfigHash)}
           </code>
         </dd>
-        <dt className="text-ink-3">reported</dt>
+        <dt className="text-ink-3" title="Re-serialized effective config the agent reports; not used for sync state.">
+          reported
+        </dt>
         <dd>
           <code className="font-mono text-ink-2" title={agent.reportedConfigHash ?? undefined}>
             {shortHash(agent.reportedConfigHash)}
           </code>
         </dd>
       </dl>
+      <p className="text-[11px] text-ink-3">
+        Sync state compares the assigned config against the one the agent acknowledged over OpAMP.
+      </p>
     </Card>
   )
 }

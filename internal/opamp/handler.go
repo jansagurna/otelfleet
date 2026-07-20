@@ -37,6 +37,7 @@ type Store interface {
 	UpdateAgentDescription(ctx context.Context, id uuid.UUID, name, agentVersion *string, description []byte, capabilities *int64) error
 	SetAgentConnected(ctx context.Context, id uuid.UUID, connected bool, at time.Time) error
 	SetAgentAssignedConfig(ctx context.Context, id uuid.UUID, hash []byte) error
+	SetAgentAckedConfig(ctx context.Context, id uuid.UUID, hash []byte) error
 	SetAgentEffectiveConfig(ctx context.Context, id uuid.UUID, yaml string, hash []byte) error
 	SetAgentRemoteConfigStatus(ctx context.Context, id uuid.UUID, status string, errorMessage *string, eventType *string, detail any) error
 	SetAgentHealth(ctx context.Context, id uuid.UUID, health []byte, healthy bool, flipEvent *string) error
@@ -346,7 +347,7 @@ func (h *Handler) resolveAgent(ctx context.Context, conn types.Connection, auth 
 			customerID:         auth.CustomerID,
 			remoteConfigStatus: agent.RemoteConfigStatus,
 			healthy:            agent.Healthy,
-			lastAckedHash:      agent.ReportedConfigHash,
+			lastAckedHash:      agent.AckedConfigHash,
 		}
 		if agent.Capabilities != nil {
 			st.capabilities = uint64(*agent.Capabilities)
@@ -410,12 +411,23 @@ func (h *Handler) handleRemoteConfigStatus(ctx context.Context, st *agentConn, r
 	if len(acked) > 0 {
 		st.lastAckedHash = append([]byte(nil), acked...)
 		h.reg.update(st.instanceUID, func(a *agentConn) { a.lastAckedHash = st.lastAckedHash })
+		// Persist the acknowledged hash: it is the authoritative in-sync signal
+		// (compared against assigned_config_hash), and it must survive a
+		// reconnect where the agent does not re-report status.
+		if newHash {
+			if err := h.store.SetAgentAckedConfig(ctx, st.agentID, st.lastAckedHash); err != nil {
+				h.log.Error("opamp: persist acked config hash failed", "agent", st.agentID, "err", err)
+			}
+		}
 	} else if status == store.RemoteConfigUnset {
 		// The agent explicitly reports having no remote config (e.g. restart
 		// with lost state): forget the seeded hash so the connect-time offer
 		// re-sends the desired config.
 		st.lastAckedHash = nil
 		h.reg.update(st.instanceUID, func(a *agentConn) { a.lastAckedHash = nil })
+		if err := h.store.SetAgentAckedConfig(ctx, st.agentID, nil); err != nil {
+			h.log.Error("opamp: clear acked config hash failed", "agent", st.agentID, "err", err)
+		}
 	}
 	terminal := status == store.RemoteConfigApplied || status == store.RemoteConfigFailed
 	if status == st.remoteConfigStatus && !(newHash && terminal) {
@@ -513,6 +525,11 @@ func (h *Handler) maybeOfferConfig(ctx context.Context, st *agentConn, resp *pro
 		return
 	}
 	resp.RemoteConfig = remoteConfig(desired, hash[:])
+	// Also ask for full state: if the agent is already running this config (our
+	// acknowledged-hash knowledge is stale, e.g. after a control-plane restart),
+	// it will not re-apply and would otherwise never re-report its
+	// RemoteConfigStatus — leaving us unable to confirm it is in sync.
+	resp.Flags |= uint64(protobufs.ServerToAgentFlags_ServerToAgentFlags_ReportFullState)
 	h.log.Info("opamp: offering remote config", "agent", st.agentID,
 		"hash", hex.EncodeToString(hash[:]))
 }
@@ -564,6 +581,10 @@ func (h *Handler) EdgeConfigChanged(ctx context.Context, customerID uuid.UUID) (
 			InstanceUid:  st.instanceUID,
 			Capabilities: serverCapabilities,
 			RemoteConfig: remoteConfig(desired, hash[:]),
+			// Request full state so a forced re-sync still yields a fresh
+			// RemoteConfigStatus even when the pushed config is unchanged (the
+			// supervisor dedupes identical configs and would not re-report).
+			Flags: uint64(protobufs.ServerToAgentFlags_ServerToAgentFlags_ReportFullState),
 		}
 		if err := st.conn.Send(ctx, msg); err != nil {
 			// Plain-HTTP transports cannot be pushed to; they poll.
