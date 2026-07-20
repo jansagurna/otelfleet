@@ -11,8 +11,11 @@ import type {
   AuthProviderConfig,
   BootstrapToken,
   Customer,
+  LogRecord,
   Me,
+  Span,
   StatsOverview,
+  TraceSummary,
   UserAccount,
 } from '@/api/generated'
 
@@ -190,6 +193,66 @@ export const testOverview: StatsOverview = {
   topCustomers: [{ customerId: testCustomer.id, name: testCustomer.name, items: 900_000 }],
 }
 
+export const testLogs: LogRecord[] = [
+  {
+    timestamp: '2026-07-20T08:59:00Z',
+    severityText: 'ERROR',
+    severityNumber: 17,
+    serviceName: 'checkout',
+    body: 'payment gateway timeout after 3 retries',
+    traceId: 'abc123def456abc123def456abc12300',
+    spanId: '00ff00ff00ff00ff',
+    attributes: { 'http.status_code': '504', 'net.peer.name': 'payments.internal' },
+  },
+  {
+    timestamp: '2026-07-20T08:58:30Z',
+    severityText: 'INFO',
+    severityNumber: 9,
+    serviceName: 'frontend',
+    body: 'served / in 12ms',
+    traceId: null,
+    spanId: null,
+    attributes: {},
+  },
+]
+
+export const testTrace: TraceSummary = {
+  traceId: 'abc123def456abc123def456abc12300',
+  rootName: 'GET /checkout',
+  rootService: 'frontend',
+  startTime: '2026-07-20T08:59:00Z',
+  durationMs: 1840,
+  spanCount: 3,
+  errorCount: 1,
+}
+
+export const testSpans: Span[] = [
+  {
+    spanId: 'root000000000001',
+    parentSpanId: null,
+    name: 'GET /checkout',
+    service: 'frontend',
+    kind: 'SPAN_KIND_SERVER',
+    startTime: '2026-07-20T08:59:00.000Z',
+    durationMs: 1840,
+    statusCode: 'STATUS_CODE_UNSET',
+    statusMessage: null,
+    attributes: { 'http.route': '/checkout' },
+  },
+  {
+    spanId: 'child00000000002',
+    parentSpanId: 'root000000000001',
+    name: 'charge card',
+    service: 'checkout',
+    kind: 'SPAN_KIND_CLIENT',
+    startTime: '2026-07-20T08:59:00.100Z',
+    durationMs: 1700,
+    statusCode: 'STATUS_CODE_ERROR',
+    statusMessage: 'gateway timeout',
+    attributes: { 'http.status_code': '504' },
+  },
+]
+
 function json(data: unknown): Response {
   return new Response(JSON.stringify(data), {
     status: 200,
@@ -233,6 +296,12 @@ export function stubApi(overrides: { me?: Me } = {}): void {
           return json({ tokens: [testBootstrapToken] })
         case `/api/v1/customers/${testCustomer.id}/stats/throughput`:
           return json(testThroughput)
+        case `/api/v1/customers/${testCustomer.id}/logs`:
+          return json({ logs: testLogs, nextBefore: null })
+        case `/api/v1/customers/${testCustomer.id}/traces`:
+          return json({ traces: [testTrace], nextBefore: null })
+        case `/api/v1/customers/${testCustomer.id}/traces/${testTrace.traceId}`:
+          return json({ spans: testSpans })
         case '/api/v1/users':
           return json({ users: testUsers })
         case '/api/v1/settings/auth-providers':

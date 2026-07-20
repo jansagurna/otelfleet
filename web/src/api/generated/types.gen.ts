@@ -325,6 +325,47 @@ export type AuditEntry = {
     createdAt: string;
 };
 
+export type LogRecord = {
+    timestamp: string;
+    severityText: string;
+    severityNumber: number;
+    serviceName: string;
+    body: string;
+    traceId?: string | null;
+    spanId?: string | null;
+    /**
+     * Merged log + resource attributes.
+     */
+    attributes?: {
+        [key: string]: string;
+    };
+};
+
+export type TraceSummary = {
+    traceId: string;
+    rootName: string;
+    rootService: string;
+    startTime: string;
+    durationMs: number;
+    spanCount: number;
+    errorCount: number;
+};
+
+export type Span = {
+    spanId: string;
+    parentSpanId?: string | null;
+    name: string;
+    service: string;
+    kind: string;
+    startTime: string;
+    durationMs: number;
+    statusCode: string;
+    statusMessage?: string | null;
+    attributes?: {
+        [key: string]: string;
+    };
+};
+
 export type CustomerCost = {
     customerId: string;
     name: string;
@@ -2197,3 +2238,141 @@ export type TestWebhookResponses = {
 };
 
 export type TestWebhookResponse = TestWebhookResponses[keyof TestWebhookResponses];
+
+export type QueryLogsData = {
+    body?: never;
+    path: {
+        customerId: string;
+    };
+    query: {
+        from: string;
+        to: string;
+        /**
+         * Case-insensitive substring match on the log body
+         */
+        q?: string;
+        service?: string;
+        /**
+         * Minimum OTel SeverityNumber (e.g. 9 = INFO
+         */
+        minSeverity?: number;
+        limit?: number;
+        /**
+         * Cursor — return rows strictly older than this timestamp
+         */
+        before?: string;
+    };
+    url: '/api/v1/customers/{customerId}/logs';
+};
+
+export type QueryLogsErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+    /**
+     * Resource not found
+     */
+    503: Error;
+};
+
+export type QueryLogsError = QueryLogsErrors[keyof QueryLogsErrors];
+
+export type QueryLogsResponses = {
+    /**
+     * Matching log records
+     */
+    200: {
+        logs: Array<LogRecord>;
+        /**
+         * Pass as `before` for the next page; null when exhausted.
+         */
+        nextBefore?: string | null;
+    };
+};
+
+export type QueryLogsResponse = QueryLogsResponses[keyof QueryLogsResponses];
+
+export type QueryTracesData = {
+    body?: never;
+    path: {
+        customerId: string;
+    };
+    query: {
+        from: string;
+        to: string;
+        service?: string;
+        /**
+         * Root span name substring
+         */
+        name?: string;
+        minDurationMs?: number;
+        errorsOnly?: boolean;
+        limit?: number;
+        before?: string;
+    };
+    url: '/api/v1/customers/{customerId}/traces';
+};
+
+export type QueryTracesErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+};
+
+export type QueryTracesError = QueryTracesErrors[keyof QueryTracesErrors];
+
+export type QueryTracesResponses = {
+    /**
+     * Matching traces (one row per trace, from its root span)
+     */
+    200: {
+        traces: Array<TraceSummary>;
+        nextBefore?: string | null;
+    };
+};
+
+export type QueryTracesResponse = QueryTracesResponses[keyof QueryTracesResponses];
+
+export type GetTraceData = {
+    body?: never;
+    path: {
+        customerId: string;
+        traceId: string;
+    };
+    query?: never;
+    url: '/api/v1/customers/{customerId}/traces/{traceId}';
+};
+
+export type GetTraceErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Resource not found
+     */
+    404: Error;
+};
+
+export type GetTraceError = GetTraceErrors[keyof GetTraceErrors];
+
+export type GetTraceResponses = {
+    /**
+     * Spans ordered by start time
+     */
+    200: {
+        spans: Array<Span>;
+    };
+};
+
+export type GetTraceResponse = GetTraceResponses[keyof GetTraceResponses];

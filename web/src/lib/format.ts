@@ -38,6 +38,22 @@ export function formatBytes(bytes: number): string {
   return `${rendered} ${BYTE_UNITS[exponent]}`
 }
 
+/**
+ * Span/trace duration. Sub-second stays in milliseconds ("742 ms"); once a
+ * duration reaches a second it humanizes to seconds ("1.24 s", "18.3 s"),
+ * and minute-scale spans fold into "m s" ("2m 05s").
+ */
+export function formatDurationMs(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return '—'
+  if (ms < 1) return '<1 ms'
+  if (ms < 1000) return `${Math.round(ms)} ms`
+  const seconds = ms / 1000
+  if (seconds < 60) return `${seconds >= 10 ? seconds.toFixed(1) : seconds.toFixed(2)} s`
+  const minutes = Math.floor(seconds / 60)
+  const rem = Math.round(seconds % 60)
+  return `${minutes}m ${rem.toString().padStart(2, '0')}s`
+}
+
 const dateTime = new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
   month: 'short',

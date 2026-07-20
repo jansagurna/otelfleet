@@ -13,6 +13,7 @@ import {
   Settings,
   Ship,
   Sun,
+  Telescope,
 } from 'lucide-react'
 import { getMeOptions } from '@/api/generated/@tanstack/react-query.gen'
 import { logoutMutation } from '@/api/generated/@tanstack/react-query.gen'
@@ -66,6 +67,7 @@ const NAV_ITEMS: {
   { to: '/customers', label: 'Customers', icon: Building2 },
   { to: '/pipelines', label: 'Pipelines', icon: Network },
   { to: '/fleet', label: 'Fleet', icon: Ship },
+  { to: '/explore', label: 'Explore', icon: Telescope },
   { to: '/metrics', label: 'Metrics', icon: ChartLine },
   { to: '/costs', label: 'Costs', icon: Coins },
   { to: '/audit', label: 'Audit', icon: ScrollText, adminOnly: true },

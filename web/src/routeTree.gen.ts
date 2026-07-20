@@ -14,6 +14,7 @@ import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as AuthIndexRouteImport } from './routes/_auth/index'
 import { Route as AuthSettingsRouteImport } from './routes/_auth/settings'
 import { Route as AuthMetricsRouteImport } from './routes/_auth/metrics'
+import { Route as AuthExploreRouteImport } from './routes/_auth/explore'
 import { Route as AuthCostsRouteImport } from './routes/_auth/costs'
 import { Route as AuthAuditRouteImport } from './routes/_auth/audit'
 import { Route as AuthPipelinesIndexRouteImport } from './routes/_auth/pipelines.index'
@@ -45,6 +46,11 @@ const AuthSettingsRoute = AuthSettingsRouteImport.update({
 const AuthMetricsRoute = AuthMetricsRouteImport.update({
   id: '/metrics',
   path: '/metrics',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthExploreRoute = AuthExploreRouteImport.update({
+  id: '/explore',
+  path: '/explore',
   getParentRoute: () => AuthRoute,
 } as any)
 const AuthCostsRoute = AuthCostsRouteImport.update({
@@ -93,6 +99,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/audit': typeof AuthAuditRoute
   '/costs': typeof AuthCostsRoute
+  '/explore': typeof AuthExploreRoute
   '/metrics': typeof AuthMetricsRoute
   '/settings': typeof AuthSettingsRoute
   '/customers/$customerId': typeof AuthCustomersCustomerIdRoute
@@ -106,6 +113,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/audit': typeof AuthAuditRoute
   '/costs': typeof AuthCostsRoute
+  '/explore': typeof AuthExploreRoute
   '/metrics': typeof AuthMetricsRoute
   '/settings': typeof AuthSettingsRoute
   '/': typeof AuthIndexRoute
@@ -122,6 +130,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_auth/audit': typeof AuthAuditRoute
   '/_auth/costs': typeof AuthCostsRoute
+  '/_auth/explore': typeof AuthExploreRoute
   '/_auth/metrics': typeof AuthMetricsRoute
   '/_auth/settings': typeof AuthSettingsRoute
   '/_auth/': typeof AuthIndexRoute
@@ -139,6 +148,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/audit'
     | '/costs'
+    | '/explore'
     | '/metrics'
     | '/settings'
     | '/customers/$customerId'
@@ -152,6 +162,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/audit'
     | '/costs'
+    | '/explore'
     | '/metrics'
     | '/settings'
     | '/'
@@ -167,6 +178,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/_auth/audit'
     | '/_auth/costs'
+    | '/_auth/explore'
     | '/_auth/metrics'
     | '/_auth/settings'
     | '/_auth/'
@@ -218,6 +230,13 @@ declare module '@tanstack/react-router' {
       path: '/metrics'
       fullPath: '/metrics'
       preLoaderRoute: typeof AuthMetricsRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/explore': {
+      id: '/_auth/explore'
+      path: '/explore'
+      fullPath: '/explore'
+      preLoaderRoute: typeof AuthExploreRouteImport
       parentRoute: typeof AuthRoute
     }
     '/_auth/costs': {
@@ -282,6 +301,7 @@ declare module '@tanstack/react-router' {
 interface AuthRouteChildren {
   AuthAuditRoute: typeof AuthAuditRoute
   AuthCostsRoute: typeof AuthCostsRoute
+  AuthExploreRoute: typeof AuthExploreRoute
   AuthMetricsRoute: typeof AuthMetricsRoute
   AuthSettingsRoute: typeof AuthSettingsRoute
   AuthIndexRoute: typeof AuthIndexRoute
@@ -296,6 +316,7 @@ interface AuthRouteChildren {
 const AuthRouteChildren: AuthRouteChildren = {
   AuthAuditRoute: AuthAuditRoute,
   AuthCostsRoute: AuthCostsRoute,
+  AuthExploreRoute: AuthExploreRoute,
   AuthMetricsRoute: AuthMetricsRoute,
   AuthSettingsRoute: AuthSettingsRoute,
   AuthIndexRoute: AuthIndexRoute,
