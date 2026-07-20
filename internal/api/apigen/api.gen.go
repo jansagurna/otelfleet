@@ -742,6 +742,19 @@ type GraphNode struct {
 	Type string  `json:"type"`
 }
 
+// LogRecord defines model for LogRecord.
+type LogRecord struct {
+	// Attributes Merged log + resource attributes.
+	Attributes     *map[string]string `json:"attributes,omitempty"`
+	Body           string             `json:"body"`
+	ServiceName    string             `json:"serviceName"`
+	SeverityNumber int                `json:"severityNumber"`
+	SeverityText   string             `json:"severityText"`
+	SpanId         *string            `json:"spanId,omitempty"`
+	Timestamp      time.Time          `json:"timestamp"`
+	TraceId        *string            `json:"traceId,omitempty"`
+}
+
 // Me defines model for Me.
 type Me struct {
 	// CsrfToken Send as X-CSRF-Token header on all mutating requests.
@@ -879,6 +892,20 @@ type RolloutStatusState string
 // Signal defines model for Signal.
 type Signal string
 
+// Span defines model for Span.
+type Span struct {
+	Attributes    *map[string]string `json:"attributes,omitempty"`
+	DurationMs    float32            `json:"durationMs"`
+	Kind          string             `json:"kind"`
+	Name          string             `json:"name"`
+	ParentSpanId  *string            `json:"parentSpanId,omitempty"`
+	Service       string             `json:"service"`
+	SpanId        string             `json:"spanId"`
+	StartTime     time.Time          `json:"startTime"`
+	StatusCode    string             `json:"statusCode"`
+	StatusMessage *string            `json:"statusMessage,omitempty"`
+}
+
 // StatsOverview defines model for StatsOverview.
 type StatsOverview struct {
 	ActiveCustomers int `json:"activeCustomers"`
@@ -918,6 +945,17 @@ type ThroughputResponse struct {
 type ThroughputSeries struct {
 	Points []ThroughputPoint `json:"points"`
 	Signal Signal            `json:"signal"`
+}
+
+// TraceSummary defines model for TraceSummary.
+type TraceSummary struct {
+	DurationMs  float32   `json:"durationMs"`
+	ErrorCount  int       `json:"errorCount"`
+	RootName    string    `json:"rootName"`
+	RootService string    `json:"rootService"`
+	SpanCount   int       `json:"spanCount"`
+	StartTime   time.Time `json:"startTime"`
+	TraceId     string    `json:"traceId"`
 }
 
 // UserAccount defines model for UserAccount.
@@ -1079,6 +1117,23 @@ type CreateBootstrapTokenJSONBody struct {
 	Name    string `json:"name"`
 }
 
+// QueryLogsParams defines parameters for QueryLogs.
+type QueryLogsParams struct {
+	From time.Time `form:"from" json:"from"`
+	To   time.Time `form:"to" json:"to"`
+
+	// Q Case-insensitive substring match on the log body
+	Q       *string `form:"q,omitempty" json:"q,omitempty"`
+	Service *string `form:"service,omitempty" json:"service,omitempty"`
+
+	// MinSeverity Minimum OTel SeverityNumber (e.g. 9 = INFO
+	MinSeverity *int `form:"minSeverity,omitempty" json:"minSeverity,omitempty"`
+	Limit       *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Before Cursor — return rows strictly older than this timestamp
+	Before *time.Time `form:"before,omitempty" json:"before,omitempty"`
+}
+
 // CreatePipelineJSONBody defines parameters for CreatePipeline.
 type CreatePipelineJSONBody struct {
 	// Graph UI pipeline model. The receiver side is implicit: the customer's ingested stream, routed by tenant.id into this pipeline on the forwarding tier.
@@ -1097,6 +1152,20 @@ type GetCustomerThroughputParams struct {
 	From   time.Time `form:"from" json:"from"`
 	To     time.Time `form:"to" json:"to"`
 	Step   *string   `form:"step,omitempty" json:"step,omitempty"`
+}
+
+// QueryTracesParams defines parameters for QueryTraces.
+type QueryTracesParams struct {
+	From    time.Time `form:"from" json:"from"`
+	To      time.Time `form:"to" json:"to"`
+	Service *string   `form:"service,omitempty" json:"service,omitempty"`
+
+	// Name Root span name substring
+	Name          *string    `form:"name,omitempty" json:"name,omitempty"`
+	MinDurationMs *float32   `form:"minDurationMs,omitempty" json:"minDurationMs,omitempty"`
+	ErrorsOnly    *bool      `form:"errorsOnly,omitempty" json:"errorsOnly,omitempty"`
+	Limit         *int       `form:"limit,omitempty" json:"limit,omitempty"`
+	Before        *time.Time `form:"before,omitempty" json:"before,omitempty"`
 }
 
 // ValidatePipelineJSONBody defines parameters for ValidatePipeline.
@@ -1252,6 +1321,9 @@ type ServerInterface interface {
 	// Revoke an enrollment token (existing agents stay connected)
 	// (DELETE /api/v1/customers/{customerId}/bootstrap-tokens/{tokenId})
 	RevokeBootstrapToken(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID, tokenId openapi_types.UUID)
+	// Search a customer's stored logs (newest first)
+	// (GET /api/v1/customers/{customerId}/logs)
+	QueryLogs(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID, params QueryLogsParams)
 	// List pipelines of a customer
 	// (GET /api/v1/customers/{customerId}/pipelines)
 	ListCustomerPipelines(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID)
@@ -1261,6 +1333,12 @@ type ServerInterface interface {
 	// Per-signal ingest time series for one customer
 	// (GET /api/v1/customers/{customerId}/stats/throughput)
 	GetCustomerThroughput(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID, params GetCustomerThroughputParams)
+	// List a customer's stored traces (newest first)
+	// (GET /api/v1/customers/{customerId}/traces)
+	QueryTraces(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID, params QueryTracesParams)
+	// All spans of one trace (for the waterfall view)
+	// (GET /api/v1/customers/{customerId}/traces/{traceId})
+	GetTrace(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID, traceId string)
 	// Current session user, role and CSRF token
 	// (GET /api/v1/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
@@ -1468,6 +1546,12 @@ func (_ Unimplemented) RevokeBootstrapToken(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Search a customer's stored logs (newest first)
+// (GET /api/v1/customers/{customerId}/logs)
+func (_ Unimplemented) QueryLogs(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID, params QueryLogsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // List pipelines of a customer
 // (GET /api/v1/customers/{customerId}/pipelines)
 func (_ Unimplemented) ListCustomerPipelines(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID) {
@@ -1483,6 +1567,18 @@ func (_ Unimplemented) CreatePipeline(w http.ResponseWriter, r *http.Request, cu
 // Per-signal ingest time series for one customer
 // (GET /api/v1/customers/{customerId}/stats/throughput)
 func (_ Unimplemented) GetCustomerThroughput(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID, params GetCustomerThroughputParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List a customer's stored traces (newest first)
+// (GET /api/v1/customers/{customerId}/traces)
+func (_ Unimplemented) QueryTraces(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID, params QueryTracesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// All spans of one trace (for the waterfall view)
+// (GET /api/v1/customers/{customerId}/traces/{traceId})
+func (_ Unimplemented) GetTrace(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID, traceId string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2303,6 +2399,126 @@ func (siw *ServerInterfaceWrapper) RevokeBootstrapToken(w http.ResponseWriter, r
 	handler.ServeHTTP(w, r)
 }
 
+// QueryLogs operation middleware
+func (siw *ServerInterfaceWrapper) QueryLogs(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerId" -------------
+	var customerId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerId", chi.URLParam(r, "customerId"), &customerId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params QueryLogsParams
+
+	// ------------- Required query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "service" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "service", r.URL.Query(), &params.Service, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "service"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "service", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "minSeverity" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "minSeverity", r.URL.Query(), &params.MinSeverity, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "minSeverity"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "minSeverity", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "before" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "before", r.URL.Query(), &params.Before, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "before"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "before", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.QueryLogs(w, r, customerId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListCustomerPipelines operation middleware
 func (siw *ServerInterfaceWrapper) ListCustomerPipelines(w http.ResponseWriter, r *http.Request) {
 
@@ -2427,6 +2643,174 @@ func (siw *ServerInterfaceWrapper) GetCustomerThroughput(w http.ResponseWriter, 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetCustomerThroughput(w, r, customerId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// QueryTraces operation middleware
+func (siw *ServerInterfaceWrapper) QueryTraces(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerId" -------------
+	var customerId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerId", chi.URLParam(r, "customerId"), &customerId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params QueryTracesParams
+
+	// ------------- Required query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "service" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "service", r.URL.Query(), &params.Service, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "service"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "service", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "name" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "name", r.URL.Query(), &params.Name, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "name"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "minDurationMs" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "minDurationMs", r.URL.Query(), &params.MinDurationMs, runtime.BindQueryParameterOptions{Type: "number", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "minDurationMs"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "minDurationMs", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "errorsOnly" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "errorsOnly", r.URL.Query(), &params.ErrorsOnly, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "errorsOnly"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "errorsOnly", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "before" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "before", r.URL.Query(), &params.Before, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "before"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "before", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.QueryTraces(w, r, customerId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTrace operation middleware
+func (siw *ServerInterfaceWrapper) GetTrace(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerId" -------------
+	var customerId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerId", chi.URLParam(r, "customerId"), &customerId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "traceId" -------------
+	var traceId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "traceId", chi.URLParam(r, "traceId"), &traceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "traceId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTrace(w, r, customerId, traceId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3242,6 +3626,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Delete(options.BaseURL+"/api/v1/customers/{customerId}/bootstrap-tokens/{tokenId}", wrapper.RevokeBootstrapToken)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/customers/{customerId}/logs", wrapper.QueryLogs)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/customers/{customerId}/pipelines", wrapper.ListCustomerPipelines)
 	})
 	r.Group(func(r chi.Router) {
@@ -3249,6 +3636,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/customers/{customerId}/stats/throughput", wrapper.GetCustomerThroughput)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/customers/{customerId}/traces", wrapper.QueryTraces)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/customers/{customerId}/traces/{traceId}", wrapper.GetTrace)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/me", wrapper.GetMe)
@@ -4415,6 +4808,76 @@ func (response RevokeBootstrapToken404JSONResponse) VisitRevokeBootstrapTokenRes
 	return err
 }
 
+type QueryLogsRequestObject struct {
+	CustomerId openapi_types.UUID `json:"customerId"`
+	Params     QueryLogsParams
+}
+
+type QueryLogsResponseObject interface {
+	VisitQueryLogsResponse(w http.ResponseWriter) error
+}
+
+type QueryLogs200JSONResponse struct {
+	Logs []LogRecord `json:"logs"`
+
+	// NextBefore Pass as `before` for the next page; null when exhausted.
+	NextBefore *time.Time `json:"nextBefore,omitempty"`
+}
+
+func (response QueryLogs200JSONResponse) VisitQueryLogsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type QueryLogs401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response QueryLogs401JSONResponse) VisitQueryLogsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type QueryLogs404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response QueryLogs404JSONResponse) VisitQueryLogsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type QueryLogs503JSONResponse Error
+
+func (response QueryLogs503JSONResponse) VisitQueryLogsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListCustomerPipelinesRequestObject struct {
 	CustomerId openapi_types.UUID `json:"customerId"`
 }
@@ -4586,6 +5049,113 @@ func (response GetCustomerThroughput401JSONResponse) VisitGetCustomerThroughputR
 type GetCustomerThroughput404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response GetCustomerThroughput404JSONResponse) VisitGetCustomerThroughputResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type QueryTracesRequestObject struct {
+	CustomerId openapi_types.UUID `json:"customerId"`
+	Params     QueryTracesParams
+}
+
+type QueryTracesResponseObject interface {
+	VisitQueryTracesResponse(w http.ResponseWriter) error
+}
+
+type QueryTraces200JSONResponse struct {
+	NextBefore *time.Time     `json:"nextBefore,omitempty"`
+	Traces     []TraceSummary `json:"traces"`
+}
+
+func (response QueryTraces200JSONResponse) VisitQueryTracesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type QueryTraces401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response QueryTraces401JSONResponse) VisitQueryTracesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type QueryTraces404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response QueryTraces404JSONResponse) VisitQueryTracesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTraceRequestObject struct {
+	CustomerId openapi_types.UUID `json:"customerId"`
+	TraceId    string             `json:"traceId"`
+}
+
+type GetTraceResponseObject interface {
+	VisitGetTraceResponse(w http.ResponseWriter) error
+}
+
+type GetTrace200JSONResponse struct {
+	Spans []Span `json:"spans"`
+}
+
+func (response GetTrace200JSONResponse) VisitGetTraceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTrace401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetTrace401JSONResponse) VisitGetTraceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTrace404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetTrace404JSONResponse) VisitGetTraceResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -6145,6 +6715,9 @@ type StrictServerInterface interface {
 	// Revoke an enrollment token (existing agents stay connected)
 	// (DELETE /api/v1/customers/{customerId}/bootstrap-tokens/{tokenId})
 	RevokeBootstrapToken(ctx context.Context, request RevokeBootstrapTokenRequestObject) (RevokeBootstrapTokenResponseObject, error)
+	// Search a customer's stored logs (newest first)
+	// (GET /api/v1/customers/{customerId}/logs)
+	QueryLogs(ctx context.Context, request QueryLogsRequestObject) (QueryLogsResponseObject, error)
 	// List pipelines of a customer
 	// (GET /api/v1/customers/{customerId}/pipelines)
 	ListCustomerPipelines(ctx context.Context, request ListCustomerPipelinesRequestObject) (ListCustomerPipelinesResponseObject, error)
@@ -6154,6 +6727,12 @@ type StrictServerInterface interface {
 	// Per-signal ingest time series for one customer
 	// (GET /api/v1/customers/{customerId}/stats/throughput)
 	GetCustomerThroughput(ctx context.Context, request GetCustomerThroughputRequestObject) (GetCustomerThroughputResponseObject, error)
+	// List a customer's stored traces (newest first)
+	// (GET /api/v1/customers/{customerId}/traces)
+	QueryTraces(ctx context.Context, request QueryTracesRequestObject) (QueryTracesResponseObject, error)
+	// All spans of one trace (for the waterfall view)
+	// (GET /api/v1/customers/{customerId}/traces/{traceId})
+	GetTrace(ctx context.Context, request GetTraceRequestObject) (GetTraceResponseObject, error)
 	// Current session user, role and CSRF token
 	// (GET /api/v1/me)
 	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
@@ -6834,6 +7413,33 @@ func (sh *strictHandler) RevokeBootstrapToken(w http.ResponseWriter, r *http.Req
 	}
 }
 
+// QueryLogs operation middleware
+func (sh *strictHandler) QueryLogs(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID, params QueryLogsParams) {
+	var request QueryLogsRequestObject
+
+	request.CustomerId = customerId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.QueryLogs(ctx, request.(QueryLogsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "QueryLogs")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(QueryLogsResponseObject); ok {
+		if err := validResponse.VisitQueryLogsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListCustomerPipelines operation middleware
 func (sh *strictHandler) ListCustomerPipelines(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID) {
 	var request ListCustomerPipelinesRequestObject
@@ -6913,6 +7519,60 @@ func (sh *strictHandler) GetCustomerThroughput(w http.ResponseWriter, r *http.Re
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetCustomerThroughputResponseObject); ok {
 		if err := validResponse.VisitGetCustomerThroughputResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// QueryTraces operation middleware
+func (sh *strictHandler) QueryTraces(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID, params QueryTracesParams) {
+	var request QueryTracesRequestObject
+
+	request.CustomerId = customerId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.QueryTraces(ctx, request.(QueryTracesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "QueryTraces")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(QueryTracesResponseObject); ok {
+		if err := validResponse.VisitQueryTracesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetTrace operation middleware
+func (sh *strictHandler) GetTrace(w http.ResponseWriter, r *http.Request, customerId openapi_types.UUID, traceId string) {
+	var request GetTraceRequestObject
+
+	request.CustomerId = customerId
+	request.TraceId = traceId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetTrace(ctx, request.(GetTraceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetTrace")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetTraceResponseObject); ok {
+		if err := validResponse.VisitGetTraceResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

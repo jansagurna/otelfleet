@@ -16,6 +16,7 @@ import (
 	"github.com/jansagurna/otelfleet/internal/config"
 	"github.com/jansagurna/otelfleet/internal/crypto"
 	"github.com/jansagurna/otelfleet/internal/pipelines"
+	"github.com/jansagurna/otelfleet/internal/query"
 	"github.com/jansagurna/otelfleet/internal/stats"
 	"github.com/jansagurna/otelfleet/internal/store"
 	"github.com/jansagurna/otelfleet/internal/tenants"
@@ -28,6 +29,7 @@ type Server struct {
 	tenants   *tenants.Service
 	pipelines *pipelines.Service
 	stats     *stats.Service
+	query     *query.Service
 	sessions  *auth.Sessions
 	authReg   *auth.Registry
 	cipher    *crypto.Cipher // nil: master key not configured
@@ -43,8 +45,8 @@ type WebhookTester interface {
 var _ apigen.StrictServerInterface = (*Server)(nil)
 
 // NewServer wires the REST handlers.
-func NewServer(cfg *config.Config, st store.Store, ten *tenants.Service, pipes *pipelines.Service, sts *stats.Service, sessions *auth.Sessions, authReg *auth.Registry, cipher *crypto.Cipher, webhooks WebhookTester, log *slog.Logger) *Server {
-	return &Server{cfg: cfg, store: st, tenants: ten, pipelines: pipes, stats: sts, sessions: sessions, authReg: authReg, cipher: cipher, webhooks: webhooks, log: log}
+func NewServer(cfg *config.Config, st store.Store, ten *tenants.Service, pipes *pipelines.Service, sts *stats.Service, qry *query.Service, sessions *auth.Sessions, authReg *auth.Registry, cipher *crypto.Cipher, webhooks WebhookTester, log *slog.Logger) *Server {
+	return &Server{cfg: cfg, store: st, tenants: ten, pipelines: pipes, stats: sts, query: qry, sessions: sessions, authReg: authReg, cipher: cipher, webhooks: webhooks, log: log}
 }
 
 func actorID(ctx context.Context) *openapi_types.UUID {

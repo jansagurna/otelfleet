@@ -34,6 +34,7 @@ import (
 	"github.com/jansagurna/otelfleet/internal/opamp"
 	"github.com/jansagurna/otelfleet/internal/pgnotify"
 	"github.com/jansagurna/otelfleet/internal/pipelines"
+	"github.com/jansagurna/otelfleet/internal/query"
 	"github.com/jansagurna/otelfleet/internal/retention"
 	"github.com/jansagurna/otelfleet/internal/stats"
 	"github.com/jansagurna/otelfleet/internal/store"
@@ -113,6 +114,7 @@ func run(log *slog.Logger) error {
 	// Services.
 	tenantsSvc := tenants.NewService(st)
 	statsSvc := stats.New(chConn, st, cfg.VictoriaMetricsURL, log)
+	querySvc := query.New(chConn, st, log)
 	ingestAuth := ingestauth.New(st, log, reg)
 
 	// Pipeline service: validator (real collector binary) + distributor.
@@ -181,7 +183,7 @@ func run(log *slog.Logger) error {
 	var httpSrv *http.Server
 	var grpcSrv *grpc.Server
 	if cfg.RunsAPI() {
-		server := api.NewServer(cfg, st, tenantsSvc, pipelinesSvc, statsSvc, sessions, authRegistry, cipher, webhookDispatcher, log)
+		server := api.NewServer(cfg, st, tenantsSvc, pipelinesSvc, statsSvc, querySvc, sessions, authRegistry, cipher, webhookDispatcher, log)
 		httpSrv = &http.Server{
 			Addr: cfg.HTTPAddr,
 			Handler: api.NewRouter(api.RouterDeps{

@@ -989,6 +989,97 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /api/v1/customers/{customerId}/logs:
+    parameters:
+      - { name: customerId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [explore]
+      operationId: queryLogs
+      summary: Search a customer's stored logs (newest first)
+      parameters:
+        - { name: from, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: q, in: query, schema: { type: string }, description: Case-insensitive substring match on the log body }
+        - { name: service, in: query, schema: { type: string } }
+        - { name: minSeverity, in: query, schema: { type: integer }, description: Minimum OTel SeverityNumber (e.g. 9 = INFO, 17 = ERROR) }
+        - { name: limit, in: query, schema: { type: integer, default: 100, maximum: 1000 } }
+        - { name: before, in: query, schema: { type: string, format: date-time }, description: Cursor — return rows strictly older than this timestamp }
+      responses:
+        "200":
+          description: Matching log records
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [logs]
+                properties:
+                  logs:
+                    type: array
+                    items: { $ref: "#/components/schemas/LogRecord" }
+                  nextBefore:
+                    type: string
+                    format: date-time
+                    nullable: true
+                    description: Pass as `before` for the next page; null when exhausted.
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { description: Telemetry store unavailable, $ref: "#/components/responses/NotFound" }
+
+  /api/v1/customers/{customerId}/traces:
+    parameters:
+      - { name: customerId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [explore]
+      operationId: queryTraces
+      summary: List a customer's stored traces (newest first)
+      parameters:
+        - { name: from, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: service, in: query, schema: { type: string } }
+        - { name: name, in: query, schema: { type: string }, description: Root span name substring }
+        - { name: minDurationMs, in: query, schema: { type: number } }
+        - { name: errorsOnly, in: query, schema: { type: boolean } }
+        - { name: limit, in: query, schema: { type: integer, default: 100, maximum: 1000 } }
+        - { name: before, in: query, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: Matching traces (one row per trace, from its root span)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [traces]
+                properties:
+                  traces:
+                    type: array
+                    items: { $ref: "#/components/schemas/TraceSummary" }
+                  nextBefore: { type: string, format: date-time, nullable: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/customers/{customerId}/traces/{traceId}:
+    parameters:
+      - { name: customerId, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: traceId, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [explore]
+      operationId: getTrace
+      summary: All spans of one trace (for the waterfall view)
+      responses:
+        "200":
+          description: Spans ordered by start time
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [spans]
+                properties:
+                  spans:
+                    type: array
+                    items: { $ref: "#/components/schemas/Span" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
 components:
   responses:
     Unauthorized:
@@ -1393,6 +1484,51 @@ components:
           additionalProperties: true
           nullable: true
         createdAt: { type: string, format: date-time }
+
+    LogRecord:
+      type: object
+      required: [timestamp, severityText, severityNumber, serviceName, body]
+      properties:
+        timestamp: { type: string, format: date-time }
+        severityText: { type: string }
+        severityNumber: { type: integer }
+        serviceName: { type: string }
+        body: { type: string }
+        traceId: { type: string, nullable: true }
+        spanId: { type: string, nullable: true }
+        attributes:
+          type: object
+          additionalProperties: { type: string }
+          description: Merged log + resource attributes.
+
+    TraceSummary:
+      type: object
+      required: [traceId, rootName, rootService, startTime, durationMs, spanCount, errorCount]
+      properties:
+        traceId: { type: string }
+        rootName: { type: string }
+        rootService: { type: string }
+        startTime: { type: string, format: date-time }
+        durationMs: { type: number }
+        spanCount: { type: integer }
+        errorCount: { type: integer }
+
+    Span:
+      type: object
+      required: [spanId, name, service, kind, startTime, durationMs, statusCode]
+      properties:
+        spanId: { type: string }
+        parentSpanId: { type: string, nullable: true }
+        name: { type: string }
+        service: { type: string }
+        kind: { type: string }
+        startTime: { type: string, format: date-time }
+        durationMs: { type: number }
+        statusCode: { type: string }
+        statusMessage: { type: string, nullable: true }
+        attributes:
+          type: object
+          additionalProperties: { type: string }
 
     CustomerCost:
       type: object

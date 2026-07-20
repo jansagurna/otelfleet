@@ -90,3 +90,29 @@ type stageStatsErrResponse struct{ errorResponse }
 func (e stageStatsErrResponse) VisitGetPipelineStageStatsResponse(w http.ResponseWriter) error {
 	return e.write(w)
 }
+
+type queryLogsErrResponse struct{ errorResponse }
+
+func (e queryLogsErrResponse) VisitQueryLogsResponse(w http.ResponseWriter) error { return e.write(w) }
+
+func queryLogsErr(status int, code, msg string) queryLogsErrResponse {
+	return queryLogsErrResponse{errResp(status, code, msg)}
+}
+
+type queryTracesErrResponse struct{ errorResponse }
+
+func (e queryTracesErrResponse) VisitQueryTracesResponse(w http.ResponseWriter) error {
+	return e.write(w)
+}
+
+func queryTracesErr(status int, code, msg string) queryTracesErrResponse {
+	return queryTracesErrResponse{errResp(status, code, msg)}
+}
+
+type getTraceErrResponse struct{ errorResponse }
+
+func (e getTraceErrResponse) VisitGetTraceResponse(w http.ResponseWriter) error { return e.write(w) }
+
+func getTraceErr(status int, code, msg string) getTraceErrResponse {
+	return getTraceErrResponse{errResp(status, code, msg)}
+}
