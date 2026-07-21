@@ -19,12 +19,27 @@ func toWebhook(w store.Webhook) apigen.Webhook {
 	}
 	return apigen.Webhook{
 		Id:        w.ID,
+		Type:      apigen.WebhookType(w.Type),
 		Name:      w.Name,
 		Url:       w.URL,
 		Events:    events,
 		Enabled:   w.Enabled,
 		HasSecret: len(w.SecretEnc) > 0,
 		CreatedAt: w.CreatedAt,
+	}
+}
+
+// webhookType normalizes the optional channel type (default generic) and
+// rejects unknown values.
+func webhookType(t *apigen.WebhookType) (string, error) {
+	if t == nil {
+		return store.WebhookTypeGeneric, nil
+	}
+	switch string(*t) {
+	case store.WebhookTypeGeneric, store.WebhookTypeSlack:
+		return string(*t), nil
+	default:
+		return "", badRequestError{errors.New("unknown channel type " + string(*t))}
 	}
 }
 
@@ -69,16 +84,22 @@ func (s *Server) CreateWebhook(ctx context.Context, request apigen.CreateWebhook
 	if err != nil {
 		return nil, err
 	}
+	chType, err := webhookType(body.Type)
+	if err != nil {
+		return nil, err
+	}
 
 	nw := store.NewWebhook{
 		ID:        uuid.New(),
+		Type:      chType,
 		Name:      body.Name,
 		URL:       body.Url,
 		Events:    events,
 		Enabled:   body.Enabled == nil || *body.Enabled,
 		CreatedBy: actorID(ctx),
 	}
-	if body.Secret != nil && *body.Secret != "" {
+	// Slack channels carry no secret (Slack does not verify a signature).
+	if chType != store.WebhookTypeSlack && body.Secret != nil && *body.Secret != "" {
 		enc, err := s.encryptClientSecret(*body.Secret)
 		if err != nil {
 			return nil, err
@@ -102,6 +123,13 @@ func (s *Server) CreateWebhook(ctx context.Context, request apigen.CreateWebhook
 func (s *Server) UpdateWebhook(ctx context.Context, request apigen.UpdateWebhookRequestObject) (apigen.UpdateWebhookResponseObject, error) {
 	body := request.Body
 	upd := store.WebhookUpdate{Name: body.Name, URL: body.Url, Enabled: body.Enabled}
+	if body.Type != nil {
+		ct, err := webhookType(body.Type)
+		if err != nil {
+			return nil, err
+		}
+		upd.Type = &ct
+	}
 	if body.Url != nil {
 		if err := webhooks.ValidateURL(*body.Url); err != nil {
 			return apigen.UpdateWebhook400JSONResponse{BadRequestJSONResponse: apigen.BadRequestJSONResponse{Code: codeBadRequest, Message: err.Error()}}, nil

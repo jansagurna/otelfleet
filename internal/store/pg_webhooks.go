@@ -11,11 +11,11 @@ import (
 	"github.com/jansagurna/otelfleet/internal/audit"
 )
 
-const webhookCols = `id, name, url, events, secret_enc, enabled, created_by, created_at, updated_at`
+const webhookCols = `id, type, name, url, events, secret_enc, enabled, created_by, created_at, updated_at`
 
 func scanWebhook(row pgx.Row) (Webhook, error) {
 	var w Webhook
-	err := row.Scan(&w.ID, &w.Name, &w.URL, &w.Events, &w.SecretEnc, &w.Enabled,
+	err := row.Scan(&w.ID, &w.Type, &w.Name, &w.URL, &w.Events, &w.SecretEnc, &w.Enabled,
 		&w.CreatedBy, &w.CreatedAt, &w.UpdatedAt)
 	return w, err
 }
@@ -53,10 +53,10 @@ func (s *PG) CreateWebhook(ctx context.Context, w NewWebhook, entries []audit.En
 	err := s.inTx(ctx, func(tx pgx.Tx) error {
 		var err error
 		out, err = scanWebhook(tx.QueryRow(ctx, `
-			INSERT INTO webhooks (id, name, url, events, secret_enc, enabled, created_by)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			INSERT INTO webhooks (id, type, name, url, events, secret_enc, enabled, created_by)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			RETURNING `+webhookCols,
-			w.ID, w.Name, w.URL, w.Events, w.SecretEnc, w.Enabled, w.CreatedBy))
+			w.ID, w.Type, w.Name, w.URL, w.Events, w.SecretEnc, w.Enabled, w.CreatedBy))
 		if err != nil {
 			return fmt.Errorf("insert webhook: %w", err)
 		}
@@ -76,15 +76,16 @@ func (s *PG) UpdateWebhook(ctx context.Context, id uuid.UUID, upd WebhookUpdate,
 		var err error
 		out, err = scanWebhook(tx.QueryRow(ctx, `
 			UPDATE webhooks
-			SET name       = COALESCE($2, name),
-			    url        = COALESCE($3, url),
-			    events     = COALESCE($4, events),
-			    secret_enc = CASE WHEN $5 THEN $6 ELSE secret_enc END,
-			    enabled    = COALESCE($7, enabled),
+			SET type       = COALESCE($2, type),
+			    name       = COALESCE($3, name),
+			    url        = COALESCE($4, url),
+			    events     = COALESCE($5, events),
+			    secret_enc = CASE WHEN $6 THEN $7 ELSE secret_enc END,
+			    enabled    = COALESCE($8, enabled),
 			    updated_at = now()
 			WHERE id = $1
 			RETURNING `+webhookCols,
-			id, upd.Name, upd.URL, upd.Events, upd.SecretSet, upd.SecretEnc, upd.Enabled))
+			id, upd.Type, upd.Name, upd.URL, upd.Events, upd.SecretSet, upd.SecretEnc, upd.Enabled))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}

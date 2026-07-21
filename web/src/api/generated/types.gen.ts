@@ -420,34 +420,42 @@ export type CustomerCost = {
 
 export type WebhookEvent = 'agent_offline' | 'agent_config_failed' | 'agent_unhealthy';
 
+/**
+ * Notification channel type. 'webhook' = generic HMAC-signed JSON POST; 'slack' = a Slack incoming-webhook message (URL from Slack, no secret).
+ */
+export type WebhookType = 'webhook' | 'slack';
+
 export type Webhook = {
     id: string;
+    type: WebhookType;
     name: string;
     url: string;
     events: Array<WebhookEvent>;
     enabled: boolean;
     /**
-     * True when deliveries are HMAC-SHA256-signed (X-Otelfleet-Signature).
+     * True when deliveries are HMAC-SHA256-signed (X-Otelfleet-Signature). Always false for Slack.
      */
     hasSecret: boolean;
     createdAt: string;
 };
 
 export type WebhookCreate = {
+    type?: WebhookType;
     name: string;
     /**
-     * Must be https:// (http allowed only for localhost)
+     * Must be https:// (http allowed only for localhost). For Slack, the incoming-webhook URL.
      */
     url: string;
     events: Array<WebhookEvent>;
     /**
-     * HMAC signing secret; encrypted at rest
+     * HMAC signing secret (generic webhooks only); encrypted at rest
      */
     secret?: string | null;
     enabled?: boolean;
 };
 
 export type WebhookUpdate = {
+    type?: WebhookType;
     name?: string;
     url?: string;
     events?: Array<WebhookEvent>;

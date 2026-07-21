@@ -16,6 +16,8 @@ import (
 	"log/slog"
 	"net/http"
 	"slices"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -154,17 +156,69 @@ func (d *Dispatcher) dispatch(ctx context.Context, evt Event) {
 		return
 	}
 
-	body, err := json.Marshal(d.buildPayload(ctx, evt))
-	if err != nil {
-		d.log.Error("webhooks: marshal payload failed", "err", err)
-		return
-	}
+	payload := d.buildPayload(ctx, evt)
 	for _, wh := range matched {
+		body, err := encodeBody(wh.Type, payload)
+		if err != nil {
+			d.log.Error("webhooks: encode payload failed", "webhook", wh.ID, "type", wh.Type, "err", err)
+			continue
+		}
 		d.wg.Add(1)
-		go func(wh store.Webhook) {
+		go func(wh store.Webhook, body []byte) {
 			defer d.wg.Done()
 			d.deliverWithRetry(ctx, wh, evt.Type, body)
-		}(wh)
+		}(wh, body)
+	}
+}
+
+// encodeBody renders the delivery body for a channel type: a Slack incoming-
+// webhook message for slack channels, otherwise the generic JSON payload.
+func encodeBody(whType string, p Payload) ([]byte, error) {
+	if whType == store.WebhookTypeSlack {
+		return json.Marshal(slackMessage(p))
+	}
+	return json.Marshal(p)
+}
+
+// slackMessage formats an event as a Slack incoming-webhook message (mrkdwn).
+func slackMessage(p Payload) map[string]any {
+	emoji, title := slackTitle(p.Event)
+	lines := []string{fmt.Sprintf("%s *otelfleet* — %s", emoji, title)}
+	if p.Agent != nil {
+		name := "unknown"
+		if p.Agent.Name != nil && *p.Agent.Name != "" {
+			name = *p.Agent.Name
+		}
+		lines = append(lines, fmt.Sprintf("*Agent:* %s (%s)", name, p.Agent.Class))
+		if p.Agent.CustomerName != nil && *p.Agent.CustomerName != "" {
+			lines = append(lines, fmt.Sprintf("*Customer:* %s", *p.Agent.CustomerName))
+		}
+	}
+	keys := make([]string, 0, len(p.Detail))
+	for k := range p.Detail {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys) // deterministic ordering
+	for _, k := range keys {
+		lines = append(lines, fmt.Sprintf("*%s:* %v", k, p.Detail[k]))
+	}
+	lines = append(lines, fmt.Sprintf("_%s_", p.OccurredAt.Format(time.RFC3339)))
+	return map[string]any{"text": strings.Join(lines, "\n")}
+}
+
+// slackTitle maps an event type to an emoji + human title.
+func slackTitle(event string) (emoji, title string) {
+	switch event {
+	case store.WebhookEventAgentOffline:
+		return ":red_circle:", "Agent offline"
+	case store.WebhookEventAgentUnhealthy:
+		return ":warning:", "Agent unhealthy"
+	case store.WebhookEventAgentConfigFailed:
+		return ":x:", "Config apply failed"
+	case "test":
+		return ":bell:", "Test notification"
+	default:
+		return ":information_source:", event
 	}
 }
 
@@ -231,7 +285,9 @@ func (d *Dispatcher) Deliver(ctx context.Context, wh store.Webhook, eventType st
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Otelfleet-Event", eventType)
 	req.Header.Set("X-Otelfleet-Delivery", uuid.NewString())
-	if len(wh.SecretEnc) > 0 {
+	// Slack incoming webhooks do not verify a signature; only sign generic
+	// channels that carry a secret.
+	if wh.Type != store.WebhookTypeSlack && len(wh.SecretEnc) > 0 {
 		secret, err := d.cipher.Decrypt(wh.SecretEnc)
 		if err != nil {
 			return 0, fmt.Errorf("decrypt webhook secret: %w", err)
@@ -250,10 +306,10 @@ func (d *Dispatcher) Deliver(ctx context.Context, wh store.Webhook, eventType st
 // SendTest delivers a synchronous test event and reports the outcome for the
 // testWebhook endpoint.
 func (d *Dispatcher) SendTest(ctx context.Context, wh store.Webhook) (bool, string) {
-	body, err := json.Marshal(Payload{
+	body, err := encodeBody(wh.Type, Payload{
 		Event:      "test",
 		OccurredAt: time.Now().UTC(),
-		Detail:     map[string]any{"message": "otelfleet webhook test delivery", "webhookName": wh.Name},
+		Detail:     map[string]any{"message": "otelfleet test delivery", "channel": wh.Name},
 	})
 	if err != nil {
 		return false, err.Error()

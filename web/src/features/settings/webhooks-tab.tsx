@@ -36,7 +36,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
-import type { Webhook, WebhookEvent } from '@/api/generated'
+import type { Webhook, WebhookEvent, WebhookType } from '@/api/generated'
 
 const EVENTS: { value: WebhookEvent; label: string; hint: string }[] = [
   { value: 'agent_offline', label: 'Agent offline', hint: 'An edge agent disconnected' },
@@ -45,6 +45,13 @@ const EVENTS: { value: WebhookEvent; label: string; hint: string }[] = [
 ]
 
 const EVENT_LABEL: Record<string, string> = Object.fromEntries(EVENTS.map((e) => [e.value, e.label]))
+
+const CHANNEL_TYPES: { value: WebhookType; label: string; hint: string }[] = [
+  { value: 'webhook', label: 'Webhook', hint: 'HMAC-signed JSON POST to your endpoint' },
+  { value: 'slack', label: 'Slack', hint: 'Message posted to a Slack channel' },
+]
+
+const TYPE_LABEL: Record<WebhookType, string> = { webhook: 'Webhook', slack: 'Slack' }
 
 interface TestResult {
   ok: boolean
@@ -98,16 +105,17 @@ export function WebhooksTab() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-[13px] font-semibold text-ink">Alerting webhooks</h2>
+          <h2 className="text-[13px] font-semibold text-ink">Notification channels</h2>
           <p className="text-xs text-ink-2">
-            Signed POST notifications on fleet events. Deliveries carry an
+            Get notified on fleet events via a generic webhook or Slack. Generic webhook deliveries
+            carry an
             <code className="mx-1 font-mono">X-Otelfleet-Signature</code>
             header when a signing secret is set.
           </p>
         </div>
         <Button variant="primary" size="sm" onClick={() => setDialogOpen(true)}>
           <Plus aria-hidden />
-          Add webhook
+          Add channel
         </Button>
       </div>
 
@@ -125,10 +133,10 @@ export function WebhooksTab() {
         (query.data.webhooks.length === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-line bg-surface px-6 py-10 text-center">
             <WebhookIcon className="size-5 text-ink-3" />
-            <div className="text-sm font-semibold text-ink">No webhooks configured</div>
+            <div className="text-sm font-semibold text-ink">No notification channels</div>
             <p className="max-w-md text-[13px] text-ink-2">
-              Add a webhook to receive a JSON POST when an edge agent goes offline, fails to apply a
-              config, or reports unhealthy.
+              Add a channel to get notified — via a generic webhook or Slack — when an edge agent
+              goes offline, fails to apply a config, or reports unhealthy.
             </p>
           </div>
         ) : (
@@ -137,6 +145,7 @@ export function WebhooksTab() {
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead>Name</TableHead>
+                  <TableHead>Type</TableHead>
                   <TableHead>URL</TableHead>
                   <TableHead>Events</TableHead>
                   <TableHead>Enabled</TableHead>
@@ -151,10 +160,15 @@ export function WebhooksTab() {
                       <TableCell>
                         <span className="flex items-center gap-2 font-medium text-ink">
                           {wh.name}
-                          {wh.hasSecret && (
+                          {wh.type === 'webhook' && wh.hasSecret && (
                             <Badge title="Deliveries are HMAC-SHA256 signed">signed</Badge>
                           )}
                         </span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={wh.type === 'slack' ? 'accent' : 'neutral'}>
+                          {TYPE_LABEL[wh.type]}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         <code
@@ -279,6 +293,7 @@ function WebhookDialog({
   onSaved: () => void
 }) {
   const editing = webhook !== null
+  const [type, setType] = useState<WebhookType>('webhook')
   const [name, setName] = useState('')
   const [url, setUrl] = useState('')
   const [events, setEvents] = useState<WebhookEvent[]>([])
@@ -286,10 +301,13 @@ function WebhookDialog({
   const [removeSecret, setRemoveSecret] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const isSlack = type === 'slack'
+
   // Reset the form whenever the dialog opens for a different target.
   const [seededFor, setSeededFor] = useState<string | null>(null)
   const key = webhook?.id ?? '__new__'
   if (open && seededFor !== key) {
+    setType(webhook?.type ?? 'webhook')
     setName(webhook?.name ?? '')
     setUrl(webhook?.url ?? '')
     setEvents(webhook?.events ?? [])
@@ -328,12 +346,17 @@ function WebhookDialog({
       return
     }
     if (editing && webhook) {
-      const body: Record<string, unknown> = { name, url, events }
-      if (removeSecret) body.secret = ''
-      else if (secret) body.secret = secret
+      const body: Record<string, unknown> = { type, name, url, events }
+      // Slack channels are never signed — the backend ignores any secret.
+      if (!isSlack) {
+        if (removeSecret) body.secret = ''
+        else if (secret) body.secret = secret
+      }
       update.mutate({ path: { webhookId: webhook.id }, body })
     } else {
-      create.mutate({ body: { name, url, events, secret: secret || null } })
+      create.mutate({
+        body: { type, name, url, events, ...(isSlack ? {} : { secret: secret || null }) },
+      })
     }
   }
 
@@ -344,25 +367,55 @@ function WebhookDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{editing ? 'Edit webhook' : 'Add webhook'}</DialogTitle>
+          <DialogTitle>{editing ? 'Edit channel' : 'Add channel'}</DialogTitle>
           <DialogDescription>
-            otelfleet POSTs a JSON payload to this URL on the selected events.
+            otelfleet notifies this channel on the selected fleet events.
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3">
+          <fieldset className="flex flex-col gap-1.5">
+            <legend className="text-xs font-medium text-ink-2 select-none">Channel type</legend>
+            <div className="mt-1.5 grid grid-cols-2 gap-2">
+              {CHANNEL_TYPES.map((option) => (
+                <label
+                  key={option.value}
+                  className="flex cursor-pointer items-start gap-2.5 rounded-md border border-line px-3 py-2 transition-colors hover:bg-surface-2 has-checked:border-accent/50 has-checked:bg-accent/5"
+                >
+                  <input
+                    type="radio"
+                    name="wh-type"
+                    value={option.value}
+                    checked={type === option.value}
+                    onChange={() => setType(option.value)}
+                    className="mt-0.5 accent-(--accent)"
+                  />
+                  <span className="flex min-w-0 flex-col">
+                    <span className="text-[13px] font-medium text-ink">{option.label}</span>
+                    <span className="text-xs text-ink-3">{option.hint}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="wh-name">Name</Label>
             <Input id="wh-name" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="wh-url">URL</Label>
+            <Label htmlFor="wh-url">{isSlack ? 'Slack incoming webhook URL' : 'URL'}</Label>
             <Input
               id="wh-url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://alerts.example.com/otelfleet"
+              placeholder={
+                isSlack ? 'https://hooks.slack.com/services/…' : 'https://alerts.example.com/otelfleet'
+              }
             />
-            <p className="text-[11px] text-ink-3">https:// required (http:// only for localhost).</p>
+            <p className="text-[11px] text-ink-3">
+              {isSlack
+                ? 'From Slack → Incoming Webhooks (https://hooks.slack.com/…).'
+                : 'https:// required (http:// only for localhost).'}
+            </p>
           </div>
           <div className="flex flex-col gap-1.5">
             <Label>Events</Label>
@@ -384,28 +437,30 @@ function WebhookDialog({
               ))}
             </div>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="wh-secret">Signing secret{editing && ' (leave blank to keep)'}</Label>
-            <Input
-              id="wh-secret"
-              type="password"
-              value={secret}
-              disabled={removeSecret}
-              onChange={(e) => setSecret(e.target.value)}
-              placeholder={editing && webhook?.hasSecret ? '•••••• (stored)' : 'optional'}
-            />
-            {editing && webhook?.hasSecret && (
-              <label className="flex items-center gap-2 text-[11px] text-ink-2">
-                <input
-                  type="checkbox"
-                  className="accent-accent"
-                  checked={removeSecret}
-                  onChange={(e) => setRemoveSecret(e.target.checked)}
-                />
-                Remove signing (send unsigned)
-              </label>
-            )}
-          </div>
+          {!isSlack && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="wh-secret">Signing secret{editing && ' (leave blank to keep)'}</Label>
+              <Input
+                id="wh-secret"
+                type="password"
+                value={secret}
+                disabled={removeSecret}
+                onChange={(e) => setSecret(e.target.value)}
+                placeholder={editing && webhook?.hasSecret ? '•••••• (stored)' : 'optional'}
+              />
+              {editing && webhook?.hasSecret && (
+                <label className="flex items-center gap-2 text-[11px] text-ink-2">
+                  <input
+                    type="checkbox"
+                    className="accent-accent"
+                    checked={removeSecret}
+                    onChange={(e) => setRemoveSecret(e.target.checked)}
+                  />
+                  Remove signing (send unsigned)
+                </label>
+              )}
+            </div>
+          )}
           {error && <p className="text-[13px] text-danger">{error}</p>}
         </div>
         <DialogFooter>
@@ -413,7 +468,7 @@ function WebhookDialog({
             Cancel
           </Button>
           <Button variant="primary" onClick={submit} disabled={pending || !name || !url}>
-            {pending ? 'Saving…' : editing ? 'Save changes' : 'Add webhook'}
+            {pending ? 'Saving…' : editing ? 'Save changes' : 'Add channel'}
           </Button>
         </DialogFooter>
       </DialogContent>

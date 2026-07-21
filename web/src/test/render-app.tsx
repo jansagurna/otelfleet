@@ -19,6 +19,7 @@ import type {
   StatsOverview,
   TraceSummary,
   UserAccount,
+  Webhook,
 } from '@/api/generated'
 
 export const testMe: Me = {
@@ -249,6 +250,29 @@ export const testAuditEntries: AuditEntry[] = [
   },
 ]
 
+export const testWebhooks: Webhook[] = [
+  {
+    id: '4f2c7a1e-0000-4000-8000-000000000061',
+    type: 'webhook',
+    name: 'pagerduty-bridge',
+    url: 'https://alerts.example.com/otelfleet',
+    events: ['agent_offline', 'agent_unhealthy'],
+    enabled: true,
+    hasSecret: true,
+    createdAt: '2026-07-10T09:00:00Z',
+  },
+  {
+    id: '4f2c7a1e-0000-4000-8000-000000000062',
+    type: 'slack',
+    name: 'ops-slack',
+    url: 'https://hooks.slack.com/services/T000/B000/xxxxxxxx',
+    events: ['agent_config_failed'],
+    enabled: true,
+    hasSecret: false,
+    createdAt: '2026-07-11T09:00:00Z',
+  },
+]
+
 const testThroughput = {
   series: (['logs', 'traces', 'metrics'] as const).map((signal) => ({
     signal,
@@ -383,6 +407,8 @@ export function stubApi(overrides: { me?: Me } = {}): void {
           return json({ tokens: testApiTokens })
         case '/api/v1/audit':
           return json({ entries: testAuditEntries, nextBeforeId: null })
+        case '/api/v1/settings/webhooks':
+          return json({ webhooks: testWebhooks })
         default:
           return new Response(JSON.stringify({ code: 'not_found', message: 'not found' }), {
             status: 404,

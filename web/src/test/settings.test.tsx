@@ -116,6 +116,41 @@ describe('/settings?tab=tokens', () => {
   })
 })
 
+describe('/settings?tab=alerts', () => {
+  it('renders the channel table with per-type badges and a signed indicator only for webhooks', async () => {
+    renderApp('/settings?tab=alerts')
+    // Both channels render.
+    expect(await screen.findByText('pagerduty-bridge')).toBeInTheDocument()
+    expect(screen.getByText('ops-slack')).toBeInTheDocument()
+    // Type badges: one Webhook, one Slack.
+    expect(screen.getByText('Webhook')).toBeInTheDocument()
+    expect(screen.getByText('Slack')).toBeInTheDocument()
+    // The "signed" indicator only shows for the webhook-type row (hasSecret).
+    expect(screen.getByText('signed')).toBeInTheDocument()
+    // Actions stay available for both rows.
+    expect(screen.getAllByRole('button', { name: 'Test' })).toHaveLength(2)
+    expect(screen.getByRole('button', { name: 'Edit pagerduty-bridge' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delete ops-slack' })).toBeInTheDocument()
+  })
+
+  it('hides the signing secret for Slack and shows it for Webhook in the create dialog', async () => {
+    const user = userEvent.setup()
+    renderApp('/settings?tab=alerts')
+    await user.click(await screen.findByRole('button', { name: /add channel/i }))
+    const dialog = await screen.findByRole('dialog')
+    // Defaults to Webhook: the signing secret field is present.
+    expect(within(dialog).getByLabelText(/signing secret/i)).toBeInTheDocument()
+    expect(within(dialog).getByLabelText('URL')).toBeInTheDocument()
+    // Switching to Slack hides the secret and relabels the URL field.
+    await user.click(within(dialog).getByRole('radio', { name: /slack/i }))
+    expect(within(dialog).queryByLabelText(/signing secret/i)).not.toBeInTheDocument()
+    expect(within(dialog).getByLabelText('Slack incoming webhook URL')).toBeInTheDocument()
+    // Switching back to Webhook brings the secret field back.
+    await user.click(within(dialog).getByRole('radio', { name: /webhook/i }))
+    expect(within(dialog).getByLabelText(/signing secret/i)).toBeInTheDocument()
+  })
+})
+
 describe('/settings as non-admin', () => {
   it('shows the requires-admin page and hides admin nav items', async () => {
     stubApi({ me: testViewerMe })

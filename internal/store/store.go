@@ -461,10 +461,20 @@ const (
 	WebhookEventAgentUnhealthy    = "agent_unhealthy"
 )
 
-// Webhook is an alerting webhook. The HMAC signing secret is envelope-
-// encrypted before it reaches the store; nil = unsigned deliveries.
+// Notification-channel types (webhooks.type). WebhookTypeGeneric is the
+// HMAC-signed generic JSON POST; WebhookTypeSlack posts a Slack incoming-
+// webhook message (no HMAC).
+const (
+	WebhookTypeGeneric = "webhook"
+	WebhookTypeSlack   = "slack"
+)
+
+// Webhook is a notification channel. The HMAC signing secret is envelope-
+// encrypted before it reaches the store; nil = unsigned deliveries (always so
+// for Slack channels).
 type Webhook struct {
 	ID        uuid.UUID
+	Type      string
 	Name      string
 	URL       string
 	Events    []string
@@ -479,6 +489,7 @@ type Webhook struct {
 // the caller so audit entries can reference it.
 type NewWebhook struct {
 	ID        uuid.UUID
+	Type      string
 	Name      string
 	URL       string
 	Events    []string
@@ -491,6 +502,7 @@ type NewWebhook struct {
 // tri-state: SecretSet=false keeps the stored one, SecretSet=true writes
 // SecretEnc (nil = remove signing).
 type WebhookUpdate struct {
+	Type      *string
 	Name      *string
 	URL       *string
 	Events    []string

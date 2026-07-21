@@ -347,6 +347,24 @@ func (e WebhookEvent) Valid() bool {
 	}
 }
 
+// Defines values for WebhookType.
+const (
+	WebhookTypeSlack   WebhookType = "slack"
+	WebhookTypeWebhook WebhookType = "webhook"
+)
+
+// Valid indicates whether the value is a known member of the WebhookType enum.
+func (e WebhookType) Valid() bool {
+	switch e {
+	case WebhookTypeSlack:
+		return true
+	case WebhookTypeWebhook:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListAgentsParamsClass.
 const (
 	ListAgentsParamsClassEdge    ListAgentsParamsClass = "edge"
@@ -1058,11 +1076,14 @@ type Webhook struct {
 	Enabled   bool           `json:"enabled"`
 	Events    []WebhookEvent `json:"events"`
 
-	// HasSecret True when deliveries are HMAC-SHA256-signed (X-Otelfleet-Signature).
+	// HasSecret True when deliveries are HMAC-SHA256-signed (X-Otelfleet-Signature). Always false for Slack.
 	HasSecret bool               `json:"hasSecret"`
 	Id        openapi_types.UUID `json:"id"`
 	Name      string             `json:"name"`
-	Url       string             `json:"url"`
+
+	// Type Notification channel type. 'webhook' = generic HMAC-signed JSON POST; 'slack' = a Slack incoming-webhook message (URL from Slack, no secret).
+	Type WebhookType `json:"type"`
+	Url  string      `json:"url"`
 }
 
 // WebhookCreate defines model for WebhookCreate.
@@ -1071,15 +1092,19 @@ type WebhookCreate struct {
 	Events  []WebhookEvent `json:"events"`
 	Name    string         `json:"name"`
 
-	// Secret HMAC signing secret; encrypted at rest
-	Secret *string `json:"secret,omitempty"`
+	// Secret HMAC signing secret (generic webhooks only); encrypted at rest
+	Secret *string      `json:"secret,omitempty"`
+	Type   *WebhookType `json:"type,omitempty"`
 
-	// Url Must be https:// (http allowed only for localhost)
+	// Url Must be https:// (http allowed only for localhost). For Slack, the incoming-webhook URL.
 	Url string `json:"url"`
 }
 
 // WebhookEvent defines model for WebhookEvent.
 type WebhookEvent string
+
+// WebhookType Notification channel type. 'webhook' = generic HMAC-signed JSON POST; 'slack' = a Slack incoming-webhook message (URL from Slack, no secret).
+type WebhookType string
 
 // WebhookUpdate defines model for WebhookUpdate.
 type WebhookUpdate struct {
@@ -1089,7 +1114,10 @@ type WebhookUpdate struct {
 
 	// Secret Omit = keep; empty string = remove signing
 	Secret *string `json:"secret,omitempty"`
-	Url    *string `json:"url,omitempty"`
+
+	// Type Notification channel type. 'webhook' = generic HMAC-signed JSON POST; 'slack' = a Slack incoming-webhook message (URL from Slack, no secret).
+	Type *WebhookType `json:"type,omitempty"`
+	Url  *string      `json:"url,omitempty"`
 }
 
 // BadRequest defines model for BadRequest.

@@ -1713,11 +1713,19 @@ components:
       type: string
       enum: [agent_offline, agent_config_failed, agent_unhealthy]
 
+    WebhookType:
+      type: string
+      enum: [webhook, slack]
+      description: >-
+        Notification channel type. 'webhook' = generic HMAC-signed JSON POST;
+        'slack' = a Slack incoming-webhook message (URL from Slack, no secret).
+
     Webhook:
       type: object
-      required: [id, name, url, events, enabled, hasSecret, createdAt]
+      required: [id, type, name, url, events, enabled, hasSecret, createdAt]
       properties:
         id: { type: string, format: uuid }
+        type: { $ref: "#/components/schemas/WebhookType" }
         name: { type: string }
         url: { type: string }
         events:
@@ -1726,25 +1734,29 @@ components:
         enabled: { type: boolean }
         hasSecret:
           type: boolean
-          description: True when deliveries are HMAC-SHA256-signed (X-Otelfleet-Signature).
+          description: True when deliveries are HMAC-SHA256-signed (X-Otelfleet-Signature). Always false for Slack.
         createdAt: { type: string, format: date-time }
 
     WebhookCreate:
       type: object
       required: [name, url, events]
       properties:
+        type:
+          allOf: [{ $ref: "#/components/schemas/WebhookType" }]
+          default: webhook
         name: { type: string, minLength: 1, maxLength: 200 }
-        url: { type: string, format: uri, description: Must be https:// (http allowed only for localhost) }
+        url: { type: string, format: uri, description: "Must be https:// (http allowed only for localhost). For Slack, the incoming-webhook URL." }
         events:
           type: array
           minItems: 1
           items: { $ref: "#/components/schemas/WebhookEvent" }
-        secret: { type: string, nullable: true, description: HMAC signing secret; encrypted at rest }
+        secret: { type: string, nullable: true, description: "HMAC signing secret (generic webhooks only); encrypted at rest" }
         enabled: { type: boolean, default: true }
 
     WebhookUpdate:
       type: object
       properties:
+        type: { $ref: "#/components/schemas/WebhookType" }
         name: { type: string, minLength: 1, maxLength: 200 }
         url: { type: string, format: uri }
         events:

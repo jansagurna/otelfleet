@@ -5,10 +5,12 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -198,6 +200,56 @@ func TestDeliverWithRetryStopsOn4xx(t *testing.T) {
 	d.deliverWithRetry(context.Background(), store.Webhook{ID: uuid.New(), URL: srv.URL}, "test", []byte("{}"))
 	if attempts.Load() != 1 {
 		t.Errorf("attempts = %d, want 1 (4xx is permanent, no retry)", attempts.Load())
+	}
+}
+
+func TestSlackChannelFormatsMessageAndSkipsSignature(t *testing.T) {
+	name := "edge-1"
+	cname := "ACME"
+	cid := uuid.New()
+	var gotBody []byte
+	var gotSig, gotContentType string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotBody, _ = io.ReadAll(r.Body)
+		gotSig = r.Header.Get("X-Otelfleet-Signature")
+		gotContentType = r.Header.Get("Content-Type")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	// A Slack channel with a (spurious) secret must still not sign, and must
+	// send a Slack message body {"text": ...} rather than the generic payload.
+	cipher := newCipher(t)
+	enc, err := cipher.Encrypt([]byte("ignored"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fs := &fakeStore{
+		agent: store.Agent{Name: &name, Class: store.AgentClassEdge, CustomerID: &cid, CustomerName: &cname},
+		webhooks: []store.Webhook{
+			{ID: uuid.New(), Type: store.WebhookTypeSlack, URL: srv.URL, SecretEnc: enc, Enabled: true, Events: []string{store.WebhookEventAgentUnhealthy}},
+		},
+	}
+	d := New(fs, cipher, testLogger())
+	d.dispatch(context.Background(), Event{Type: store.WebhookEventAgentUnhealthy, AgentID: uuid.New(), OccurredAt: time.Unix(0, 0).UTC(), Detail: map[string]any{"lastError": "boom"}})
+	d.wg.Wait()
+
+	if gotSig != "" {
+		t.Errorf("Slack delivery must not carry an HMAC signature, got %q", gotSig)
+	}
+	if gotContentType != "application/json" {
+		t.Errorf("content-type = %q", gotContentType)
+	}
+	var msg struct {
+		Text string `json:"text"`
+	}
+	if err := json.Unmarshal(gotBody, &msg); err != nil {
+		t.Fatalf("Slack body is not JSON: %v (%s)", err, gotBody)
+	}
+	for _, want := range []string{"Agent unhealthy", "edge-1", "ACME", "boom"} {
+		if !strings.Contains(msg.Text, want) {
+			t.Errorf("Slack message missing %q; got:\n%s", want, msg.Text)
+		}
 	}
 }
 
