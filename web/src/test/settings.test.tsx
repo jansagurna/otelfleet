@@ -21,7 +21,7 @@ describe('/settings?tab=sso', () => {
     expect(screen.getByText('google')).toBeInTheDocument()
     expect(screen.getByText('1234567890-abc.apps.googleusercontent.com')).toBeInTheDocument()
     // Source chips.
-    expect(screen.getByText('database')).toBeInTheDocument()
+    expect(screen.getAllByText('database').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('env')).toBeInTheDocument()
     // Database provider row has actions; env provider switch is read-only.
     expect(screen.getByRole('button', { name: 'Edit Google Workspace' })).toBeInTheDocument()
@@ -29,6 +29,45 @@ describe('/settings?tab=sso', () => {
     expect(screen.getByRole('switch', { name: 'Corp Login enabled' })).toBeDisabled()
     expect(screen.queryByRole('button', { name: 'Edit Corp Login' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /add provider/i })).toBeInTheDocument()
+  })
+
+  it('renders a SAML provider with its type badge and actions', async () => {
+    renderApp('/settings?tab=sso')
+    // SAML row renders with display name, SAML type badge, and its IdP entity id
+    // (shown in the client-id column since SAML has no client id).
+    expect(await screen.findByText('Okta SAML')).toBeInTheDocument()
+    expect(screen.getByText('SAML')).toBeInTheDocument()
+    expect(screen.getByText('https://idp.okta.example.com/entity')).toBeInTheDocument()
+    // Database-backed SAML row keeps the standard edit/delete actions.
+    expect(screen.getByRole('button', { name: 'Edit Okta SAML' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delete Okta SAML' })).toBeInTheDocument()
+  })
+
+  it('shows IdP fields and SP registration details when SAML is selected in the create dialog', async () => {
+    const user = userEvent.setup()
+    renderApp('/settings?tab=sso')
+    await user.click(await screen.findByRole('button', { name: /add provider/i }))
+    const dialog = await screen.findByRole('dialog')
+    // Defaults to Google (OAuth): client id/secret shown, no SAML fields.
+    expect(within(dialog).getByLabelText('Client ID')).toBeInTheDocument()
+    expect(within(dialog).getByLabelText('Client secret')).toBeInTheDocument()
+    expect(within(dialog).queryByLabelText('IdP SSO URL')).not.toBeInTheDocument()
+
+    // Switch the type to SAML.
+    await user.selectOptions(within(dialog).getByLabelText('Type'), 'saml')
+
+    // IdP fields appear; client id/secret are hidden.
+    expect(within(dialog).getByLabelText('IdP entity ID')).toBeInTheDocument()
+    expect(within(dialog).getByLabelText('IdP SSO URL')).toBeInTheDocument()
+    expect(within(dialog).getByLabelText('IdP signing certificate')).toBeInTheDocument()
+    expect(within(dialog).queryByLabelText('Client ID')).not.toBeInTheDocument()
+    expect(within(dialog).queryByLabelText('Client secret')).not.toBeInTheDocument()
+
+    // SP registration details (ACS URL, SP entity id) derive live from the slug.
+    expect(within(dialog).getByText(/ACS URL/i)).toBeInTheDocument()
+    expect(within(dialog).getByText(/SP entity ID/i)).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Copy ACS URL' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Copy SP entity ID' })).toBeInTheDocument()
   })
 })
 

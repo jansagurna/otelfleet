@@ -222,12 +222,21 @@ function ProvidersTable({
                   <code className="font-mono text-xs text-ink-2">{provider.name}</code>
                 </TableCell>
                 <TableCell>
-                  <code
-                    className="block max-w-40 truncate font-mono text-xs text-ink-2"
-                    title={provider.clientId}
-                  >
-                    {provider.clientId}
-                  </code>
+                  {/* SAML providers have no client id — show the IdP entity id, their key identifier. */}
+                  {(() => {
+                    const identifier =
+                      provider.type === 'saml' ? (provider.idpEntityId ?? '') : provider.clientId
+                    return identifier === '' ? (
+                      <span className="text-xs text-ink-3">—</span>
+                    ) : (
+                      <code
+                        className="block max-w-40 truncate font-mono text-xs text-ink-2"
+                        title={identifier}
+                      >
+                        {identifier}
+                      </code>
+                    )
+                  })()}
                 </TableCell>
                 <TableCell>
                   <span

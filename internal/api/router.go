@@ -40,6 +40,9 @@ func NewRouter(d RouterDeps) http.Handler {
 
 	r.Get("/auth/{provider}/start", d.Auth.Start)
 	r.Get("/auth/{provider}/callback", d.Auth.Callback)
+	// SAML SP endpoints: the IdP POSTs the assertion to /acs and consumes /metadata.
+	r.Post("/auth/{provider}/acs", d.Auth.ACS)
+	r.Get("/auth/{provider}/metadata", d.Auth.Metadata)
 
 	// SCIM 2.0 user provisioning for identity providers. Authenticated with an
 	// admin management-API token (not a session), so it sits outside the Guard.

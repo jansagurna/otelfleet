@@ -289,7 +289,7 @@ export type UserAccount = {
     createdAt: string;
 };
 
-export type AuthProviderType = 'google' | 'microsoft' | 'github' | 'oidc';
+export type AuthProviderType = 'google' | 'microsoft' | 'github' | 'oidc' | 'saml';
 
 export type AuthProviderConfig = {
     id: string;
@@ -310,9 +310,29 @@ export type AuthProviderConfig = {
      */
     source: 'database' | 'environment';
     /**
-     * Callback URL to register at the identity provider.
+     * OIDC/OAuth callback URL to register at the identity provider.
      */
     redirectUri: string;
+    /**
+     * SAML IdP entity id (type saml).
+     */
+    idpEntityId?: string | null;
+    /**
+     * SAML IdP SSO URL (type saml).
+     */
+    idpSsoUrl?: string | null;
+    /**
+     * SAML IdP signing certificate
+     */
+    idpCertificate?: string | null;
+    /**
+     * SP assertion-consumer URL to register at the IdP (type saml).
+     */
+    acsUrl?: string | null;
+    /**
+     * SP entity id / audience to register at the IdP (type saml).
+     */
+    spEntityId?: string | null;
     createdAt: string;
 };
 
@@ -323,12 +343,30 @@ export type AuthProviderConfigCreate = {
      */
     name: string;
     displayName: string;
-    clientId: string;
-    clientSecret: string;
     /**
-     * Required for type oidc; ignored for google/microsoft/github.
+     * Required for OIDC/OAuth types; unused for saml.
+     */
+    clientId?: string;
+    /**
+     * Required for OIDC/OAuth types; unused for saml.
+     */
+    clientSecret?: string;
+    /**
+     * Required for type oidc; ignored for google/microsoft/github/saml.
      */
     issuer?: string | null;
+    /**
+     * Required for type saml: the IdP entity id.
+     */
+    idpEntityId?: string;
+    /**
+     * Required for type saml: the IdP SSO URL.
+     */
+    idpSsoUrl?: string;
+    /**
+     * Required for type saml: the IdP signing certificate (PEM or base64 DER).
+     */
+    idpCertificate?: string;
     enabled?: boolean;
 };
 
@@ -340,6 +378,12 @@ export type AuthProviderConfigUpdate = {
      */
     clientSecret?: string;
     issuer?: string | null;
+    idpEntityId?: string;
+    idpSsoUrl?: string;
+    /**
+     * Omit to keep the stored certificate.
+     */
+    idpCertificate?: string;
     enabled?: boolean;
 };
 

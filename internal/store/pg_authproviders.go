@@ -11,12 +11,12 @@ import (
 	"github.com/jansagurna/otelfleet/internal/audit"
 )
 
-const authProviderCols = `id, type, name, display_name, client_id, client_secret_enc, issuer, enabled, created_at, updated_at`
+const authProviderCols = `id, type, name, display_name, client_id, client_secret_enc, issuer, saml_config, enabled, created_at, updated_at`
 
 func scanAuthProvider(row pgx.Row) (AuthProvider, error) {
 	var p AuthProvider
 	err := row.Scan(&p.ID, &p.Type, &p.Name, &p.DisplayName, &p.ClientID, &p.ClientSecretEnc,
-		&p.Issuer, &p.Enabled, &p.CreatedAt, &p.UpdatedAt)
+		&p.Issuer, &p.SAMLConfig, &p.Enabled, &p.CreatedAt, &p.UpdatedAt)
 	return p, err
 }
 
@@ -69,10 +69,10 @@ func (s *PG) CreateAuthProvider(ctx context.Context, p NewAuthProvider, entries 
 	err := s.inTx(ctx, func(tx pgx.Tx) error {
 		var err error
 		out, err = scanAuthProvider(tx.QueryRow(ctx, `
-			INSERT INTO auth_providers (id, type, name, display_name, client_id, client_secret_enc, issuer, enabled)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			INSERT INTO auth_providers (id, type, name, display_name, client_id, client_secret_enc, issuer, saml_config, enabled)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 			RETURNING `+authProviderCols,
-			p.ID, p.Type, p.Name, p.DisplayName, p.ClientID, p.ClientSecretEnc, p.Issuer, p.Enabled))
+			p.ID, p.Type, p.Name, p.DisplayName, p.ClientID, p.ClientSecretEnc, p.Issuer, p.SAMLConfig, p.Enabled))
 		if isUniqueViolation(err, "auth_providers_name_key") {
 			return ErrNameExists
 		}
@@ -99,11 +99,12 @@ func (s *PG) UpdateAuthProvider(ctx context.Context, id uuid.UUID, upd AuthProvi
 			    client_id         = COALESCE($3, client_id),
 			    client_secret_enc = COALESCE($4, client_secret_enc),
 			    issuer            = COALESCE($5, issuer),
-			    enabled           = COALESCE($6, enabled),
+			    saml_config       = COALESCE($6, saml_config),
+			    enabled           = COALESCE($7, enabled),
 			    updated_at        = now()
 			WHERE id = $1
 			RETURNING `+authProviderCols,
-			id, upd.DisplayName, upd.ClientID, upd.ClientSecretEnc, upd.Issuer, upd.Enabled))
+			id, upd.DisplayName, upd.ClientID, upd.ClientSecretEnc, upd.Issuer, upd.SAMLConfig, upd.Enabled))
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}

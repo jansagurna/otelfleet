@@ -219,6 +219,23 @@ export const testProviders: AuthProviderConfig[] = [
     redirectUri: 'https://otelfleet.example.com/auth/corp/callback',
     createdAt: '2026-07-01T09:00:00Z',
   },
+  {
+    id: '4f2c7a1e-0000-4000-8000-000000000033',
+    type: 'saml',
+    name: 'okta-saml',
+    displayName: 'Okta SAML',
+    clientId: '',
+    issuer: null,
+    enabled: true,
+    source: 'database',
+    redirectUri: '',
+    idpEntityId: 'https://idp.okta.example.com/entity',
+    idpSsoUrl: 'https://idp.okta.example.com/sso/saml',
+    idpCertificate: null,
+    acsUrl: 'https://otelfleet.example.com/auth/okta-saml/acs',
+    spEntityId: 'https://otelfleet.example.com/auth/okta-saml/metadata',
+    createdAt: '2026-07-02T09:00:00Z',
+  },
 ]
 
 export const testAuditEntries: AuditEntry[] = [

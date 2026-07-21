@@ -1571,7 +1571,7 @@ components:
 
     AuthProviderType:
       type: string
-      enum: [google, microsoft, github, oidc]
+      enum: [google, microsoft, github, oidc, saml]
 
     AuthProviderConfig:
       type: object
@@ -1592,12 +1592,18 @@ components:
           description: environment = defined via OTELFLEET_OIDC_* env vars (read-only here).
         redirectUri:
           type: string
-          description: Callback URL to register at the identity provider.
+          description: OIDC/OAuth callback URL to register at the identity provider.
+        # --- SAML (type saml) ---
+        idpEntityId: { type: string, nullable: true, description: SAML IdP entity id (type saml). }
+        idpSsoUrl: { type: string, nullable: true, description: SAML IdP SSO URL (type saml). }
+        idpCertificate: { type: string, nullable: true, description: SAML IdP signing certificate, PEM (type saml). }
+        acsUrl: { type: string, nullable: true, description: SP assertion-consumer URL to register at the IdP (type saml). }
+        spEntityId: { type: string, nullable: true, description: SP entity id / audience to register at the IdP (type saml). }
         createdAt: { type: string, format: date-time }
 
     AuthProviderConfigCreate:
       type: object
-      required: [type, name, displayName, clientId, clientSecret]
+      required: [type, name, displayName]
       properties:
         type: { $ref: "#/components/schemas/AuthProviderType" }
         name:
@@ -1605,12 +1611,15 @@ components:
           pattern: "^[a-z0-9][a-z0-9-]{1,30}$"
           description: Unique slug; becomes /auth/{name}/start.
         displayName: { type: string, minLength: 1, maxLength: 100 }
-        clientId: { type: string, minLength: 1 }
-        clientSecret: { type: string, minLength: 1 }
+        clientId: { type: string, description: Required for OIDC/OAuth types; unused for saml. }
+        clientSecret: { type: string, description: Required for OIDC/OAuth types; unused for saml. }
         issuer:
           type: string
           nullable: true
-          description: Required for type oidc; ignored for google/microsoft/github.
+          description: Required for type oidc; ignored for google/microsoft/github/saml.
+        idpEntityId: { type: string, description: "Required for type saml: the IdP entity id." }
+        idpSsoUrl: { type: string, description: "Required for type saml: the IdP SSO URL." }
+        idpCertificate: { type: string, description: "Required for type saml: the IdP signing certificate (PEM or base64 DER)." }
         enabled: { type: boolean, default: true }
 
     AuthProviderConfigUpdate:
@@ -1622,6 +1631,9 @@ components:
           type: string
           description: Omit to keep the stored secret.
         issuer: { type: string, nullable: true }
+        idpEntityId: { type: string }
+        idpSsoUrl: { type: string }
+        idpCertificate: { type: string, description: Omit to keep the stored certificate. }
         enabled: { type: boolean }
 
     AuditEntry:

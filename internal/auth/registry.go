@@ -22,7 +22,16 @@ const (
 	TypeMicrosoft = "microsoft"
 	TypeGitHub    = "github"
 	TypeOIDC      = "oidc"
+	TypeSAML      = "saml"
 )
+
+// SAMLConfig is a SAML provider's (non-secret) IdP configuration, stored as
+// JSON in auth_providers.saml_config.
+type SAMLConfig struct {
+	IDPEntityID    string `json:"idpEntityId"`    // IdP entity id / issuer
+	IDPSSOURL      string `json:"idpSsoUrl"`      // IdP HTTP-Redirect SSO endpoint
+	IDPCertificate string `json:"idpCertificate"` // IdP signing cert (PEM or base64 DER)
+}
 
 // Fixed issuers for the well-known provider types.
 const (
@@ -37,7 +46,7 @@ const (
 // KnownProviderType reports whether t is a supported provider type.
 func KnownProviderType(t string) bool {
 	switch t {
-	case TypeGoogle, TypeMicrosoft, TypeGitHub, TypeOIDC:
+	case TypeGoogle, TypeMicrosoft, TypeGitHub, TypeOIDC, TypeSAML:
 		return true
 	}
 	return false
@@ -61,20 +70,24 @@ func EffectiveIssuer(providerType, issuer string) string {
 // ProviderInfo is a fully resolved login provider (secret decrypted), the
 // input for building a login flow.
 type ProviderInfo struct {
-	Type         string // google | microsoft | github | oidc
+	Type         string // google | microsoft | github | oidc | saml
 	Name         string // URL slug: /auth/{name}/start
 	DisplayName  string
-	Issuer       string // effective issuer; "" for github
+	Issuer       string // effective issuer; "" for github/saml
 	ClientID     string
 	ClientSecret string
+	SAML         *SAMLConfig // set for type saml
 }
 
 // IdentityKey is the user_identities.provider namespace for this provider:
 // the bare type for the well-known IdPs (subjects are globally stable there)
 // and "oidc:<name>" for custom OIDC providers (per-issuer subject spaces).
 func (p ProviderInfo) IdentityKey() string {
-	if p.Type == TypeOIDC {
+	switch p.Type {
+	case TypeOIDC:
 		return "oidc:" + p.Name
+	case TypeSAML:
+		return "saml:" + p.Name
 	}
 	return p.Type
 }
@@ -143,6 +156,12 @@ func (reg *Registry) RedirectURI(name string) string {
 	return reg.baseURL + "/auth/" + name + "/callback"
 }
 
+// ACSURL is the SAML assertion-consumer URL to register at the IdP.
+func (reg *Registry) ACSURL(name string) string { return acsURL(reg.baseURL, name) }
+
+// SPEntityID is the SAML SP entity id / audience to register at the IdP.
+func (reg *Registry) SPEntityID(name string) string { return spEntityID(reg.baseURL, name) }
+
 // LoginProviders lists what the login page offers: enabled database providers
 // plus environment providers (database wins on name collision).
 func (reg *Registry) LoginProviders(ctx context.Context) ([]LoginProvider, error) {
@@ -173,21 +192,30 @@ func (reg *Registry) Resolve(ctx context.Context, name string) (ProviderInfo, st
 		if !p.Enabled {
 			return ProviderInfo{}, "", ErrUnknownProvider
 		}
-		secret, err := reg.cipher.Decrypt(p.ClientSecretEnc)
-		if err != nil {
-			return ProviderInfo{}, "", fmt.Errorf("decrypt client secret of provider %q: %w", name, err)
-		}
 		issuer := ""
 		if p.Issuer != nil {
 			issuer = *p.Issuer
 		}
 		info := ProviderInfo{
-			Type:         p.Type,
-			Name:         p.Name,
-			DisplayName:  p.DisplayName,
-			Issuer:       EffectiveIssuer(p.Type, issuer),
-			ClientID:     p.ClientID,
-			ClientSecret: string(secret),
+			Type:        p.Type,
+			Name:        p.Name,
+			DisplayName: p.DisplayName,
+			Issuer:      EffectiveIssuer(p.Type, issuer),
+			ClientID:    p.ClientID,
+		}
+		if p.Type == TypeSAML {
+			// SAML carries no client secret; its IdP config is non-secret JSON.
+			var cfg SAMLConfig
+			if err := json.Unmarshal(p.SAMLConfig, &cfg); err != nil {
+				return ProviderInfo{}, "", fmt.Errorf("parse saml config of provider %q: %w", name, err)
+			}
+			info.SAML = &cfg
+		} else {
+			secret, err := reg.cipher.Decrypt(p.ClientSecretEnc)
+			if err != nil {
+				return ProviderInfo{}, "", fmt.Errorf("decrypt client secret of provider %q: %w", name, err)
+			}
+			info.ClientSecret = string(secret)
 		}
 		return info, fmt.Sprintf("db:%s:%d", p.ID, p.UpdatedAt.UnixNano()), nil
 	case errors.Is(err, store.ErrNotFound):
@@ -220,9 +248,12 @@ func (reg *Registry) flowFor(info ProviderInfo, fingerprint string) loginFlow {
 	}
 	finisher := loginFinisher{sessions: reg.sessions, store: reg.store, isAdmin: reg.isAdmin, log: reg.log}
 	var flow loginFlow
-	if info.Type == TypeGitHub {
+	switch info.Type {
+	case TypeGitHub:
 		flow = NewGitHubHandler(info, reg.baseURL, finisher)
-	} else {
+	case TypeSAML:
+		flow = NewSAMLHandler(info, reg.baseURL, finisher)
+	default:
 		flow = NewOIDCHandler(info, reg.baseURL, finisher)
 	}
 	reg.flows[info.Name] = cachedFlow{fingerprint: fingerprint, flow: flow}
@@ -237,6 +268,37 @@ func (reg *Registry) Start(w http.ResponseWriter, r *http.Request) {
 // Callback serves GET /auth/{name}/callback.
 func (reg *Registry) Callback(w http.ResponseWriter, r *http.Request) {
 	reg.dispatch(w, r, func(f loginFlow) { f.Callback(w, r) })
+}
+
+// samlFlow is the extra surface a SAML provider exposes beyond loginFlow: the
+// assertion-consumer POST endpoint and the SP metadata document.
+type samlFlow interface {
+	ACS(w http.ResponseWriter, r *http.Request)
+	Metadata(w http.ResponseWriter, r *http.Request)
+}
+
+// ACS serves POST /auth/{name}/acs (SAML assertion consumer). Non-SAML
+// providers 404.
+func (reg *Registry) ACS(w http.ResponseWriter, r *http.Request) {
+	reg.dispatch(w, r, func(f loginFlow) {
+		if sf, ok := f.(samlFlow); ok {
+			sf.ACS(w, r)
+			return
+		}
+		http.NotFound(w, r)
+	})
+}
+
+// Metadata serves GET /auth/{name}/metadata (SP metadata XML). Non-SAML
+// providers 404.
+func (reg *Registry) Metadata(w http.ResponseWriter, r *http.Request) {
+	reg.dispatch(w, r, func(f loginFlow) {
+		if sf, ok := f.(samlFlow); ok {
+			sf.Metadata(w, r)
+			return
+		}
+		http.NotFound(w, r)
+	})
 }
 
 func (reg *Registry) dispatch(w http.ResponseWriter, r *http.Request, serve func(loginFlow)) {
@@ -272,6 +334,25 @@ func providerNameFromPath(path string) string {
 // for github. The bool is "usable", the message explains.
 func TestProviderConnectivity(ctx context.Context, info ProviderInfo) (bool, string) {
 	client := &http.Client{Timeout: 10 * time.Second}
+
+	if info.Type == TypeSAML {
+		if info.SAML == nil {
+			return false, "SAML config missing"
+		}
+		if err := ValidateSAMLConfig(*info.SAML); err != nil {
+			return false, "SAML config invalid: " + err.Error()
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, info.SAML.IDPSSOURL, nil)
+		if err != nil {
+			return false, "build request: " + err.Error()
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			return false, "IdP SSO URL unreachable: " + err.Error()
+		}
+		defer resp.Body.Close() //nolint:errcheck
+		return true, fmt.Sprintf("config valid; IdP SSO URL reachable (HTTP %d)", resp.StatusCode)
+	}
 
 	if info.Type == TypeGitHub {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/", nil)

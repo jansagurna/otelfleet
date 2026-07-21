@@ -13,6 +13,7 @@ export const PROVIDER_TYPES: readonly {
   { value: 'microsoft', label: 'Microsoft', mark: 'M' },
   { value: 'github', label: 'GitHub', mark: 'GH' },
   { value: 'oidc', label: 'OIDC', mark: 'ID' },
+  { value: 'saml', label: 'SAML', mark: 'SA' },
 ] as const
 
 export function providerTypeLabel(type: AuthProviderType): string {

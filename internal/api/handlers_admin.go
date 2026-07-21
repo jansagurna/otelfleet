@@ -225,8 +225,31 @@ func (s *Server) DeleteUser(ctx context.Context, request apigen.DeleteUserReques
 // providerNamePattern mirrors the contract's slug pattern.
 var providerNamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,30}$`)
 
+// buildSAMLConfig validates and marshals a SAML provider's IdP config. It
+// returns (json, "") on success or (nil, message) with a user-facing error.
+func buildSAMLConfig(entityID, ssoURL, cert *string) ([]byte, string) {
+	c := auth.SAMLConfig{}
+	if entityID != nil {
+		c.IDPEntityID = strings.TrimSpace(*entityID)
+	}
+	if ssoURL != nil {
+		c.IDPSSOURL = strings.TrimSpace(*ssoURL)
+	}
+	if cert != nil {
+		c.IDPCertificate = strings.TrimSpace(*cert)
+	}
+	if err := auth.ValidateSAMLConfig(c); err != nil {
+		return nil, "type saml: " + err.Error()
+	}
+	b, err := json.Marshal(c)
+	if err != nil {
+		return nil, err.Error()
+	}
+	return b, ""
+}
+
 func (s *Server) toAuthProviderConfig(p store.AuthProvider) apigen.AuthProviderConfig {
-	return apigen.AuthProviderConfig{
+	cfg := apigen.AuthProviderConfig{
 		Id:          p.ID,
 		Type:        apigen.AuthProviderType(p.Type),
 		Name:        p.Name,
@@ -238,6 +261,17 @@ func (s *Server) toAuthProviderConfig(p store.AuthProvider) apigen.AuthProviderC
 		RedirectUri: s.authReg.RedirectURI(p.Name),
 		CreatedAt:   p.CreatedAt,
 	}
+	if p.Type == auth.TypeSAML {
+		var sc auth.SAMLConfig
+		_ = json.Unmarshal(p.SAMLConfig, &sc)
+		acs, sp := s.authReg.ACSURL(p.Name), s.authReg.SPEntityID(p.Name)
+		cfg.IdpEntityId = &sc.IDPEntityID
+		cfg.IdpSsoUrl = &sc.IDPSSOURL
+		cfg.IdpCertificate = &sc.IDPCertificate
+		cfg.AcsUrl = &acs
+		cfg.SpEntityId = &sp
+	}
+	return cfg
 }
 
 func (s *Server) ListAuthProviderConfigs(ctx context.Context, _ apigen.ListAuthProviderConfigsRequestObject) (apigen.ListAuthProviderConfigsResponseObject, error) {
@@ -291,37 +325,54 @@ func (s *Server) CreateAuthProviderConfig(ctx context.Context, request apigen.Cr
 	if displayName == "" || len(displayName) > 100 {
 		return apigen.CreateAuthProviderConfig400JSONResponse{BadRequestJSONResponse: apigen.BadRequestJSONResponse{Code: codeBadRequest, Message: "displayName must be 1-100 characters"}}, nil
 	}
-	if body.ClientId == "" || body.ClientSecret == "" {
-		return apigen.CreateAuthProviderConfig400JSONResponse{BadRequestJSONResponse: apigen.BadRequestJSONResponse{Code: codeBadRequest, Message: "clientId and clientSecret are required"}}, nil
-	}
-	var issuer *string
-	if ptype == auth.TypeOIDC {
-		if body.Issuer == nil || !strings.HasPrefix(*body.Issuer, "https://") {
-			return apigen.CreateAuthProviderConfig400JSONResponse{BadRequestJSONResponse: apigen.BadRequestJSONResponse{Code: codeBadRequest, Message: "type oidc requires an https:// issuer"}}, nil
-		}
-		iss := strings.TrimSuffix(*body.Issuer, "/")
-		issuer = &iss
-	}
-
-	secretEnc, err := s.encryptClientSecret(body.ClientSecret)
-	if err != nil {
-		return nil, err
-	}
 	enabled := true
 	if body.Enabled != nil {
 		enabled = *body.Enabled
 	}
-	id := uuid.New()
-	created, err := s.store.CreateAuthProvider(ctx, store.NewAuthProvider{
-		ID:              id,
-		Type:            ptype,
-		Name:            body.Name,
-		DisplayName:     displayName,
-		ClientID:        body.ClientId,
-		ClientSecretEnc: secretEnc,
-		Issuer:          issuer,
-		Enabled:         enabled,
-	}, []audit.Entry{{
+
+	newProvider := store.NewAuthProvider{
+		ID:          uuid.New(),
+		Type:        ptype,
+		Name:        body.Name,
+		DisplayName: displayName,
+		Enabled:     enabled,
+	}
+
+	if ptype == auth.TypeSAML {
+		samlCfg, msg := buildSAMLConfig(body.IdpEntityId, body.IdpSsoUrl, body.IdpCertificate)
+		if msg != "" {
+			return apigen.CreateAuthProviderConfig400JSONResponse{BadRequestJSONResponse: apigen.BadRequestJSONResponse{Code: codeBadRequest, Message: msg}}, nil
+		}
+		newProvider.SAMLConfig = samlCfg
+		newProvider.ClientSecretEnc = []byte{} // SAML carries no secret
+	} else {
+		clientID, clientSecret := "", ""
+		if body.ClientId != nil {
+			clientID = *body.ClientId
+		}
+		if body.ClientSecret != nil {
+			clientSecret = *body.ClientSecret
+		}
+		if clientID == "" || clientSecret == "" {
+			return apigen.CreateAuthProviderConfig400JSONResponse{BadRequestJSONResponse: apigen.BadRequestJSONResponse{Code: codeBadRequest, Message: "clientId and clientSecret are required"}}, nil
+		}
+		if ptype == auth.TypeOIDC {
+			if body.Issuer == nil || !strings.HasPrefix(*body.Issuer, "https://") {
+				return apigen.CreateAuthProviderConfig400JSONResponse{BadRequestJSONResponse: apigen.BadRequestJSONResponse{Code: codeBadRequest, Message: "type oidc requires an https:// issuer"}}, nil
+			}
+			iss := strings.TrimSuffix(*body.Issuer, "/")
+			newProvider.Issuer = &iss
+		}
+		secretEnc, err := s.encryptClientSecret(clientSecret)
+		if err != nil {
+			return nil, err
+		}
+		newProvider.ClientID = clientID
+		newProvider.ClientSecretEnc = secretEnc
+	}
+
+	id := newProvider.ID
+	created, err := s.store.CreateAuthProvider(ctx, newProvider, []audit.Entry{{
 		ActorUserID: actorID(ctx),
 		Action:      "authprovider.create",
 		EntityType:  "auth_provider",
@@ -379,6 +430,35 @@ func (s *Server) UpdateAuthProviderConfig(ctx context.Context, request apigen.Up
 		payload["client_secret"] = "(rotated)"
 	}
 
+	// SAML config: merge the provided fields onto the stored ones (omitting a
+	// field, notably the certificate, keeps it) and re-validate.
+	if body.IdpEntityId != nil || body.IdpSsoUrl != nil || body.IdpCertificate != nil {
+		current, err := s.store.GetAuthProvider(ctx, request.ProviderId)
+		if errors.Is(err, store.ErrNotFound) {
+			return apigen.UpdateAuthProviderConfig404JSONResponse{NotFoundJSONResponse: apigen.NotFoundJSONResponse{Code: codeNotFound, Message: "provider not found"}}, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		var merged auth.SAMLConfig
+		_ = json.Unmarshal(current.SAMLConfig, &merged)
+		if body.IdpEntityId != nil {
+			merged.IDPEntityID = strings.TrimSpace(*body.IdpEntityId)
+		}
+		if body.IdpSsoUrl != nil {
+			merged.IDPSSOURL = strings.TrimSpace(*body.IdpSsoUrl)
+		}
+		if body.IdpCertificate != nil {
+			merged.IDPCertificate = strings.TrimSpace(*body.IdpCertificate)
+		}
+		cfg, msg := buildSAMLConfig(&merged.IDPEntityID, &merged.IDPSSOURL, &merged.IDPCertificate)
+		if msg != "" {
+			return apigen.UpdateAuthProviderConfig400JSONResponse{BadRequestJSONResponse: apigen.BadRequestJSONResponse{Code: codeBadRequest, Message: msg}}, nil
+		}
+		upd.SAMLConfig = cfg
+		payload["saml_config"] = "(updated)"
+	}
+
 	updated, err := s.store.UpdateAuthProvider(ctx, request.ProviderId, upd, []audit.Entry{{
 		ActorUserID: actorID(ctx),
 		Action:      "authprovider.update",
@@ -433,11 +513,17 @@ func (s *Server) TestAuthProviderConfig(ctx context.Context, request apigen.Test
 	if p.Issuer != nil {
 		issuer = *p.Issuer
 	}
-	ok, message := auth.TestProviderConnectivity(ctx, auth.ProviderInfo{
+	info := auth.ProviderInfo{
 		Type:   p.Type,
 		Name:   p.Name,
 		Issuer: auth.EffectiveIssuer(p.Type, issuer),
-	})
+	}
+	if p.Type == auth.TypeSAML {
+		var sc auth.SAMLConfig
+		_ = json.Unmarshal(p.SAMLConfig, &sc)
+		info.SAML = &sc
+	}
+	ok, message := auth.TestProviderConnectivity(ctx, info)
 	return apigen.TestAuthProviderConfig200JSONResponse{Ok: ok, Message: message}, nil
 }
 

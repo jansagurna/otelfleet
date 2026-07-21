@@ -90,12 +90,13 @@ type UserUpdate struct {
 // store never sees plaintext secrets.
 type AuthProvider struct {
 	ID              uuid.UUID
-	Type            string // google | microsoft | github | oidc
+	Type            string // google | microsoft | github | oidc | saml
 	Name            string
 	DisplayName     string
 	ClientID        string
 	ClientSecretEnc []byte
 	Issuer          *string // type oidc only
+	SAMLConfig      []byte  // JSONB, type saml only (non-secret IdP config)
 	Enabled         bool
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
@@ -111,6 +112,7 @@ type NewAuthProvider struct {
 	ClientID        string
 	ClientSecretEnc []byte
 	Issuer          *string
+	SAMLConfig      []byte
 	Enabled         bool
 }
 
@@ -121,6 +123,7 @@ type AuthProviderUpdate struct {
 	ClientID        *string
 	ClientSecretEnc []byte
 	Issuer          *string
+	SAMLConfig      []byte
 	Enabled         *bool
 }
 

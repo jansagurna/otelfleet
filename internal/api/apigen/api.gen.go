@@ -113,6 +113,7 @@ const (
 	Google    AuthProviderType = "google"
 	Microsoft AuthProviderType = "microsoft"
 	Oidc      AuthProviderType = "oidc"
+	Saml      AuthProviderType = "saml"
 )
 
 // Valid indicates whether the value is a known member of the AuthProviderType enum.
@@ -125,6 +126,8 @@ func (e AuthProviderType) Valid() bool {
 	case Microsoft:
 		return true
 	case Oidc:
+		return true
+	case Saml:
 		return true
 	default:
 		return false
@@ -651,11 +654,22 @@ type AuthProvider struct {
 
 // AuthProviderConfig defines model for AuthProviderConfig.
 type AuthProviderConfig struct {
+	// AcsUrl SP assertion-consumer URL to register at the IdP (type saml).
+	AcsUrl      *string            `json:"acsUrl,omitempty"`
 	ClientId    string             `json:"clientId"`
 	CreatedAt   time.Time          `json:"createdAt"`
 	DisplayName string             `json:"displayName"`
 	Enabled     bool               `json:"enabled"`
 	Id          openapi_types.UUID `json:"id"`
+
+	// IdpCertificate SAML IdP signing certificate
+	IdpCertificate *string `json:"idpCertificate,omitempty"`
+
+	// IdpEntityId SAML IdP entity id (type saml).
+	IdpEntityId *string `json:"idpEntityId,omitempty"`
+
+	// IdpSsoUrl SAML IdP SSO URL (type saml).
+	IdpSsoUrl *string `json:"idpSsoUrl,omitempty"`
 
 	// Issuer Only for type oidc
 	Issuer *string `json:"issuer,omitempty"`
@@ -663,12 +677,15 @@ type AuthProviderConfig struct {
 	// Name URL-safe slug used in /auth/{name}/start
 	Name string `json:"name"`
 
-	// RedirectUri Callback URL to register at the identity provider.
+	// RedirectUri OIDC/OAuth callback URL to register at the identity provider.
 	RedirectUri string `json:"redirectUri"`
 
 	// Source environment = defined via OTELFLEET_OIDC_* env vars (read-only here).
 	Source AuthProviderConfigSource `json:"source"`
-	Type   AuthProviderType         `json:"type"`
+
+	// SpEntityId SP entity id / audience to register at the IdP (type saml).
+	SpEntityId *string          `json:"spEntityId,omitempty"`
+	Type       AuthProviderType `json:"type"`
 }
 
 // AuthProviderConfigSource environment = defined via OTELFLEET_OIDC_* env vars (read-only here).
@@ -676,12 +693,24 @@ type AuthProviderConfigSource string
 
 // AuthProviderConfigCreate defines model for AuthProviderConfigCreate.
 type AuthProviderConfigCreate struct {
-	ClientId     string `json:"clientId"`
-	ClientSecret string `json:"clientSecret"`
-	DisplayName  string `json:"displayName"`
-	Enabled      *bool  `json:"enabled,omitempty"`
+	// ClientId Required for OIDC/OAuth types; unused for saml.
+	ClientId *string `json:"clientId,omitempty"`
 
-	// Issuer Required for type oidc; ignored for google/microsoft/github.
+	// ClientSecret Required for OIDC/OAuth types; unused for saml.
+	ClientSecret *string `json:"clientSecret,omitempty"`
+	DisplayName  string  `json:"displayName"`
+	Enabled      *bool   `json:"enabled,omitempty"`
+
+	// IdpCertificate Required for type saml: the IdP signing certificate (PEM or base64 DER).
+	IdpCertificate *string `json:"idpCertificate,omitempty"`
+
+	// IdpEntityId Required for type saml: the IdP entity id.
+	IdpEntityId *string `json:"idpEntityId,omitempty"`
+
+	// IdpSsoUrl Required for type saml: the IdP SSO URL.
+	IdpSsoUrl *string `json:"idpSsoUrl,omitempty"`
+
+	// Issuer Required for type oidc; ignored for google/microsoft/github/saml.
 	Issuer *string `json:"issuer,omitempty"`
 
 	// Name Unique slug; becomes /auth/{name}/start.
@@ -697,7 +726,12 @@ type AuthProviderConfigUpdate struct {
 	ClientSecret *string `json:"clientSecret,omitempty"`
 	DisplayName  *string `json:"displayName,omitempty"`
 	Enabled      *bool   `json:"enabled,omitempty"`
-	Issuer       *string `json:"issuer,omitempty"`
+
+	// IdpCertificate Omit to keep the stored certificate.
+	IdpCertificate *string `json:"idpCertificate,omitempty"`
+	IdpEntityId    *string `json:"idpEntityId,omitempty"`
+	IdpSsoUrl      *string `json:"idpSsoUrl,omitempty"`
+	Issuer         *string `json:"issuer,omitempty"`
 }
 
 // AuthProviderType defines model for AuthProviderType.
