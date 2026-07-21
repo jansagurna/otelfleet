@@ -63,6 +63,7 @@ type User struct {
 	Email       string
 	DisplayName *string
 	Role        string
+	ExternalID  *string // SCIM external id (nil unless SCIM-provisioned)
 	DisabledAt  *time.Time
 	LastLoginAt *time.Time
 	CreatedAt   time.Time
@@ -551,7 +552,10 @@ type Store interface {
 	// last-enabled-admin invariant transactionally (ErrLastAdmin).
 	ListUsers(ctx context.Context) ([]UserWithIdentities, error)
 	GetUserWithIdentities(ctx context.Context, id uuid.UUID) (UserWithIdentities, error)
+	GetUserByEmail(ctx context.Context, email string) (UserWithIdentities, error)
 	CreateInvitedUser(ctx context.Context, id uuid.UUID, email, role string, entries []audit.Entry) (User, error)
+	CreateSCIMUser(ctx context.Context, id uuid.UUID, email, role string, displayName, externalID *string, entries []audit.Entry) (UserWithIdentities, error)
+	UpdateSCIMUser(ctx context.Context, id uuid.UUID, displayName, externalID *string, entries []audit.Entry) (UserWithIdentities, error)
 	UpdateUserAdmin(ctx context.Context, id uuid.UUID, upd UserUpdate, entries []audit.Entry) (UserWithIdentities, error)
 	DeleteUser(ctx context.Context, id uuid.UUID, entries []audit.Entry) error
 

@@ -15,7 +15,7 @@ import (
 // grants per user. Grants use a correlated subquery to avoid a cross-product
 // with the identities join.
 const userWithIdentitiesQuery = `
-	SELECT u.id, u.email, u.display_name, u.role, u.disabled_at, u.last_login_at, u.created_at,
+	SELECT u.id, u.email, u.display_name, u.role, u.external_id, u.disabled_at, u.last_login_at, u.created_at,
 	       COALESCE(array_agg(i.provider ORDER BY i.provider) FILTER (WHERE i.provider IS NOT NULL), '{}'),
 	       COALESCE((SELECT array_agg(g.customer_id) FROM user_customer_grants g WHERE g.user_id = u.id), '{}')
 	FROM users u
@@ -23,8 +23,79 @@ const userWithIdentitiesQuery = `
 
 func scanUserWithIdentities(row pgx.Row) (UserWithIdentities, error) {
 	var u UserWithIdentities
-	err := row.Scan(&u.ID, &u.Email, &u.DisplayName, &u.Role, &u.DisabledAt, &u.LastLoginAt, &u.CreatedAt, &u.Identities, &u.CustomerIDs)
+	err := row.Scan(&u.ID, &u.Email, &u.DisplayName, &u.Role, &u.ExternalID, &u.DisabledAt, &u.LastLoginAt, &u.CreatedAt, &u.Identities, &u.CustomerIDs)
 	return u, err
+}
+
+// GetUserByEmail returns the user with the given email (case-insensitive), or
+// ErrNotFound. Used by SCIM to reconcile by userName.
+func (s *PG) GetUserByEmail(ctx context.Context, email string) (UserWithIdentities, error) {
+	u, err := scanUserWithIdentities(s.pool.QueryRow(ctx, userWithIdentitiesQuery+`
+		WHERE lower(u.email) = lower($1) GROUP BY u.id`, email))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return UserWithIdentities{}, ErrNotFound
+	}
+	return u, err
+}
+
+// CreateSCIMUser provisions a user from a SCIM POST. Like an invite, the row
+// has no identity until first SSO login; role is the SCIM default. Returns
+// ErrEmailExists on a duplicate email.
+func (s *PG) CreateSCIMUser(ctx context.Context, id uuid.UUID, email, role string, displayName, externalID *string, entries []audit.Entry) (UserWithIdentities, error) {
+	var out UserWithIdentities
+	err := s.inTx(ctx, func(tx pgx.Tx) error {
+		var u User
+		err := scanUserRow(tx.QueryRow(ctx, `
+			INSERT INTO users (id, email, role, display_name, external_id)
+			VALUES ($1, $2, $3, $4, $5)
+			RETURNING `+userCols, id, email, role, displayName, externalID), &u)
+		if isUniqueViolation(err, "users_email_key") {
+			return ErrEmailExists
+		}
+		if isUniqueViolation(err, "users_external_id_key") {
+			return ErrConflict
+		}
+		if err != nil {
+			return fmt.Errorf("insert scim user: %w", err)
+		}
+		if err := audit.Write(ctx, tx, entries...); err != nil {
+			return err
+		}
+		out, err = scanUserWithIdentities(tx.QueryRow(ctx, userWithIdentitiesQuery+`
+			WHERE u.id = $1 GROUP BY u.id`, id))
+		return err
+	})
+	if err != nil {
+		return UserWithIdentities{}, err
+	}
+	return out, nil
+}
+
+// UpdateSCIMUser sets the SCIM-managed attributes (display name, external id)
+// and returns the refreshed user. Both are always written (pass the current
+// value to leave one unchanged). Role and active state are managed elsewhere.
+func (s *PG) UpdateSCIMUser(ctx context.Context, id uuid.UUID, displayName, externalID *string, entries []audit.Entry) (UserWithIdentities, error) {
+	var out UserWithIdentities
+	err := s.inTx(ctx, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, `
+			UPDATE users SET display_name = $2, external_id = $3 WHERE id = $1`, id, displayName, externalID)
+		if err != nil {
+			return fmt.Errorf("update scim user: %w", err)
+		}
+		if tag.RowsAffected() == 0 {
+			return ErrNotFound
+		}
+		if err := audit.Write(ctx, tx, entries...); err != nil {
+			return err
+		}
+		out, err = scanUserWithIdentities(tx.QueryRow(ctx, userWithIdentitiesQuery+`
+			WHERE u.id = $1 GROUP BY u.id`, id))
+		return err
+	})
+	if err != nil {
+		return UserWithIdentities{}, err
+	}
+	return out, nil
 }
 
 // ListUserCustomerIDs returns the customer grants of one user (empty when

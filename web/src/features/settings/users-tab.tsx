@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Trash2, UserPlus } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
+import { FolderSync, Trash2, UserPlus } from 'lucide-react'
 import {
   deleteUserMutation,
   listCustomersOptions,
@@ -14,6 +15,7 @@ import { useMe } from '@/hooks/use-me'
 import { InviteUserDialog } from '@/features/settings/invite-user-dialog'
 import { EditAccessDialog } from '@/features/settings/edit-access-dialog'
 import { toast } from '@/components/toaster'
+import { CopyButton } from '@/components/copy-button'
 import { ErrorState } from '@/components/error-state'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Button } from '@/components/ui/button'
@@ -119,6 +121,8 @@ export function UsersTab() {
         />
       )}
 
+      <ScimInfoCard />
+
       <InviteUserDialog open={inviteOpen} onOpenChange={setInviteOpen} />
       <EditAccessDialog user={accessTarget} onClose={() => setAccessTarget(null)} />
       <ConfirmDialog
@@ -152,6 +156,39 @@ export function UsersTab() {
         }}
       />
     </div>
+  )
+}
+
+function ScimInfoCard() {
+  const origin =
+    typeof window !== 'undefined' ? window.location.origin : 'https://otelfleet.example.com'
+  const baseUrl = `${origin}/scim/v2`
+
+  return (
+    <section className="flex flex-col gap-2 rounded-lg border border-line bg-surface-2 p-4">
+      <div className="flex items-center gap-2">
+        <FolderSync aria-hidden className="size-3.5 text-ink-3" />
+        <h3 className="text-xs font-semibold text-ink-2">Directory provisioning (SCIM)</h3>
+      </div>
+      <div className="flex items-center gap-1">
+        <code className="min-w-0 flex-1 truncate font-mono text-xs text-ink" title={baseUrl}>
+          {baseUrl}
+        </code>
+        <CopyButton value={baseUrl} label="Copy SCIM base URL" />
+      </div>
+      <p className="text-xs text-ink-3">
+        Point your identity provider (Okta, Entra ID, …) here and authenticate with an admin{' '}
+        <Link
+          to="/settings"
+          search={{ tab: 'tokens' }}
+          className="text-accent underline-offset-2 hover:underline"
+        >
+          API token
+        </Link>
+        . Provisioned users appear above with the viewer role by default; set their role and customer
+        access here.
+      </p>
+    </section>
   )
 }
 

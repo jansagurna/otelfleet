@@ -69,6 +69,11 @@ type Config struct {
 	AdminEmails   []string
 	SessionSecure bool
 
+	// SCIMDefaultRole is the role assigned to users provisioned via SCIM
+	// (OTELFLEET_SCIM_DEFAULT_ROLE); defaults to "viewer" (least privilege).
+	// Admins adjust roles/grants afterward in the UI.
+	SCIMDefaultRole string
+
 	// MasterKeyBase64 is OTELFLEET_MASTER_KEY: the base64-encoded 32-byte key
 	// for envelope encryption of secrets at rest (auth-provider client
 	// secrets, pipeline exporter credentials). Empty = not configured; the
@@ -151,6 +156,8 @@ func Load() (*Config, error) {
 			cfg.AdminEmails = append(cfg.AdminEmails, e)
 		}
 	}
+
+	cfg.SCIMDefaultRole = env("SCIM_DEFAULT_ROLE", "viewer")
 
 	if issuer := env("OIDC_ISSUER", ""); issuer != "" {
 		p := OIDCProvider{

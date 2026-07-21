@@ -68,6 +68,7 @@ nav:
       - Pipeline templates: guides/pipeline-templates.md
       - Edge agents: guides/edge-agents.md
       - Single sign-on: guides/sso.md
+      - SCIM provisioning: guides/scim.md
       - CLI & config-as-code: guides/cli.md
   - Architecture: architecture.md
   - Reference:

@@ -53,6 +53,19 @@ describe('/settings?tab=users', () => {
     expect(screen.getByRole('button', { name: /invite user/i })).toBeInTheDocument()
   })
 
+  it('renders the read-only SCIM directory-provisioning card', async () => {
+    renderApp('/settings?tab=users')
+    // The card renders its title and the SCIM base URL for the current origin.
+    expect(await screen.findByText(/directory provisioning \(scim\)/i)).toBeInTheDocument()
+    expect(screen.getByText(/\/scim\/v2$/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /copy scim base url/i })).toBeInTheDocument()
+    // "API token" (exact — not the "API tokens" tab link) links across to the tokens tab.
+    expect(screen.getByRole('link', { name: 'API token' })).toHaveAttribute(
+      'href',
+      expect.stringContaining('tab=tokens'),
+    )
+  })
+
   it('shows customer access: all-customers for admin/unscoped, chips for scoped users', async () => {
     renderApp('/settings?tab=users')
     // Scoped operator row is present.

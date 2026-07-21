@@ -320,10 +320,10 @@ func (s *PG) TouchAPIKeys(ctx context.Context, usages map[uuid.UUID]time.Time) e
 	return s.pool.SendBatch(ctx, batch).Close()
 }
 
-const userCols = `id, email, display_name, role, disabled_at, last_login_at, created_at`
+const userCols = `id, email, display_name, role, external_id, disabled_at, last_login_at, created_at`
 
 func scanUserRow(row pgx.Row, u *User) error {
-	return row.Scan(&u.ID, &u.Email, &u.DisplayName, &u.Role, &u.DisabledAt, &u.LastLoginAt, &u.CreatedAt)
+	return row.Scan(&u.ID, &u.Email, &u.DisplayName, &u.Role, &u.ExternalID, &u.DisabledAt, &u.LastLoginAt, &u.CreatedAt)
 }
 
 func (s *PG) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
@@ -346,7 +346,7 @@ func (s *PG) UpsertUserByIdentity(ctx context.Context, provider, subject, email 
 	var u User
 	err := s.inTx(ctx, func(tx pgx.Tx) error {
 		err := scanUserRow(tx.QueryRow(ctx, `
-			SELECT u.id, u.email, u.display_name, u.role, u.disabled_at, u.last_login_at, u.created_at
+			SELECT u.id, u.email, u.display_name, u.role, u.external_id, u.disabled_at, u.last_login_at, u.created_at
 			FROM users u JOIN user_identities i ON i.user_id = u.id
 			WHERE i.provider = $1 AND i.subject = $2`, provider, subject), &u)
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {

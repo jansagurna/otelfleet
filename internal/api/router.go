@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"github.com/jansagurna/otelfleet/internal/api/apigen"
 	"github.com/jansagurna/otelfleet/internal/auth"
 	"github.com/jansagurna/otelfleet/internal/config"
+	"github.com/jansagurna/otelfleet/internal/scim"
 	"github.com/jansagurna/otelfleet/internal/store"
 )
 
@@ -38,6 +40,14 @@ func NewRouter(d RouterDeps) http.Handler {
 
 	r.Get("/auth/{provider}/start", d.Auth.Start)
 	r.Get("/auth/{provider}/callback", d.Auth.Callback)
+
+	// SCIM 2.0 user provisioning for identity providers. Authenticated with an
+	// admin management-API token (not a session), so it sits outside the Guard.
+	scimSrv := scim.New(d.Store, func(ctx context.Context, authorization string) (string, bool) {
+		role, _, ok := authenticateAPIToken(ctx, d.Store, authorization)
+		return role, ok
+	}, d.Config.SCIMDefaultRole, d.Log)
+	r.Mount("/scim/v2", scimSrv.Router())
 
 	strict := apigen.NewStrictHandlerWithOptions(d.Server, nil, apigen.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
