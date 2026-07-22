@@ -9,6 +9,27 @@ metadata:
 data:
   config.yaml: |
 {{ .Files.Get "files/otelcol-gateway.yaml" | indent 4 }}
+  {{- if .Values.gateway.ingestTLS.enabled }}
+  # Overlay merged onto config.yaml (second --config) to serve OTLP over TLS.
+  tls-overlay.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            tls:
+              cert_file: /etc/otelcol-tls/tls.crt
+              key_file: /etc/otelcol-tls/tls.key
+              {{- if .Values.gateway.ingestTLS.mtls }}
+              client_ca_file: /etc/otelcol-tls/ca.crt
+              {{- end }}
+          http:
+            tls:
+              cert_file: /etc/otelcol-tls/tls.crt
+              key_file: /etc/otelcol-tls/tls.key
+              {{- if .Values.gateway.ingestTLS.mtls }}
+              client_ca_file: /etc/otelcol-tls/ca.crt
+              {{- end }}
+  {{- end }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -29,8 +50,9 @@ spec:
         {{- include "otelfleet.labels" . | nindent 8 }}
         app.kubernetes.io/component: gateway
       annotations:
-        # Roll the pods when the static ingest config changes.
+        # Roll the pods when the static ingest config or the TLS toggle changes.
         checksum/config: {{ .Files.Get "files/otelcol-gateway.yaml" | sha256sum }}
+        checksum/ingest-tls: {{ .Values.gateway.ingestTLS | toYaml | sha256sum }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets: {{- toYaml . | nindent 8 }}
@@ -39,7 +61,11 @@ spec:
         - name: otelcol
           image: {{ include "otelfleet.collectorImage" . }}
           imagePullPolicy: {{ .Values.images.collector.pullPolicy }}
-          args: ["--config=/etc/otelcol/config.yaml"]
+          args:
+            - --config=/etc/otelcol/config.yaml
+            {{- if .Values.gateway.ingestTLS.enabled }}
+            - --config=/etc/otelcol/tls-overlay.yaml
+            {{- end }}
           env:
             - name: OTELFLEET_AUTH_ENDPOINT
               value: {{ printf "%s-control-plane:9443" (include "otelfleet.fullname" .) | quote }}
@@ -65,11 +91,19 @@ spec:
           volumeMounts:
             - { name: config, mountPath: /etc/otelcol, readOnly: true }
             - { name: queue, mountPath: /var/lib/otelcol }
+            {{- if .Values.gateway.ingestTLS.enabled }}
+            - { name: ingest-tls, mountPath: /etc/otelcol-tls, readOnly: true }
+            {{- end }}
           resources: {{- toYaml .Values.gateway.resources | nindent 12 }}
       volumes:
         - name: config
           configMap:
             name: {{ include "otelfleet.fullname" . }}-gateway
+        {{- if .Values.gateway.ingestTLS.enabled }}
+        - name: ingest-tls
+          secret:
+            secretName: {{ required "gateway.ingestTLS.secretName is required when ingestTLS.enabled" .Values.gateway.ingestTLS.secretName | quote }}
+        {{- end }}
         - name: queue
           {{- if .Values.gateway.persistentQueue.enabled }}
           persistentVolumeClaim:
@@ -93,6 +127,10 @@ metadata:
     app.kubernetes.io/component: gateway
 spec:
   type: {{ .Values.gateway.service.type }}
+  {{- with .Values.gateway.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   selector:
     {{- include "otelfleet.selector" . | nindent 4 }}
     app.kubernetes.io/component: gateway

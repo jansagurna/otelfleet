@@ -144,6 +144,31 @@ gateway:
 The gateway's static config is checksum-annotated: chart upgrades that change it
 roll the pods automatically.
 
+### Securing the public OTLP endpoint
+
+The gateway ingest endpoint is customer-facing. Harden it with TLS/mTLS and an
+IP allowlist:
+
+```yaml
+gateway:
+  service:
+    type: LoadBalancer
+    # IP allowlist enforced by the cloud load balancer.
+    loadBalancerSourceRanges: ["203.0.113.0/24"]
+  ingestTLS:
+    enabled: true
+    mtls: true          # also require + verify a client certificate
+    secretName: gw-tls  # kubernetes.io/tls Secret: tls.crt, tls.key (+ ca.crt when mtls)
+```
+
+`ingestTLS` serves OTLP over TLS by merging a `tls` block onto the gateway's
+OTLP receiver (a second `--config` overlay; the base config stays plaintext-only
+when disabled). With `mtls: true`, clients must present a certificate signed by
+the `ca.crt` in the Secret — a strong control for a public endpoint, on top of
+the per-request API key. Ingest auth already requires a valid API key regardless
+of TLS; every request is refused otherwise. (The gateway→control-plane gRPC hop
+supports mTLS independently — see `controlPlane.tls`.)
+
 ## Secrets encryption (`OTELFLEET_MASTER_KEY`)
 
 The control plane needs `OTELFLEET_MASTER_KEY` (base64, 32 bytes —

@@ -113,6 +113,16 @@ gateway:
     limits: { memory: 1Gi }
   service:
     type: ClusterIP     # front with LB/ingress-grpc for customer OTLP in production
+    # IP allowlist for a type: LoadBalancer service — the cloud LB enforces it
+    # in front of the public OTLP endpoint. e.g. ["203.0.113.0/24"]
+    loadBalancerSourceRanges: []
+  # TLS / mTLS on the public OTLP ingest receiver. Certs come from a
+  # kubernetes.io/tls Secret (tls.crt + tls.key, plus ca.crt when mtls). Served
+  # via a config overlay merged onto the static gateway config.
+  ingestTLS:
+    enabled: false
+    mtls: false        # also require and verify a client certificate
+    secretName: ""     # required when enabled
   persistentQueue:
     enabled: false      # PVC-backed sending queue for the clickhouse exporter
     size: 5Gi
