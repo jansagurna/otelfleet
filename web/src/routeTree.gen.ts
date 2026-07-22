@@ -16,6 +16,7 @@ import { Route as AuthSettingsRouteImport } from './routes/_auth/settings'
 import { Route as AuthMetricsRouteImport } from './routes/_auth/metrics'
 import { Route as AuthExploreRouteImport } from './routes/_auth/explore'
 import { Route as AuthCostsRouteImport } from './routes/_auth/costs'
+import { Route as AuthBillingRouteImport } from './routes/_auth/billing'
 import { Route as AuthAuditRouteImport } from './routes/_auth/audit'
 import { Route as AuthPipelinesIndexRouteImport } from './routes/_auth/pipelines.index'
 import { Route as AuthFleetIndexRouteImport } from './routes/_auth/fleet.index'
@@ -58,6 +59,11 @@ const AuthCostsRoute = AuthCostsRouteImport.update({
   path: '/costs',
   getParentRoute: () => AuthRoute,
 } as any)
+const AuthBillingRoute = AuthBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => AuthRoute,
+} as any)
 const AuthAuditRoute = AuthAuditRouteImport.update({
   id: '/audit',
   path: '/audit',
@@ -98,6 +104,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthIndexRoute
   '/login': typeof LoginRoute
   '/audit': typeof AuthAuditRoute
+  '/billing': typeof AuthBillingRoute
   '/costs': typeof AuthCostsRoute
   '/explore': typeof AuthExploreRoute
   '/metrics': typeof AuthMetricsRoute
@@ -112,6 +119,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/audit': typeof AuthAuditRoute
+  '/billing': typeof AuthBillingRoute
   '/costs': typeof AuthCostsRoute
   '/explore': typeof AuthExploreRoute
   '/metrics': typeof AuthMetricsRoute
@@ -129,6 +137,7 @@ export interface FileRoutesById {
   '/_auth': typeof AuthRouteWithChildren
   '/login': typeof LoginRoute
   '/_auth/audit': typeof AuthAuditRoute
+  '/_auth/billing': typeof AuthBillingRoute
   '/_auth/costs': typeof AuthCostsRoute
   '/_auth/explore': typeof AuthExploreRoute
   '/_auth/metrics': typeof AuthMetricsRoute
@@ -147,6 +156,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/audit'
+    | '/billing'
     | '/costs'
     | '/explore'
     | '/metrics'
@@ -161,6 +171,7 @@ export interface FileRouteTypes {
   to:
     | '/login'
     | '/audit'
+    | '/billing'
     | '/costs'
     | '/explore'
     | '/metrics'
@@ -177,6 +188,7 @@ export interface FileRouteTypes {
     | '/_auth'
     | '/login'
     | '/_auth/audit'
+    | '/_auth/billing'
     | '/_auth/costs'
     | '/_auth/explore'
     | '/_auth/metrics'
@@ -246,6 +258,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthCostsRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_auth/billing': {
+      id: '/_auth/billing'
+      path: '/billing'
+      fullPath: '/billing'
+      preLoaderRoute: typeof AuthBillingRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/_auth/audit': {
       id: '/_auth/audit'
       path: '/audit'
@@ -300,6 +319,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthRouteChildren {
   AuthAuditRoute: typeof AuthAuditRoute
+  AuthBillingRoute: typeof AuthBillingRoute
   AuthCostsRoute: typeof AuthCostsRoute
   AuthExploreRoute: typeof AuthExploreRoute
   AuthMetricsRoute: typeof AuthMetricsRoute
@@ -315,6 +335,7 @@ interface AuthRouteChildren {
 
 const AuthRouteChildren: AuthRouteChildren = {
   AuthAuditRoute: AuthAuditRoute,
+  AuthBillingRoute: AuthBillingRoute,
   AuthCostsRoute: AuthCostsRoute,
   AuthExploreRoute: AuthExploreRoute,
   AuthMetricsRoute: AuthMetricsRoute,

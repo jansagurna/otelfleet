@@ -54,6 +54,27 @@ export function formatDurationMs(ms: number): string {
   return `${minutes}m ${rem.toString().padStart(2, '0')}s`
 }
 
+/** Micro-units per whole currency unit (1_000_000 micro = 1.00). */
+export const MICRO_PER_UNIT = 1_000_000
+
+/**
+ * Money amount from integer micro-units, with the currency code and two
+ * decimals: formatMicro(12_350_000, 'EUR') -> "12.35 EUR".
+ */
+export function formatMicro(micro: number, currency: string): string {
+  return `${(micro / MICRO_PER_UNIT).toFixed(2)} ${currency}`
+}
+
+/** Micro-units -> the plain decimal number in currency units (for inputs/CSV). */
+export function microToUnit(micro: number): number {
+  return micro / MICRO_PER_UNIT
+}
+
+/** A user-typed decimal amount in currency units -> integer micro-units. */
+export function unitToMicro(value: number): number {
+  return Math.round(value * MICRO_PER_UNIT)
+}
+
 const dateTime = new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
   month: 'short',

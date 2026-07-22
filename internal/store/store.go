@@ -127,6 +127,23 @@ type AuthProviderUpdate struct {
 	Enabled         *bool
 }
 
+// BillingSettings is the singleton metered-billing price list. Prices are
+// integer micro-units of Currency (1 unit = 1e-6), avoiding float in money math.
+type BillingSettings struct {
+	PricePerGiBMicro          int64
+	PricePerMillionItemsMicro int64
+	Currency                  string
+	UpdatedAt                 time.Time
+	UpdatedBy                 *uuid.UUID
+}
+
+// BillingSettingsUpdate carries the PATCH fields; nil means unchanged.
+type BillingSettingsUpdate struct {
+	PricePerGiBMicro          *int64
+	PricePerMillionItemsMicro *int64
+	Currency                  *string
+}
+
 // AuditFilter narrows ListAuditLog; nil fields match everything.
 type AuditFilter struct {
 	Action      *string
@@ -561,6 +578,10 @@ type Store interface {
 	UpdateSCIMUser(ctx context.Context, id uuid.UUID, displayName, externalID *string, entries []audit.Entry) (UserWithIdentities, error)
 	UpdateUserAdmin(ctx context.Context, id uuid.UUID, upd UserUpdate, entries []audit.Entry) (UserWithIdentities, error)
 	DeleteUser(ctx context.Context, id uuid.UUID, entries []audit.Entry) error
+
+	// Billing settings (singleton price list).
+	GetBillingSettings(ctx context.Context) (BillingSettings, error)
+	UpdateBillingSettings(ctx context.Context, upd BillingSettingsUpdate, actor *uuid.UUID, entries []audit.Entry) (BillingSettings, error)
 
 	// Per-customer grants (tenant-scoped RBAC). ListUserCustomerIDs is on the
 	// request hot path (Guard); SetUserCustomerGrants replaces a user's full

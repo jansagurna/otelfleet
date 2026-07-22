@@ -462,6 +462,50 @@ export type CustomerCost = {
     }>;
 };
 
+/**
+ * Metered-billing price list. Prices are integer micro-units of currency (1,000,000 micro = 1 unit of currency), avoiding float rounding.
+ */
+export type BillingSettings = {
+    /**
+     * Price per GiB ingested
+     */
+    pricePerGibMicro: number;
+    /**
+     * Price per 1
+     */
+    pricePerMillionItemsMicro: number;
+    currency: string;
+    updatedAt: string;
+};
+
+export type BillingSettingsUpdate = {
+    pricePerGibMicro?: number;
+    pricePerMillionItemsMicro?: number;
+    /**
+     * ISO-4217-ish 3-letter code.
+     */
+    currency?: string;
+};
+
+export type BillingLine = {
+    customerId: string;
+    name: string;
+    items: number;
+    bytes: number;
+    bytesCostMicro: number;
+    itemsCostMicro: number;
+    totalMicro: number;
+};
+
+export type BillingStatement = {
+    month: string;
+    currency: string;
+    pricePerGibMicro: number;
+    pricePerMillionItemsMicro: number;
+    lines: Array<BillingLine>;
+    totalMicro: number;
+};
+
 export type WebhookEvent = 'agent_offline' | 'agent_config_failed' | 'agent_unhealthy';
 
 /**
@@ -2365,6 +2409,106 @@ export type GetCostStatsResponses = {
 };
 
 export type GetCostStatsResponse = GetCostStatsResponses[keyof GetCostStatsResponses];
+
+export type GetBillingStatementData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Calendar month YYYY-MM (UTC).
+         */
+        month: string;
+    };
+    url: '/api/v1/billing/statement';
+};
+
+export type GetBillingStatementErrors = {
+    /**
+     * Validation error
+     */
+    400: Error;
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+};
+
+export type GetBillingStatementError = GetBillingStatementErrors[keyof GetBillingStatementErrors];
+
+export type GetBillingStatementResponses = {
+    /**
+     * Billing statement
+     */
+    200: BillingStatement;
+};
+
+export type GetBillingStatementResponse = GetBillingStatementResponses[keyof GetBillingStatementResponses];
+
+export type GetBillingSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/settings/billing';
+};
+
+export type GetBillingSettingsErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+};
+
+export type GetBillingSettingsError = GetBillingSettingsErrors[keyof GetBillingSettingsErrors];
+
+export type GetBillingSettingsResponses = {
+    /**
+     * Price list
+     */
+    200: BillingSettings;
+};
+
+export type GetBillingSettingsResponse = GetBillingSettingsResponses[keyof GetBillingSettingsResponses];
+
+export type UpdateBillingSettingsData = {
+    body: BillingSettingsUpdate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/settings/billing';
+};
+
+export type UpdateBillingSettingsErrors = {
+    /**
+     * Validation error
+     */
+    400: Error;
+    /**
+     * Not authenticated
+     */
+    401: Error;
+    /**
+     * Insufficient role
+     */
+    403: Error;
+};
+
+export type UpdateBillingSettingsError = UpdateBillingSettingsErrors[keyof UpdateBillingSettingsErrors];
+
+export type UpdateBillingSettingsResponses = {
+    /**
+     * Updated price list
+     */
+    200: BillingSettings;
+};
+
+export type UpdateBillingSettingsResponse = UpdateBillingSettingsResponses[keyof UpdateBillingSettingsResponses];
 
 export type ListWebhooksData = {
     body?: never;

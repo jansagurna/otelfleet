@@ -737,6 +737,47 @@ type AuthProviderConfigUpdate struct {
 // AuthProviderType defines model for AuthProviderType.
 type AuthProviderType string
 
+// BillingLine defines model for BillingLine.
+type BillingLine struct {
+	Bytes          int64              `json:"bytes"`
+	BytesCostMicro int64              `json:"bytesCostMicro"`
+	CustomerId     openapi_types.UUID `json:"customerId"`
+	Items          int64              `json:"items"`
+	ItemsCostMicro int64              `json:"itemsCostMicro"`
+	Name           string             `json:"name"`
+	TotalMicro     int64              `json:"totalMicro"`
+}
+
+// BillingSettings Metered-billing price list. Prices are integer micro-units of currency (1,000,000 micro = 1 unit of currency), avoiding float rounding.
+type BillingSettings struct {
+	Currency string `json:"currency"`
+
+	// PricePerGibMicro Price per GiB ingested
+	PricePerGibMicro int64 `json:"pricePerGibMicro"`
+
+	// PricePerMillionItemsMicro Price per 1
+	PricePerMillionItemsMicro int64     `json:"pricePerMillionItemsMicro"`
+	UpdatedAt                 time.Time `json:"updatedAt"`
+}
+
+// BillingSettingsUpdate defines model for BillingSettingsUpdate.
+type BillingSettingsUpdate struct {
+	// Currency ISO-4217-ish 3-letter code.
+	Currency                  *string `json:"currency,omitempty"`
+	PricePerGibMicro          *int64  `json:"pricePerGibMicro,omitempty"`
+	PricePerMillionItemsMicro *int64  `json:"pricePerMillionItemsMicro,omitempty"`
+}
+
+// BillingStatement defines model for BillingStatement.
+type BillingStatement struct {
+	Currency                  string        `json:"currency"`
+	Lines                     []BillingLine `json:"lines"`
+	Month                     string        `json:"month"`
+	PricePerGibMicro          int64         `json:"pricePerGibMicro"`
+	PricePerMillionItemsMicro int64         `json:"pricePerMillionItemsMicro"`
+	TotalMicro                int64         `json:"totalMicro"`
+}
+
 // BootstrapToken defines model for BootstrapToken.
 type BootstrapToken struct {
 	CreatedAt  time.Time          `json:"createdAt"`
@@ -1203,6 +1244,12 @@ type DevLoginJSONBody struct {
 	Email openapi_types.Email `json:"email"`
 }
 
+// GetBillingStatementParams defines parameters for GetBillingStatement.
+type GetBillingStatementParams struct {
+	// Month Calendar month YYYY-MM (UTC).
+	Month string `form:"month" json:"month"`
+}
+
 // ListCustomersParams defines parameters for ListCustomers.
 type ListCustomersParams struct {
 	Status *ListCustomersParamsStatus `form:"status,omitempty" json:"status,omitempty"`
@@ -1387,6 +1434,9 @@ type CreateAuthProviderConfigJSONRequestBody = AuthProviderConfigCreate
 // UpdateAuthProviderConfigJSONRequestBody defines body for UpdateAuthProviderConfig for application/json ContentType.
 type UpdateAuthProviderConfigJSONRequestBody = AuthProviderConfigUpdate
 
+// UpdateBillingSettingsJSONRequestBody defines body for UpdateBillingSettings for application/json ContentType.
+type UpdateBillingSettingsJSONRequestBody = BillingSettingsUpdate
+
 // CreateWebhookJSONRequestBody defines body for CreateWebhook for application/json ContentType.
 type CreateWebhookJSONRequestBody = WebhookCreate
 
@@ -1434,6 +1484,9 @@ type ServerInterface interface {
 	// Configured SSO providers for the login page (public)
 	// (GET /api/v1/auth/providers)
 	ListAuthProviders(w http.ResponseWriter, r *http.Request)
+	// Priced monthly usage statement per customer (admin only)
+	// (GET /api/v1/billing/statement)
+	GetBillingStatement(w http.ResponseWriter, r *http.Request, params GetBillingStatementParams)
 	// Curated collector components available in the pipeline builder
 	// (GET /api/v1/catalog/components)
 	GetComponentCatalog(w http.ResponseWriter, r *http.Request)
@@ -1539,6 +1592,12 @@ type ServerInterface interface {
 	// Connectivity test (OIDC discovery / GitHub API reachability)
 	// (POST /api/v1/settings/auth-providers/{providerId}/test)
 	TestAuthProviderConfig(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID)
+	// Get the metered-billing price list (admin only)
+	// (GET /api/v1/settings/billing)
+	GetBillingSettings(w http.ResponseWriter, r *http.Request)
+	// Update the metered-billing price list (admin only)
+	// (PUT /api/v1/settings/billing)
+	UpdateBillingSettings(w http.ResponseWriter, r *http.Request)
 	// List alerting webhooks (admin only, secrets never returned)
 	// (GET /api/v1/settings/webhooks)
 	ListWebhooks(w http.ResponseWriter, r *http.Request)
@@ -1641,6 +1700,12 @@ func (_ Unimplemented) Logout(w http.ResponseWriter, r *http.Request) {
 // Configured SSO providers for the login page (public)
 // (GET /api/v1/auth/providers)
 func (_ Unimplemented) ListAuthProviders(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Priced monthly usage statement per customer (admin only)
+// (GET /api/v1/billing/statement)
+func (_ Unimplemented) GetBillingStatement(w http.ResponseWriter, r *http.Request, params GetBillingStatementParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1851,6 +1916,18 @@ func (_ Unimplemented) UpdateAuthProviderConfig(w http.ResponseWriter, r *http.R
 // Connectivity test (OIDC discovery / GitHub API reachability)
 // (POST /api/v1/settings/auth-providers/{providerId}/test)
 func (_ Unimplemented) TestAuthProviderConfig(w http.ResponseWriter, r *http.Request, providerId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Get the metered-billing price list (admin only)
+// (GET /api/v1/settings/billing)
+func (_ Unimplemented) GetBillingSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update the metered-billing price list (admin only)
+// (PUT /api/v1/settings/billing)
+func (_ Unimplemented) UpdateBillingSettings(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2317,6 +2394,39 @@ func (siw *ServerInterfaceWrapper) ListAuthProviders(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListAuthProviders(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetBillingStatement operation middleware
+func (siw *ServerInterfaceWrapper) GetBillingStatement(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetBillingStatementParams
+
+	// ------------- Required query parameter "month" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "month", r.URL.Query(), &params.Month, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "month"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "month", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetBillingStatement(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3465,6 +3575,34 @@ func (siw *ServerInterfaceWrapper) TestAuthProviderConfig(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// GetBillingSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetBillingSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetBillingSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateBillingSettings operation middleware
+func (siw *ServerInterfaceWrapper) UpdateBillingSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateBillingSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListWebhooks operation middleware
 func (siw *ServerInterfaceWrapper) ListWebhooks(w http.ResponseWriter, r *http.Request) {
 
@@ -3890,6 +4028,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/api/v1/auth/providers", wrapper.ListAuthProviders)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/billing/statement", wrapper.GetBillingStatement)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/catalog/components", wrapper.GetComponentCatalog)
 	})
 	r.Group(func(r chi.Router) {
@@ -3993,6 +4134,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/settings/auth-providers/{providerId}/test", wrapper.TestAuthProviderConfig)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/settings/billing", wrapper.GetBillingSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/settings/billing", wrapper.UpdateBillingSettings)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/settings/webhooks", wrapper.ListWebhooks)
@@ -4591,6 +4738,70 @@ func (response ListAuthProviders200JSONResponse) VisitListAuthProvidersResponse(
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetBillingStatementRequestObject struct {
+	Params GetBillingStatementParams
+}
+
+type GetBillingStatementResponseObject interface {
+	VisitGetBillingStatementResponse(w http.ResponseWriter) error
+}
+
+type GetBillingStatement200JSONResponse BillingStatement
+
+func (response GetBillingStatement200JSONResponse) VisitGetBillingStatementResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetBillingStatement400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetBillingStatement400JSONResponse) VisitGetBillingStatementResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetBillingStatement401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetBillingStatement401JSONResponse) VisitGetBillingStatementResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetBillingStatement403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetBillingStatement403JSONResponse) VisitGetBillingStatementResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -6618,6 +6829,119 @@ func (response TestAuthProviderConfig404JSONResponse) VisitTestAuthProviderConfi
 	return err
 }
 
+type GetBillingSettingsRequestObject struct {
+}
+
+type GetBillingSettingsResponseObject interface {
+	VisitGetBillingSettingsResponse(w http.ResponseWriter) error
+}
+
+type GetBillingSettings200JSONResponse BillingSettings
+
+func (response GetBillingSettings200JSONResponse) VisitGetBillingSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetBillingSettings401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetBillingSettings401JSONResponse) VisitGetBillingSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetBillingSettings403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetBillingSettings403JSONResponse) VisitGetBillingSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateBillingSettingsRequestObject struct {
+	Body *UpdateBillingSettingsJSONRequestBody
+}
+
+type UpdateBillingSettingsResponseObject interface {
+	VisitUpdateBillingSettingsResponse(w http.ResponseWriter) error
+}
+
+type UpdateBillingSettings200JSONResponse BillingSettings
+
+func (response UpdateBillingSettings200JSONResponse) VisitUpdateBillingSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateBillingSettings400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UpdateBillingSettings400JSONResponse) VisitUpdateBillingSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateBillingSettings401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UpdateBillingSettings401JSONResponse) VisitUpdateBillingSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateBillingSettings403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UpdateBillingSettings403JSONResponse) VisitUpdateBillingSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListWebhooksRequestObject struct {
 }
 
@@ -7327,6 +7651,9 @@ type StrictServerInterface interface {
 	// Configured SSO providers for the login page (public)
 	// (GET /api/v1/auth/providers)
 	ListAuthProviders(ctx context.Context, request ListAuthProvidersRequestObject) (ListAuthProvidersResponseObject, error)
+	// Priced monthly usage statement per customer (admin only)
+	// (GET /api/v1/billing/statement)
+	GetBillingStatement(ctx context.Context, request GetBillingStatementRequestObject) (GetBillingStatementResponseObject, error)
 	// Curated collector components available in the pipeline builder
 	// (GET /api/v1/catalog/components)
 	GetComponentCatalog(ctx context.Context, request GetComponentCatalogRequestObject) (GetComponentCatalogResponseObject, error)
@@ -7432,6 +7759,12 @@ type StrictServerInterface interface {
 	// Connectivity test (OIDC discovery / GitHub API reachability)
 	// (POST /api/v1/settings/auth-providers/{providerId}/test)
 	TestAuthProviderConfig(ctx context.Context, request TestAuthProviderConfigRequestObject) (TestAuthProviderConfigResponseObject, error)
+	// Get the metered-billing price list (admin only)
+	// (GET /api/v1/settings/billing)
+	GetBillingSettings(ctx context.Context, request GetBillingSettingsRequestObject) (GetBillingSettingsResponseObject, error)
+	// Update the metered-billing price list (admin only)
+	// (PUT /api/v1/settings/billing)
+	UpdateBillingSettings(ctx context.Context, request UpdateBillingSettingsRequestObject) (UpdateBillingSettingsResponseObject, error)
 	// List alerting webhooks (admin only, secrets never returned)
 	// (GET /api/v1/settings/webhooks)
 	ListWebhooks(ctx context.Context, request ListWebhooksRequestObject) (ListWebhooksResponseObject, error)
@@ -7784,6 +8117,32 @@ func (sh *strictHandler) ListAuthProviders(w http.ResponseWriter, r *http.Reques
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListAuthProvidersResponseObject); ok {
 		if err := validResponse.VisitListAuthProvidersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetBillingStatement operation middleware
+func (sh *strictHandler) GetBillingStatement(w http.ResponseWriter, r *http.Request, params GetBillingStatementParams) {
+	var request GetBillingStatementRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetBillingStatement(ctx, request.(GetBillingStatementRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetBillingStatement")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetBillingStatementResponseObject); ok {
+		if err := validResponse.VisitGetBillingStatementResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -8755,6 +9114,61 @@ func (sh *strictHandler) TestAuthProviderConfig(w http.ResponseWriter, r *http.R
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(TestAuthProviderConfigResponseObject); ok {
 		if err := validResponse.VisitTestAuthProviderConfigResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetBillingSettings operation middleware
+func (sh *strictHandler) GetBillingSettings(w http.ResponseWriter, r *http.Request) {
+	var request GetBillingSettingsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetBillingSettings(ctx, request.(GetBillingSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetBillingSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetBillingSettingsResponseObject); ok {
+		if err := validResponse.VisitGetBillingSettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateBillingSettings operation middleware
+func (sh *strictHandler) UpdateBillingSettings(w http.ResponseWriter, r *http.Request) {
+	var request UpdateBillingSettingsRequestObject
+
+	var body UpdateBillingSettingsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateBillingSettings(ctx, request.(UpdateBillingSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateBillingSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateBillingSettingsResponseObject); ok {
+		if err := validResponse.VisitUpdateBillingSettingsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

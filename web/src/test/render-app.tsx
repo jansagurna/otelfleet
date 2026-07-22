@@ -11,6 +11,8 @@ import type {
   ApiToken,
   AuditEntry,
   AuthProviderConfig,
+  BillingSettings,
+  BillingStatement,
   BootstrapToken,
   Customer,
   LogRecord,
@@ -290,6 +292,41 @@ export const testWebhooks: Webhook[] = [
   },
 ]
 
+export const testBillingSettings: BillingSettings = {
+  pricePerGibMicro: 500_000,
+  pricePerMillionItemsMicro: 2_000_000,
+  currency: 'EUR',
+  updatedAt: '2026-07-01T09:00:00Z',
+}
+
+export const testBillingStatement: BillingStatement = {
+  month: '2026-07',
+  currency: 'EUR',
+  pricePerGibMicro: 500_000,
+  pricePerMillionItemsMicro: 2_000_000,
+  lines: [
+    {
+      customerId: testCustomer.id,
+      name: testCustomer.name,
+      items: 3_000_000,
+      bytes: 2_147_483_648,
+      bytesCostMicro: 1_000_000,
+      itemsCostMicro: 6_000_000,
+      totalMicro: 7_000_000,
+    },
+    {
+      customerId: testCustomer2.id,
+      name: testCustomer2.name,
+      items: 1_500_000,
+      bytes: 1_073_741_824,
+      bytesCostMicro: 500_000,
+      itemsCostMicro: 3_000_000,
+      totalMicro: 3_500_000,
+    },
+  ],
+  totalMicro: 10_500_000,
+}
+
 const testThroughput = {
   series: (['logs', 'traces', 'metrics'] as const).map((signal) => ({
     signal,
@@ -426,6 +463,10 @@ export function stubApi(overrides: { me?: Me } = {}): void {
           return json({ entries: testAuditEntries, nextBeforeId: null })
         case '/api/v1/settings/webhooks':
           return json({ webhooks: testWebhooks })
+        case '/api/v1/settings/billing':
+          return json(testBillingSettings)
+        case '/api/v1/billing/statement':
+          return json(testBillingStatement)
         default:
           return new Response(JSON.stringify({ code: 'not_found', message: 'not found' }), {
             status: 404,

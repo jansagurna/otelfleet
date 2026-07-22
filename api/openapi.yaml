@@ -1016,6 +1016,55 @@ paths:
                     items: { $ref: "#/components/schemas/CustomerCost" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /api/v1/billing/statement:
+    get:
+      tags: [billing]
+      operationId: getBillingStatement
+      summary: Priced monthly usage statement per customer (admin only)
+      parameters:
+        - { name: month, in: query, required: true, schema: { type: string, pattern: "^[0-9]{4}-[0-9]{2}$" }, description: "Calendar month YYYY-MM (UTC)." }
+      responses:
+        "200":
+          description: Billing statement
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BillingStatement" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/settings/billing:
+    get:
+      tags: [billing]
+      operationId: getBillingSettings
+      summary: Get the metered-billing price list (admin only)
+      responses:
+        "200":
+          description: Price list
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BillingSettings" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    put:
+      tags: [billing]
+      operationId: updateBillingSettings
+      summary: Update the metered-billing price list (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BillingSettingsUpdate" }
+      responses:
+        "200":
+          description: Updated price list
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BillingSettings" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
   /api/v1/settings/webhooks:
     get:
       tags: [admin]
@@ -1720,6 +1769,50 @@ components:
               date: { type: string, format: date }
               items: { type: integer, format: int64 }
               bytes: { type: integer, format: int64 }
+
+    BillingSettings:
+      type: object
+      required: [pricePerGibMicro, pricePerMillionItemsMicro, currency, updatedAt]
+      description: >-
+        Metered-billing price list. Prices are integer micro-units of currency
+        (1,000,000 micro = 1 unit of currency), avoiding float rounding.
+      properties:
+        pricePerGibMicro: { type: integer, format: int64, description: Price per GiB ingested, in micro-currency. }
+        pricePerMillionItemsMicro: { type: integer, format: int64, description: Price per 1,000,000 items, in micro-currency. }
+        currency: { type: string, example: EUR }
+        updatedAt: { type: string, format: date-time }
+
+    BillingSettingsUpdate:
+      type: object
+      properties:
+        pricePerGibMicro: { type: integer, format: int64, minimum: 0 }
+        pricePerMillionItemsMicro: { type: integer, format: int64, minimum: 0 }
+        currency: { type: string, minLength: 3, maxLength: 3, description: ISO-4217-ish 3-letter code. }
+
+    BillingLine:
+      type: object
+      required: [customerId, name, items, bytes, bytesCostMicro, itemsCostMicro, totalMicro]
+      properties:
+        customerId: { type: string, format: uuid }
+        name: { type: string }
+        items: { type: integer, format: int64 }
+        bytes: { type: integer, format: int64 }
+        bytesCostMicro: { type: integer, format: int64 }
+        itemsCostMicro: { type: integer, format: int64 }
+        totalMicro: { type: integer, format: int64 }
+
+    BillingStatement:
+      type: object
+      required: [month, currency, pricePerGibMicro, pricePerMillionItemsMicro, lines, totalMicro]
+      properties:
+        month: { type: string, example: "2026-07" }
+        currency: { type: string, example: EUR }
+        pricePerGibMicro: { type: integer, format: int64 }
+        pricePerMillionItemsMicro: { type: integer, format: int64 }
+        lines:
+          type: array
+          items: { $ref: "#/components/schemas/BillingLine" }
+        totalMicro: { type: integer, format: int64 }
 
     WebhookEvent:
       type: string

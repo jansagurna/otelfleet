@@ -9,6 +9,7 @@ import {
   LogOut,
   Moon,
   Network,
+  Receipt,
   ScrollText,
   Settings,
   Ship,
@@ -70,6 +71,7 @@ const NAV_ITEMS: {
   { to: '/explore', label: 'Explore', icon: Telescope },
   { to: '/metrics', label: 'Metrics', icon: ChartLine },
   { to: '/costs', label: 'Costs', icon: Coins },
+  { to: '/billing', label: 'Billing', icon: Receipt, adminOnly: true },
   { to: '/audit', label: 'Audit', icon: ScrollText, adminOnly: true },
   { to: '/settings', label: 'Settings', icon: Settings, adminOnly: true },
 ]
