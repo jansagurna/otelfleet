@@ -40,6 +40,39 @@ server:
     Authorization: "Bearer ${env:OTELFLEET_BOOTSTRAP_TOKEN}"
 ```
 
+### On Kubernetes (Helm)
+
+The whole system runs on **Docker (compose)** *and* **Kubernetes**: the control
+plane, gateway and forwarding tiers ship in the `otelfleet` chart, and edge
+agents ship in the **`otelfleet-agent`** chart (`deploy/charts/otelfleet-agent`).
+It runs the same supervisor image as compose, as a StatefulSet (each replica is
+a distinct agent with its own persistent identity) plus a Service exposing OTLP
+to in-cluster apps:
+
+```sh
+helm install otelfleet-agent deploy/charts/otelfleet-agent \
+  --set opamp.endpoint=wss://otelfleet.example.com:4320/v1/opamp \
+  --set bootstrapToken.value=otm_bt_<prefix>_<secret>
+```
+
+Apps then send OTLP to `http://otelfleet-agent.<namespace>:4318` (gRPC `:4317`)
+— no per-app API key; the agent forwards under the customer it enrolled with.
+Use `bootstrapToken.existingSecret` instead of an inline value to source the
+token from a Secret.
+
+**Multiple regions** — install the chart once per region, each pointing at that
+region's OpAMP endpoint (see the
+[multi-region design](../design/multi-region-residency.md)):
+
+```sh
+helm install agent-eu deploy/charts/otelfleet-agent \
+  --set opamp.endpoint=wss://eu.otelfleet.example.com/v1/opamp --set region=eu \
+  --set bootstrapToken.existingSecret=otelfleet-bootstrap
+helm install agent-us deploy/charts/otelfleet-agent \
+  --set opamp.endpoint=wss://us.otelfleet.example.com/v1/opamp --set region=us \
+  --set bootstrapToken.existingSecret=otelfleet-bootstrap
+```
+
 ## Lifecycle
 
 ```mermaid
