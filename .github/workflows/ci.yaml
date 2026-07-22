@@ -90,6 +90,25 @@ jobs:
           helm template a deploy/charts/otelfleet-agent \
             --set opamp.endpoint=wss://idp/v1/opamp --set bootstrapToken.existingSecret=s --set persistence.enabled=false > /dev/null
 
+  # Exercise the release config on every push: goreleaser only runs on a tag,
+  # so archive/build mistakes (e.g. per-platform binary-count mismatches) would
+  # otherwise stay invisible until the release fails. A snapshot release does a
+  # full build + archive without publishing — `goreleaser check` alone does not
+  # catch archive-level errors.
+  release-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # goreleaser inspects git state
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --snapshot --clean --skip=publish,sign
+
   collector-image:
     runs-on: ubuntu-latest
     needs: [collector]
