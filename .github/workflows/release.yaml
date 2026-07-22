@@ -91,27 +91,26 @@ jobs:
       - name: Resolve version from tag
         id: version
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-      - name: Verify chart version matches the tag
+      - name: Verify chart versions match the tag
         run: |
-          chart_version=$(helm show chart deploy/charts/otelfleet | awk '/^version:/ {print $2}')
-          if [ "$chart_version" != "${{ steps.version.outputs.version }}" ]; then
-            echo "::error::Chart version ($chart_version) != tag version (${{ steps.version.outputs.version }})." \
-                 "Bump version/appVersion in deploy/charts/otelfleet/Chart.yaml before tagging (see RELEASING.md)."
-            exit 1
-          fi
+          for chart in otelfleet otelfleet-agent; do
+            chart_version=$(helm show chart "deploy/charts/$chart" | awk '/^version:/ {print $2}')
+            if [ "$chart_version" != "${{ steps.version.outputs.version }}" ]; then
+              echo "::error::Chart $chart version ($chart_version) != tag version (${{ steps.version.outputs.version }})." \
+                   "Bump version/appVersion in deploy/charts/$chart/Chart.yaml before tagging (see RELEASING.md)."
+              exit 1
+            fi
+          done
       - name: Login to GHCR
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | \
             helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
-      - name: Package and push chart
-        id: push
+      - name: Package, push and sign charts
         run: |
-          helm package deploy/charts/otelfleet --destination dist/
-          out=$(helm push "dist/otelfleet-${{ steps.version.outputs.version }}.tgz" "oci://${REGISTRY}/charts" 2>&1)
-          echo "$out"
-          digest=$(echo "$out" | awk '/Digest:/ {print $2}')
-          echo "digest=$digest" >> "$GITHUB_OUTPUT"
-      - name: Sign chart (cosign keyless)
-        run: |
-          cosign sign --yes \
-            "${REGISTRY}/charts/otelfleet@${{ steps.push.outputs.digest }}"
+          for chart in otelfleet otelfleet-agent; do
+            helm package "deploy/charts/$chart" --destination dist/
+            out=$(helm push "dist/$chart-${{ steps.version.outputs.version }}.tgz" "oci://${REGISTRY}/charts" 2>&1)
+            echo "$out"
+            digest=$(echo "$out" | awk '/Digest:/ {print $2}')
+            cosign sign --yes "${REGISTRY}/charts/$chart@${digest}"
+          done

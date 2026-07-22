@@ -82,6 +82,13 @@ jobs:
             --set forwarding.mode=operator --set controlPlane.distributor=k8s > /dev/null
           helm template t deploy/charts/otelfleet --set external.databaseUrl=postgres://x:y@pg:5432/otelfleet \
             --set keda.enabled=true --set gateway.autoscaling.ingestRatePerReplica=5000 > /dev/null
+      - run: helm lint deploy/charts/otelfleet-agent --set opamp.endpoint=wss://idp/v1/opamp --set bootstrapToken.value=otm_bt_x
+      - name: Template edge-agent chart (inline token, and existing-secret + no-persistence)
+        run: |
+          helm template a deploy/charts/otelfleet-agent \
+            --set opamp.endpoint=wss://idp/v1/opamp --set bootstrapToken.value=otm_bt_x --set region=eu > /dev/null
+          helm template a deploy/charts/otelfleet-agent \
+            --set opamp.endpoint=wss://idp/v1/opamp --set bootstrapToken.existingSecret=s --set persistence.enabled=false > /dev/null
 
   collector-image:
     runs-on: ubuntu-latest
