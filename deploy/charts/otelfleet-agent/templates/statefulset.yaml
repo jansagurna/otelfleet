@@ -8,7 +8,9 @@ spec:
   # Headless service gives each replica a stable network identity; each is a
   # distinct OpAMP agent with its own persistent state.
   serviceName: {{ include "otelfleet-agent.fullname" . }}-headless
+  {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "otelfleet-agent.selector" . | nindent 6 }}
@@ -49,6 +51,9 @@ spec:
           volumeMounts:
             - { name: supervisor-config, mountPath: /etc/otelfleet, readOnly: true }
             - { name: state, mountPath: /var/lib/otelfleet-supervisor }
+            {{- if .Values.opamp.tls.clientCertSecret }}
+            - { name: client-tls, mountPath: /etc/otelfleet-client-tls, readOnly: true }
+            {{- end }}
           {{- with .Values.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
@@ -57,6 +62,11 @@ spec:
         - name: supervisor-config
           configMap:
             name: {{ include "otelfleet-agent.fullname" . }}-supervisor
+        {{- if .Values.opamp.tls.clientCertSecret }}
+        - name: client-tls
+          secret:
+            secretName: {{ .Values.opamp.tls.clientCertSecret | quote }}
+        {{- end }}
         {{- if not .Values.persistence.enabled }}
         - name: state
           emptyDir: {}

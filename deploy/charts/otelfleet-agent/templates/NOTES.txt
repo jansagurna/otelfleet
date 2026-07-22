@@ -24,8 +24,12 @@ Agents (replicas): {{ .Values.replicaCount }}
      helm install {{ .Release.Name }}-us otelfleet-agent \
        --set opamp.endpoint=wss://us.otelfleet.example.com/v1/opamp \
        --set region=us --set bootstrapToken.value=otm_bt_…
-{{- if .Values.opamp.insecureTLS }}
+{{- if .Values.opamp.tls.insecure }}
 
-WARNING: opamp.insecureTLS is true — the bootstrap token is sent over a
-plaintext ws:// connection. Use wss:// (insecureTLS=false) outside local dev.
+WARNING: opamp.tls.insecure is true — the bootstrap token is sent over a
+plaintext ws:// connection. Use wss:// (opamp.tls.insecure=false) outside local dev.
+{{- end }}
+{{- if .Values.autoscaling.enabled }}
+
+Autoscaling: {{ .Values.autoscaling.minReplicas }}–{{ .Values.autoscaling.maxReplicas }} agents (HPA on CPU {{ .Values.autoscaling.targetCPUUtilizationPercentage }}%).
 {{- end }}

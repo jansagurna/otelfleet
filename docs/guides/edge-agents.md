@@ -60,6 +60,35 @@ Apps then send OTLP to `http://otelfleet-agent.<namespace>:4318` (gRPC `:4317`)
 Use `bootstrapToken.existingSecret` instead of an inline value to source the
 token from a Secret.
 
+**Securing a public OpAMP endpoint** — when the control plane's OpAMP endpoint
+is internet-facing, use `wss://` and configure TLS/mTLS + an allowlist on the
+agent chart:
+
+```sh
+helm install otelfleet-agent deploy/charts/otelfleet-agent \
+  --set opamp.endpoint=wss://otelfleet.example.com/v1/opamp \
+  --set bootstrapToken.existingSecret=otelfleet-bootstrap \
+  --set opamp.tls.caCert="$(cat corp-ca.pem)" \        # verify a private-CA server cert
+  --set opamp.tls.clientCertSecret=agent-mtls \          # present a client cert (mTLS)
+  --set networkPolicy.enabled=true \                     # restrict who reaches the agent's OTLP ports
+  --set 'networkPolicy.allowedNamespaces={apps}'         # …to these namespaces (or allowedPodSelector / allowedCIDRs)
+```
+
+- `opamp.tls`: `insecure` (plaintext ws://, dev only), `caCert` (private-CA
+  PEM), `serverName` (SNI override), `insecureSkipVerify`, and
+  `clientCertSecret` (a `kubernetes.io/tls` Secret the agent presents for
+  **mTLS**). The control plane already supports serving TLS + requiring client
+  certs (`controlPlane.tls` in the `otelfleet` chart).
+- `networkPolicy`: a Kubernetes-level allowlist for the agent's OTLP ports
+  (`allowedNamespaces` / `allowedPodSelector` / `allowedCIDRs`); with none set
+  it denies all ingress (agents only dial out).
+
+**Scaling the fleet** — set `autoscaling.enabled=true`
+(`minReplicas`/`maxReplicas`/`targetCPUUtilizationPercentage`) to let an HPA
+add or remove agent instances under load; each is a distinct enrolled agent.
+The central gateway/forwarding tiers scale independently via KEDA in the
+`otelfleet` chart.
+
 **Multiple regions** — install the chart once per region, each pointing at that
 region's OpAMP endpoint (see the
 [multi-region design](../design/multi-region-residency.md)):

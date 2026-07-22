@@ -16,7 +16,18 @@ data:
         # confmap env provider expands ${env:...} at startup.
         Authorization: "Bearer ${env:OTELFLEET_BOOTSTRAP_TOKEN}"
       tls:
-        insecure: {{ .Values.opamp.insecureTLS }}
+        insecure: {{ .Values.opamp.tls.insecure }}
+        insecure_skip_verify: {{ .Values.opamp.tls.insecureSkipVerify }}
+        {{- if .Values.opamp.tls.caCert }}
+        ca_file: /etc/otelfleet/ca.crt
+        {{- end }}
+        {{- if .Values.opamp.tls.clientCertSecret }}
+        cert_file: /etc/otelfleet-client-tls/tls.crt
+        key_file: /etc/otelfleet-client-tls/tls.key
+        {{- end }}
+        {{- with .Values.opamp.tls.serverName }}
+        server_name_override: {{ . | quote }}
+        {{- end }}
     capabilities:
       accepts_remote_config: true
       reports_effective_config: true
@@ -37,3 +48,7 @@ data:
       logs:
         level: {{ .Values.logLevel | quote }}
         encoding: console
+  {{- with .Values.opamp.tls.caCert }}
+  ca.crt: |
+    {{- . | nindent 4 }}
+  {{- end }}

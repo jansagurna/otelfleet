@@ -14,9 +14,18 @@ fullnameOverride: ""
 #   e.g. wss://eu.otelfleet.example.com/v1/opamp
 opamp:
   endpoint: ""
-  # true only for a plaintext ws:// endpoint (local/dev). Use wss:// + false in
-  # production so the bootstrap token is not sent in clear.
-  insecureTLS: false
+  tls:
+    # true only for a plaintext ws:// endpoint (local/dev). Use wss:// in prod.
+    insecure: false
+    # Skip server-certificate verification (NOT recommended; prefer caCert).
+    insecureSkipVerify: false
+    # PEM of a private CA that signed the server cert (empty = system roots).
+    caCert: ""
+    # Override the hostname verified in the server cert (SNI), if needed.
+    serverName: ""
+    # mTLS: a Secret (type kubernetes.io/tls) with tls.crt + tls.key the agent
+    # presents as a client certificate. Empty = no client cert.
+    clientCertSecret: ""
 
 # Per-customer enrollment bootstrap token (otm_bt_…). Provide it inline (dev)
 # or reference an existing Secret. After first connect the control plane hands
@@ -31,8 +40,26 @@ bootstrapToken:
 region: ""
 
 # Number of distinct agents to run. Each replica is a separate OpAMP instance
-# with its own persistent identity (StatefulSet + per-pod PVC).
+# with its own persistent identity (StatefulSet + per-pod PVC). Ignored when
+# autoscaling.enabled (the HPA owns the replica count).
 replicaCount: 1
+
+# Horizontal autoscaling of the agent fleet (adds/removes agent instances).
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+# Restrict who may reach the agent's OTLP ports (a Kubernetes-level allowlist).
+# When enabled, only the listed sources may send OTLP; everything else is
+# denied. Leave all lists empty to deny all ingress (agents only dial out).
+networkPolicy:
+  enabled: false
+  allowedNamespaces: [] # namespaces whose pods may send OTLP
+  allowedPodSelector: {} # label selector for allowed client pods
+  allowedCIDRs: [] # e.g. ["10.0.0.0/8"] — IP allowlist
 
 logLevel: info
 
