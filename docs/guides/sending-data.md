@@ -70,12 +70,20 @@ remotely — see [Edge agents](edge-agents.md).
 
 ### A quick test with telemetrygen
 
+Send all three signals — `telemetrygen` needs a count (`--logs`/`--traces`/
+`--metrics`) or a `--duration`, otherwise it exits with
+`either 'logs' or 'duration' must be greater than 0`:
+
 ```sh
-telemetrygen logs   --otlp-insecure --otlp-endpoint localhost:4317 \
-  --otlp-header 'authorization="Bearer otm_ab12cd34_…"' --logs 20
-telemetrygen traces --otlp-insecure --otlp-endpoint localhost:4317 \
-  --otlp-header 'authorization="Bearer otm_ab12cd34_…"' --traces 10
+KEY='authorization="Bearer otm_ab12cd34_…"'
+telemetrygen logs    --otlp-insecure --otlp-endpoint localhost:4317 --otlp-header "$KEY" --logs 20
+telemetrygen traces  --otlp-insecure --otlp-endpoint localhost:4317 --otlp-header "$KEY" --traces 20
+telemetrygen metrics --otlp-insecure --otlp-endpoint localhost:4317 --otlp-header "$KEY" --metrics 20
 ```
+
+For a customer with a rate limit, prefer `--duration` (e.g. `--duration 30s`)
+over a fixed count — on `RESOURCE_EXHAUSTED` telemetrygen retries a fixed
+`--logs` count indefinitely, while `--duration` terminates cleanly.
 
 ## 4. Verify it arrived
 
