@@ -75,6 +75,11 @@ controlPlane:
     # Require gateway collectors to present a client cert (mTLS). The gRPC
     # secret must then include ca.crt (the CA that signs client certs).
     grpcMTLS: false
+    # Secret with ca.crt: when set (and tls.enabled), the public OpAMP listener
+    # (:4320) requires and verifies an agent client cert signed by this CA
+    # (mTLS), on top of the enrollment token. Pair with the agent chart's
+    # opamp.tls.clientCertSecret.
+    opampClientCASecret: ""
     # Optionally let cert-manager issue the two secrets from an Issuer.
     certManager:
       enabled: false
@@ -90,6 +95,8 @@ controlPlane:
       # How edge agents (customer networks!) reach the OpAMP endpoint.
       type: ClusterIP   # set LoadBalancer or wire an ingress/gateway for production
       port: 4320
+      # IP allowlist for a type: LoadBalancer OpAMP endpoint (cloud LB enforced).
+      loadBalancerSourceRanges: []
     # Externally reachable OpAMP URL offered to edge agents with their
     # per-agent token (e.g. wss://opamp.example.com/v1/opamp). Empty = offer
     # only the new auth header; agents keep their current endpoint.

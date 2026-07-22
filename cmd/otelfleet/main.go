@@ -152,7 +152,20 @@ func run(log *slog.Logger) error {
 		return fmt.Errorf("gRPC TLS: %w", err)
 	}
 
-	opampSrv := opamp.NewServer(st, pipelinesSvc, cfg.OpAMPAddr, cfg.OpAMPPublicEndpoint, publicTLS, log)
+	// OpAMP listener TLS: serving-only by default; when an OpAMP client CA is
+	// configured, require and verify agent client certs (mTLS) using the public
+	// serving cert.
+	opampTLS := publicTLS
+	if cfg.OpAMPClientCAFile != "" {
+		if cfg.TLSCertFile == "" {
+			return fmt.Errorf("OPAMP_CLIENT_CA_FILE requires TLS_CERT_FILE/TLS_KEY_FILE (mTLS needs a server cert)")
+		}
+		if opampTLS, err = tlsconf.MutualServer(cfg.TLSCertFile, cfg.TLSKeyFile, cfg.OpAMPClientCAFile); err != nil {
+			return fmt.Errorf("OpAMP mTLS: %w", err)
+		}
+	}
+
+	opampSrv := opamp.NewServer(st, pipelinesSvc, cfg.OpAMPAddr, cfg.OpAMPPublicEndpoint, opampTLS, log)
 	webhookDispatcher := webhooks.New(st, cipher, log)
 	opampSrv.Handler().SetEventSink(webhookDispatcher)
 	retentionSvc := retention.New(chConn, st, cfg.RetentionInterval, log)

@@ -89,6 +89,10 @@ metadata:
     app.kubernetes.io/component: control-plane
 spec:
   type: {{ .Values.controlPlane.opamp.service.type }}
+  {{- with .Values.controlPlane.opamp.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   selector:
     {{- include "otelfleet.selector" . | nindent 4 }}
     app.kubernetes.io/component: {{ include "otelfleet.opampComponent" . }}

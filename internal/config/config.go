@@ -61,6 +61,11 @@ type Config struct {
 	GRPCTLSCertFile  string
 	GRPCTLSKeyFile   string
 	GRPCClientCAFile string
+	// OpAMPClientCAFile, when set (with TLS enabled), makes the OpAMP listener
+	// (:4320) require and verify a client certificate signed by this CA (mTLS)
+	// — a strong control for a public OpAMP endpoint, on top of the enrollment
+	// token. Uses the public TLS cert/key for the server side.
+	OpAMPClientCAFile string
 
 	BaseURL string
 	WebDir  string
@@ -120,6 +125,7 @@ func Load() (*Config, error) {
 		GRPCTLSCertFile:     env("GRPC_TLS_CERT_FILE", ""),
 		GRPCTLSKeyFile:      env("GRPC_TLS_KEY_FILE", ""),
 		GRPCClientCAFile:    env("GRPC_CLIENT_CA_FILE", ""),
+		OpAMPClientCAFile:   env("OPAMP_CLIENT_CA_FILE", ""),
 		BaseURL:             strings.TrimSuffix(env("BASE_URL", "http://localhost:8080"), "/"),
 		WebDir:              env("WEB_DIR", ""),
 		OtelcolBin:          env("OTELCOL_BIN", "collector/dist/otelfleet-collector"),

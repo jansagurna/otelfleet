@@ -108,6 +108,9 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 - { name: OTELFLEET_GRPC_CLIENT_CA_FILE, value: /etc/otelfleet/grpc-tls/ca.crt }
 {{- end }}
 {{- end }}
+{{- if .Values.controlPlane.tls.opampClientCASecret }}
+- { name: OTELFLEET_OPAMP_CLIENT_CA_FILE, value: /etc/otelfleet/opamp-client-ca/ca.crt }
+{{- end }}
 {{- end }}
 # The image bundles the web UI and the collector binary for `otelcol validate`.
 - { name: OTELFLEET_WEB_DIR, value: /srv/otelfleet/web }
@@ -123,6 +126,9 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- with .Values.controlPlane.tls.grpcSecretName }}
 - { name: grpc-tls, mountPath: /etc/otelfleet/grpc-tls, readOnly: true }
 {{- end }}
+{{- with .Values.controlPlane.tls.opampClientCASecret }}
+- { name: opamp-client-ca, mountPath: /etc/otelfleet/opamp-client-ca, readOnly: true }
+{{- end }}
 {{- end }}
 {{- end -}}
 
@@ -134,6 +140,9 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 {{- with .Values.controlPlane.tls.grpcSecretName }}
 - { name: grpc-tls, secret: { secretName: {{ . | quote }} } }
+{{- end }}
+{{- with .Values.controlPlane.tls.opampClientCASecret }}
+- { name: opamp-client-ca, secret: { secretName: {{ . | quote }} } }
 {{- end }}
 {{- end }}
 {{- end -}}

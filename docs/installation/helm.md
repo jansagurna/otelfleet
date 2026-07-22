@@ -86,10 +86,24 @@ controlPlane:
     service:
       type: LoadBalancer   # or wire an ingress/gateway with WebSocket + TLS support
       port: 4320
+      loadBalancerSourceRanges: ["203.0.113.0/24"]  # IP allowlist (cloud LB)
+  tls:
+    enabled: true
+    publicSecretName: cp-tls        # serves wss:// on :4320 (and HTTPS on :8080)
+    opampClientCASecret: opamp-ca   # ca.crt → OpAMP requires + verifies agent client certs (mTLS)
 ```
 
-Terminate TLS in front of it (the in-pod listener is plaintext `ws://`) and point
-supervisors at `wss://opamp.example.com/v1/opamp`.
+With `controlPlane.tls.enabled` + `publicSecretName`, the in-pod OpAMP listener
+serves `wss://` directly (no TLS-terminating proxy needed). Adding
+`opampClientCASecret` makes it **require and verify an agent client certificate**
+(mTLS) on top of the enrollment token — pair it with the agent chart's
+`opamp.tls.clientCertSecret`. `loadBalancerSourceRanges` restricts who can reach
+the endpoint at the cloud load balancer. (For the REST/UI ingress, use your
+ingress controller's source-range annotation, e.g. nginx
+`whitelist-source-range`.)
+
+Alternatively, terminate TLS in front of a plaintext `ClusterIP` listener and
+point supervisors at `wss://opamp.example.com/v1/opamp`.
 
 ## Forwarding modes
 

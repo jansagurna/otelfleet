@@ -86,6 +86,11 @@ jobs:
             --set gateway.service.type=LoadBalancer --set 'gateway.service.loadBalancerSourceRanges={10.0.0.0/8}' \
             --set gateway.ingestTLS.enabled=true --set gateway.ingestTLS.mtls=true \
             --set gateway.ingestTLS.secretName=gw-tls > /dev/null
+          helm template t deploy/charts/otelfleet --set external.databaseUrl=postgres://x:y@pg:5432/otelfleet \
+            --set controlPlane.tls.enabled=true --set controlPlane.tls.publicSecretName=cp-tls \
+            --set controlPlane.tls.opampClientCASecret=opamp-ca \
+            --set controlPlane.opamp.service.type=LoadBalancer \
+            --set 'controlPlane.opamp.service.loadBalancerSourceRanges={198.51.100.0/24}' > /dev/null
       - run: helm lint deploy/charts/otelfleet-agent --set opamp.endpoint=wss://idp/v1/opamp --set bootstrapToken.value=otm_bt_x
       - name: Template edge-agent chart (inline token, and existing-secret + no-persistence)
         run: |
